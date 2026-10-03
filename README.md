@@ -2,12 +2,12 @@
 
 **Free, single-file, in-browser HPLC/FPLC chromatogram analysis.** Drop in a CSV, a vendor export, an Excel sheet, an Agilent `.ch` file, or even a *photo of a printed chromatogram*, and get retention times, integration, gradient context, calibration, overlays and a shareable report. Nothing is uploaded. Nothing is installed.
 
-[![tests](https://github.com/OWNER/peakly/actions/workflows/test.yml/badge.svg)](https://github.com/OWNER/peakly/actions/workflows/test.yml)
+[![tests](https://github.com/jschmitt1531/peakly/actions/workflows/test.yml/badge.svg)](https://github.com/jschmitt1531/peakly/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-pending-lightgrey.svg)](#how-to-cite)
 <!-- After the first Zenodo release, replace the DOI badge with: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) -->
 
-**[Open Peakly in your browser](https://OWNER.github.io/peakly/app/)** · [Download the single file](https://OWNER.github.io/peakly/peakly.html) · [Documentation](https://OWNER.github.io/peakly/) · [FAQ](docs/FAQ.md)
+**[Open Peakly in your browser](https://jschmitt1531.github.io/peakly/app/)** · [Download the single file](https://jschmitt1531.github.io/peakly/peakly.html) · [Documentation](https://jschmitt1531.github.io/peakly/) · [FAQ](docs/FAQ.md)
 
 > For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.
 
@@ -29,7 +29,7 @@
 
 ## 60-second quickstart
 
-1. Open **[Peakly](https://OWNER.github.io/peakly/app/)**, or download [`peakly.html`](https://OWNER.github.io/peakly/peakly.html) and double-click it. Any current Chrome, Edge, Firefox or Safari works, including on a phone.
+1. Open **[Peakly](https://jschmitt1531.github.io/peakly/app/)**, or download [`peakly.html`](https://jschmitt1531.github.io/peakly/peakly.html) and double-click it. Any current Chrome, Edge, Firefox or Safari works, including on a phone.
 2. Click **Sample data** (an HPLC run, a blank and a gradient method) or **Sample image** (a printed chromatogram to digitize). Or drag your own file onto the window.
 3. Hover the plot: the cursor follows the curve and shows time, signal and %B. Press **p** to detect peaks, or **g** and click a peak's start and end to integrate it by hand.
 4. Click any area value's ⓘ to see exactly how it was calculated.
@@ -52,7 +52,7 @@ More: [tutorials](docs/tutorials/) for CSV files, vendor exports, binary files, 
 
 **Not supported** (you get a clear message instead): Thermo `.raw`, Agilent `.uv` full spectra, Shimadzu `.lcd`, Waters raw folders, netCDF-4/HDF5. Export to text from the vendor software instead ([how](docs/tutorials/vendor-export.md)).
 
-If a file isn't recognized, **"My format isn't working"** shows the raw text and lets you choose the delimiter, header row, x and y columns and units by hand. Want Peakly to read your instrument's files? [Open a format request](https://github.com/OWNER/peakly/issues/new?template=format_request.yml) with a sample you are allowed to share, or [write a parser](CONTRIBUTING.md#adding-a-file-format).
+If a file isn't recognized, **"My format isn't working"** shows the raw text and lets you choose the delimiter, header row, x and y columns and units by hand. Want Peakly to read your instrument's files? [Open a format request](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml) with a sample you are allowed to share, or [write a parser](CONTRIBUTING.md#adding-a-file-format).
 
 ## How the numbers are calculated
 
@@ -90,11 +90,11 @@ Every reported number has a documented formula, and the app shows the inputs beh
 
 If Peakly helped your work, please cite it. GitHub's "Cite this repository" button reads [CITATION.cff](CITATION.cff).
 
-> Schmitt, J. (2026). *Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer* (Version 1.1.0) [Computer software]. https://github.com/OWNER/peakly. DOI: pending.
+> Schmitt, J. (2026). *Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer* (Version 1.1.0) [Computer software]. https://github.com/jschmitt1531/peakly. DOI: pending.
 
 A DOI will be minted by Zenodo with the first archived release ([docs/RELEASING.md](docs/RELEASING.md)). Please also mention the version you used and, for digitized data, that values were digitized from an image.
 
-Using Peakly in teaching or a lab? [Tell us in Discussions](https://github.com/OWNER/peakly/discussions); it helps justify maintainer time and funding. Labs can use the [letter-of-support template](docs/templates/letter-of-support.md) for grant applications.
+Using Peakly in teaching or a lab? [Tell us in Discussions](https://github.com/jschmitt1531/peakly/discussions); it helps justify maintainer time and funding. Labs can use the [letter-of-support template](docs/templates/letter-of-support.md) for grant applications.
 
 ## Contributing
 

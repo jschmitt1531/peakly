@@ -14,8 +14,8 @@ authors:
 version: 1.1.0
 date-released: 2026-10-03
 license: MIT
-repository-code: "https://github.com/OWNER/peakly"
-url: "https://OWNER.github.io/peakly/"
+repository-code: "https://github.com/jschmitt1531/peakly"
+url: "https://jschmitt1531.github.io/peakly/"
 keywords:
   - chromatography
   - HPLC

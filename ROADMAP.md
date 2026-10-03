@@ -1,6 +1,6 @@
 # Roadmap
 
-This is a statement of direction, not a promise of dates. Priorities shift with contributor time, funding and what users ask for; the [issue tracker](https://github.com/OWNER/peakly/issues) and [Discussions](https://github.com/OWNER/peakly/discussions) are where to weigh in. Everything here respects the [core principles](GOVERNANCE.md#core-principles-not-up-for-a-vote): free, private by default, transparent math, single file.
+This is a statement of direction, not a promise of dates. Priorities shift with contributor time, funding and what users ask for; the [issue tracker](https://github.com/jschmitt1531/peakly/issues) and [Discussions](https://github.com/jschmitt1531/peakly/discussions) are where to weigh in. Everything here respects the [core principles](GOVERNANCE.md#core-principles-not-up-for-a-vote): free, private by default, transparent math, single file.
 
 ## Near term (next minor releases)
 
@@ -12,7 +12,7 @@ This is a statement of direction, not a promise of dates. Priorities shift with 
 
 ## Mid term
 
-- **More vendor binary formats**, written from public descriptions or contributed samples: Agilent `.uv` (DAD) and OpenLab CDS `.dx` containers, Shimadzu `.lcd`, Waters raw folders, Thermo `.raw` chromatogram channels, Cytiva UNICORN result files. Each needs shareable sample files; see the [format request form](https://github.com/OWNER/peakly/issues/new?template=format_request.yml).
+- **More vendor binary formats**, written from public descriptions or contributed samples: Agilent `.uv` (DAD) and OpenLab CDS `.dx` containers, Shimadzu `.lcd`, Waters raw folders, Thermo `.raw` chromatogram channels, Cytiva UNICORN result files. Each needs shareable sample files; see the [format request form](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml).
 - **DAD / 3D data:** time × wavelength matrices with contour view, spectrum at cursor, extract-chromatogram-at-wavelength, peak purity indices.
 - **Batch mode:** apply one processing method to many runs and export a combined table.
 - **System-suitability report** template (USP <621> / Ph. Eur. 2.2.46 parameters with pass/fail limits).

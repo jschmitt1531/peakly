@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://OWNER.github.io/peakly/schemas/traces.schema.json",
+  "$id": "https://jschmitt1531.github.io/peakly/schemas/traces.schema.json",
   "title": "Peakly traces export",
   "description": "Traces export, schema version 2: trace summary rows plus long-format data rows (CSV) or per-trace arrays (JSON).",
   "$defs": {

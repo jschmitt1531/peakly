@@ -19,7 +19,7 @@ What the project actually needs is not money for infrastructure but **time, data
 - **Share reference data** under an open license (CC0 or CC-BY), or run Peakly side by side with your CDS on non-confidential samples and report the differences.
 - **Write a letter of support** for grant applications that fund open research software. A template is in [docs/templates/letter-of-support.md](docs/templates/letter-of-support.md).
 - **Cite Peakly** in papers, theses and teaching materials ([CITATION.cff](CITATION.cff)). Citations are how research software justifies its existence to funders.
-- **Tell us** in [Discussions](https://github.com/OWNER/peakly/discussions) that you use it. Usage stories matter in grant applications.
+- **Tell us** in [Discussions](https://github.com/jschmitt1531/peakly/discussions) that you use it. Usage stories matter in grant applications.
 - **Include Peakly in grant proposals** as a budget line for maintenance or features you need (for example a vendor format your lab depends on). Contributions funded this way are welcome as long as they are MIT-licensed and follow the [core principles](GOVERNANCE.md#core-principles-not-up-for-a-vote).
 
 ## Money

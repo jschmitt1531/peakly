@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Not sure yet? Start a thread in Discussions first. Peakly's [core principles](https://github.com/OWNER/peakly/blob/main/GOVERNANCE.md#core-principles-not-up-for-a-vote) (free, private, transparent math, single file) apply to every feature.
+        Not sure yet? Start a thread in Discussions first. Peakly's [core principles](https://github.com/jschmitt1531/peakly/blob/main/GOVERNANCE.md#core-principles-not-up-for-a-vote) (free, private, transparent math, single file) apply to every feature.
   - type: textarea
     id: problem
     attributes:

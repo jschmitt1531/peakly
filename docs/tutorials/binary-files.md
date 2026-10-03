@@ -37,4 +37,4 @@ mzML is the open mass-spectrometry standard; ProteoWizard's msConvert and most M
 
 ## Unsupported binaries
 
-Files such as Thermo `.raw`, Shimadzu `.lcd` and Waters raw folders get a clear message explaining how to export them instead. Try [`samples/data/unsupported.raw`](../../samples/data/unsupported.raw) to see it. Want direct support? See the [format request form](https://github.com/OWNER/peakly/issues/new?template=format_request.yml) and [ROADMAP.md](../../ROADMAP.md).
+Files such as Thermo `.raw`, Shimadzu `.lcd` and Waters raw folders get a clear message explaining how to export them instead. Try [`samples/data/unsupported.raw`](../../samples/data/unsupported.raw) to see it. Want direct support? See the [format request form](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml) and [ROADMAP.md](../../ROADMAP.md).

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://OWNER.github.io/peakly/schemas/peaks.schema.json",
+  "$id": "https://jschmitt1531.github.io/peakly/schemas/peaks.schema.json",
   "title": "Peakly peak table",
   "description": "Peak table export, schema version 2. JSON: an array of peak rows or an object with a \"peaks\" array. CSV: one column per property, in PK.schema.PEAK_COLUMNS order, after \"# \" comment lines.",
   "$defs": {

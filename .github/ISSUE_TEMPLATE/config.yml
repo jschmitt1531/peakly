@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and ideas (Discussions)
-    url: https://github.com/OWNER/peakly/discussions
+    url: https://github.com/jschmitt1531/peakly/discussions
     about: Ask how to do something, share how you use Peakly, or float an idea before filing a feature request.
   - name: Security vulnerability (private)
-    url: https://github.com/OWNER/peakly/security/advisories/new
+    url: https://github.com/jschmitt1531/peakly/security/advisories/new
     about: Please report security issues privately, not as public issues. See SECURITY.md.
   - name: Documentation and FAQ
-    url: https://OWNER.github.io/peakly/
+    url: https://jschmitt1531.github.io/peakly/
     about: Tutorials, calculation details and the FAQ.

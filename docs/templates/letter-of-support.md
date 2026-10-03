@@ -36,4 +36,4 @@ Sincerely,
 
 ---
 
-*Tip for applicants:* collect letters early, give writers this template and a two-line summary of the proposal, and ask them to include numbers (users, students, hours saved, files contributed). Let the Peakly maintainers know about funded proposals via [Discussions](https://github.com/OWNER/peakly/discussions) so work can be coordinated.
+*Tip for applicants:* collect letters early, give writers this template and a two-line summary of the proposal, and ask them to include numbers (users, students, hours saved, files contributed). Let the Peakly maintainers know about funded proposals via [Discussions](https://github.com/jschmitt1531/peakly/discussions) so work can be coordinated.

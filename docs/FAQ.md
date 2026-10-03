@@ -40,7 +40,7 @@ The app never does. The project website has a slot for cookie-free, aggregate pa
 See [Supported formats](../README.md#supported-formats). If yours is not listed, try exporting to text from the instrument software ([tutorial](tutorials/vendor-export.md)), or use **"My format isn't working"** to map the columns by hand.
 
 **Can you add my instrument's format?**
-Probably, with a sample file. Use the [format request form](https://github.com/OWNER/peakly/issues/new?template=format_request.yml); only share files you are allowed to share.
+Probably, with a sample file. Use the [format request form](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml); only share files you are allowed to share.
 
 **Why can't Peakly read Thermo `.raw`, Shimadzu `.lcd` or Waters raw folders?**
 These are proprietary binary formats without public specifications that can be implemented in a browser without vendor libraries. Export to text, AnDI/netCDF (`.cdf`) or mzML instead ([tutorial](tutorials/binary-files.md)).

@@ -8,7 +8,7 @@ Most chromatography data systems can export a chromatogram as text. Peakly recog
 2. Look for **Export**, **Save as**, **Copy to clipboard** or a report/export method that writes the **chromatogram data points** (time vs signal), not only the peak table.
 3. Choose a **text/ASCII/CSV** format. If offered, include the header/metadata.
 4. Prefer the **raw** signal (no smoothing) and **minutes** as the time unit.
-5. Drop the exported file into Peakly. If it isn't recognized, use **"My format isn't working"** to map the columns (see [CSV tutorial](csv.md)), and consider sending us a [format request](https://github.com/OWNER/peakly/issues/new?template=format_request.yml).
+5. Drop the exported file into Peakly. If it isn't recognized, use **"My format isn't working"** to map the columns (see [CSV tutorial](csv.md)), and consider sending us a [format request](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml).
 
 Alternatively, many systems can export **AnDI/netCDF (`.cdf`)**, an open standard Peakly reads well ([binary files tutorial](binary-files.md)).
 

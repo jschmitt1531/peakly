@@ -4,7 +4,7 @@ const vm = require('vm'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
 globalThis.PK = {};
 for (const f of ['src/config.js', 'src/core.js', 'src/schema.js']) vm.runInThisContext(fs.readFileSync(path.join(root, f), 'utf8'), { filename: f });
-const BASE = 'https://OWNER.github.io/peakly/schemas/'; // replaced with the real Pages URL when the repo exists
+const BASE = 'https://jschmitt1531.github.io/peakly/schemas/'; // replaced with the real Pages URL when the repo exists
 const d = PK.schema.describe(), V = PK.schema.PROJECT_VERSION;
 const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.$schema; delete o.$id; return o; };
 const doc = (file, title, description, body) => Object.assign({ $schema: 'https://json-schema.org/draft/2020-12/schema', $id: BASE + file, title, description }, body);

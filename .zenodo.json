@@ -22,7 +22,7 @@
   ],
   "related_identifiers": [
     {
-      "identifier": "https://github.com/OWNER/peakly",
+      "identifier": "https://github.com/jschmitt1531/peakly",
       "relation": "isSupplementTo",
       "scheme": "url"
     }

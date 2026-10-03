@@ -54,6 +54,6 @@ First build.
 - **Export:** PNG/SVG figures, peak table CSV, trace CSV/JSON, PDF report, project files, share links with the compressed project in the URL fragment.
 - Built-in self-tests runnable in Node (`node tests/run.js`) and in the app.
 
-[Unreleased]: https://github.com/OWNER/peakly/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/OWNER/peakly/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/OWNER/peakly/releases/tag/v1.0.0
+[Unreleased]: https://github.com/jschmitt1531/peakly/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/jschmitt1531/peakly/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/jschmitt1531/peakly/releases/tag/v1.0.0

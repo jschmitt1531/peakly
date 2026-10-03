@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://OWNER.github.io/peakly/schemas/project.v2.schema.json",
+  "$id": "https://jschmitt1531.github.io/peakly/schemas/project.v2.schema.json",
   "title": "Peakly project",
   "description": "A saved Peakly project (.peakly.json). Older v1 files are migrated on load (see PK.schema.migrate).",
   "type": "object",

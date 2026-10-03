@@ -6,11 +6,11 @@ By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to help without writing code
 
-- **Report a bug** with the [bug report form](https://github.com/OWNER/peakly/issues/new?template=bug_report.yml). A small file that reproduces the problem is worth a thousand words.
-- **Share a sample file** for an unsupported or mis-read format with the [format request form](https://github.com/OWNER/peakly/issues/new?template=format_request.yml). Only share files you have the right to share, and strip confidential sample names first.
+- **Report a bug** with the [bug report form](https://github.com/jschmitt1531/peakly/issues/new?template=bug_report.yml). A small file that reproduces the problem is worth a thousand words.
+- **Share a sample file** for an unsupported or mis-read format with the [format request form](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml). Only share files you have the right to share, and strip confidential sample names first.
 - **Share validation data**: a chromatogram plus the peak table your validated CDS produced for it. These become regression tests (see [docs/VALIDATION.md](docs/VALIDATION.md)).
 - **Improve the docs and tutorials** in `docs/`.
-- **Tell us how you use Peakly** in [Discussions](https://github.com/OWNER/peakly/discussions).
+- **Tell us how you use Peakly** in [Discussions](https://github.com/jschmitt1531/peakly/discussions).
 
 ## Development setup
 
@@ -19,7 +19,7 @@ There is nothing to install. Peakly has **zero dependencies** and no build toolc
 Requirements: [Node.js](https://nodejs.org/) 18 or newer (the CI uses the current LTS), git, and a browser.
 
 ```sh
-git clone https://github.com/OWNER/peakly.git
+git clone https://github.com/jschmitt1531/peakly.git
 cd peakly
 node tests/run.js            # run all tests (or: npm test)
 node tests/run.js parsers    # run tests whose name contains "parsers"

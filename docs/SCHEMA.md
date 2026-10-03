@@ -11,7 +11,7 @@ The source of truth is [`src/schema.js`](../src/schema.js) (`PK.schema`). Machin
 | [`traces.schema.json`](schemas/traces.schema.json) | Trace data exports (traces JSON, trace summary rows, long-format data rows) |
 | [`calibration.schema.json`](schemas/calibration.schema.json) | Calibration levels export |
 
-These files are generated from `PK.schema.describe()` by `node tools/gen-schemas.js`. If `src/schema.js` changes, regenerate them and review the diff. The `$id` URLs use the project website (`https://OWNER.github.io/peakly/schemas/…`), which serves this folder.
+These files are generated from `PK.schema.describe()` by `node tools/gen-schemas.js`. If `src/schema.js` changes, regenerate them and review the diff. The `$id` URLs use the project website (`https://jschmitt1531.github.io/peakly/schemas/…`), which serves this folder.
 
 > **Status (1.1.0).** Saved projects, share links and all CSV/JSON exports are produced through `PK.schema`, so the tables below describe what the app writes.
 

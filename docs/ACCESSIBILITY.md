@@ -2,7 +2,7 @@
 
 Peakly aims to meet **WCAG 2.2 level AA** in its app and website. This page is the checklist we test against and the place where findings and their status are recorded.
 
-> **Status (1.1.0):** first app-UI audit done (code review + keyboard/contrast checks in Chromium, light and dark themes); findings below. No screen-reader pass yet. If you rely on assistive technology and something does not work, please [open an issue](https://github.com/OWNER/peakly/issues/new?template=bug_report.yml) (choose "User interface / accessibility").
+> **Status (1.1.0):** first app-UI audit done (code review + keyboard/contrast checks in Chromium, light and dark themes); findings below. No screen-reader pass yet. If you rely on assistive technology and something does not work, please [open an issue](https://github.com/jschmitt1531/peakly/issues/new?template=bug_report.yml) (choose "User interface / accessibility").
 
 ## How to test
 
