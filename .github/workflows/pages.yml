@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   build:
+    # GitHub Pages on the free plan needs a public repo; skip (instead of failing) while the repo is private.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
