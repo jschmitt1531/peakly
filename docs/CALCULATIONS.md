@@ -1,0 +1,138 @@
+## Calculations
+
+Every number Peakly reports comes from `src/analysis.js`. Each per-peak metric also carries `formulas[metric] = { expr, inputs, value, note, unit? }`, so the UI can show the exact inputs behind each value. Time is always in **minutes**. Intensities stay in the trace's native unit (`y`, e.g. mAU).
+
+### Signal processing
+
+**Savitzky–Golay smoothing / derivatives** (`savitzkyGolay(y, window, order, deriv, delta)`)
+- Fits a least-squares polynomial of degree `order` to each odd window of `m` points and evaluates it (or its `deriv`-th derivative) at the window position. Coefficients come from `(VᵀV)⁻¹Vᵀ` with a Vandermonde matrix `V` on normalised abscissae `z ∈ [−1, 1]`, scaled by `h^−d`.
+- **Edges:** the first and last `(m−1)/2` points are evaluated from the polynomial fitted to the first/last full window, so there is no padding, no shortened output and no phase shift. Any polynomial of degree ≤ `order` is reproduced exactly everywhere.
+- **Assumptions:** uniform sampling. Derivatives are per sample unless `delta` (Δx) is given.
+- **Limitations:** a wide window with a low order flattens and broadens narrow peaks. As a rule, keep the window ≤ about half the FWHM in points.
+- Ref: Savitzky & Golay, *Anal. Chem.* 36 (1964) 1627.
+
+**Asymmetric least squares baseline** (`alsBaseline(y, {lambda=1e5, p=0.01, iter=10})`)
+- Minimises `Σ wᵢ(yᵢ − zᵢ)² + λ Σ (Δ²zᵢ)²`. Weights are `wᵢ = p` where `yᵢ > zᵢ` (peaks) and `1 − p` otherwise. The weights are re-estimated until they stop changing or `iter` is reached.
+- `(W + λDᵀD) z = W y` is a symmetric pentadiagonal system. It is solved with a banded LDLᵀ factorisation in O(n): 100 000 points × 10 iterations take about 60 ms in Node.
+- **Choosing λ:** λ scales roughly with (points per baseline feature)⁴. For 4 000 points over 20 min, λ ≈ 1e8 and p ≈ 0.001 work well. For 20 000 points, use λ ≈ 1e9–1e10. Use smaller `p` for dense chromatograms.
+- **Limitations:** broad humps such as unresolved polymer envelopes are partly treated as baseline. Negative peaks pull the baseline down.
+- Ref: Eilers & Boelens, *Baseline Correction with Asymmetric Least Squares Smoothing* (Leiden Univ. Medical Centre report, 2005).
+
+**Processing pipeline** (`process(trace)`): raw → Savitzky–Golay smoothing (if `proc.smooth.on`) → ALS baseline subtraction (if `proc.baseline.on`). All peak work then uses the processed `y`.
+
+**Noise** (`noise(x, y, {range})`)
+- **Default:** `σ = 1.4826·MAD(Δy)/√2`, the robust SD of first differences. Peaks and slow drift barely affect it. The peak-to-peak value is taken as `h = 6σ`.
+- **With a blank `range`:** the region is linearly detrended. `σ` is the residual SD and `h` is the measured max − min (Ph. Eur. 2.2.46 practice).
+- **Limitation:** on already-smoothed data, neighbouring points are correlated, so the difference-based σ underestimates the noise. Use a blank range in that case.
+
+### Peak detection and integration bounds
+
+`detectPeaks(x, y, {threshold, minDist, minWidth, shoulders, keep})`:
+1. Smooth with a cubic Savitzky–Golay filter. The window is about ½·`minWidth`, otherwise n/500, clamped to 5–25 points.
+2. Find local maxima and compute their topographic **prominence**. Keep maxima with prominence ≥ `threshold` (y units). `'auto'` uses 9σ, which equals S/N = 3 under the 6σ peak-to-peak convention.
+3. `minWidth`: the width at half prominence must be ≥ `minWidth` minutes. `minDist`: among peaks closer than `minDist`, the more prominent one wins.
+4. **Shoulders:** a significant local minimum of d²y (below −6 robust SD) that is not near an apex and whose curvature lobe is separated from neighbouring apexes. Separation means d²y recovers at least half-way toward 0 in between. These are flagged `shoulder: true`, one per lobe.
+5. **Bounds:** consecutive apexes are split at the valley (minimum of the smoothed signal). If there is no valley, as with a shoulder, the split is at the maximum of d²y and acts as a perpendicular drop. On each side the bound walks outward from the apex and stops at the earliest of:
+   - the signal returning to within `max(0.5 % of height, 2σ)` of the side minimum (return to baseline);
+   - the signal rising again (a valley);
+   - the split point.
+
+   The search is capped at 20 half-widths.
+6. `keep`: user peaks are returned unchanged, and auto peaks overlapping them are dropped.
+
+**Manual integration.** Peaks with `manual: true` are never moved by `detectPeaks` or `refineBounds`.
+- `integrateWindow(x, y, start, end)` creates a manual peak with exactly the clicked bounds.
+- `peakAt(x, y, t)` places a manual peak at the highest point near the click, with bounds found as above.
+- `refineBounds` snaps the bounds of automatic peaks to nearby local minima.
+
+### Per-peak metrics (`peakMetrics(x, y, peaks, {voidTime, noise})`)
+
+Each peak is integrated between `start` and `end` above a **straight drop-line baseline** joining `y(start)` and `y(end)`, linearly interpolated when the bounds fall between samples. If the bounds sit at valleys, this is valley-to-valley integration. All metrics below use the baseline-corrected signal `Y = y − b`.
+
+| Metric | Formula | Notes |
+|---|---|---|
+| `rt` | `t_R = x_k − b/(2a)` | Parabola `a·u² + b·u + Y_k` through the apex sample and its two neighbours (handles non-uniform spacing). |
+| `height` | `H = Y(t_R)` | Parabolic apex value above the drop line. |
+| `area` | `Σ ½(Yᵢ + Yᵢ₊₁)(xᵢ₊₁ − xᵢ)` | Trapezoid rule. **Unit y·min**; multiply by 60 for y·s, as ChemStation reports mAU·s. |
+| `areaPct` | `100·Aᵢ/ΣA` | Over all integrated peaks; no response factors. |
+| `fwhm` | `t_r(H/2) − t_l(H/2)` | Linear interpolation between samples. Gaussian: 2√(2ln2)·σ = 2.3548σ. |
+| `w5`, `w10` | widths at 5 % / 10 % height | `null` if that level is not reached inside the bounds. |
+| `tailing` | `T = W₀.₀₅/(2f)`, `f = t_R − t_l(0.05H)` | USP <621> tailing factor, the same as the Ph. Eur. symmetry factor. |
+| `asymmetry` | `A_s = b/a` at 10 % | Back half-width / front half-width. |
+| `plates` | `N = 5.54(t_R/W½)²` | Half-height method; 5.54 ≈ 8 ln 2. Gaussian assumption. |
+| `platesUSP` | `N = 16(t_R/W)²` | Tangent method. `W` = distance between the baseline intercepts of tangents at the inflection points (maximum \|slope\| from a Savitzky–Golay derivative). |
+| `resolution` | `R_s = 1.18(t_R2 − t_R1)/(W½,1 + W½,2)` | Against the preceding peak in retention order. |
+| `k` | `(t_R − t₀)/t₀` | Only when a void time is available. |
+| `sn` | `S/N = 2H/h` | Ph. Eur. 2.2.46. **Default `h = 6σ`, so S/N = H/(3σ)**. Pass a measured peak-to-peak value (`noise: {p2p}`) or use a blank range for the strict pharmacopoeial form. |
+
+**Limitations**
+- Drop-line integration of strongly overlapping peaks splits the area at the valley. When peaks overlap substantially, use `fitPeaks` instead.
+- Plate counts and resolution assume Gaussian shapes and overestimate efficiency for tailing peaks.
+- Widths, tailing and asymmetry are `null` when their level is not reached inside the bounds.
+- `t_R` is measured from injection (x = 0).
+
+### Gradient and method model
+
+- `gradientAt(method, t)` returns the program composition at pump time `t`:
+  - Rows are linear between consecutive times. Two rows with the same `t` form an **instantaneous step**, and the later row applies from `t` onward.
+  - Before the first row and after the last, the composition is held.
+  - With `mode: 'step'`, each row is held until the next.
+  - With `gradientType: 'isocratic'` or a single row, the composition is constant.
+  - Per-row `flow` is interpolated like %B; it falls back to `method.flow`.
+- **Concentration** for salt or imidazole gradients: `c = c_A + (bMaxConc − c_A)·B/100` in `bConcUnit`. `c_A` is the optional `method.aConc`, default 0, so the default is `bMaxConc·B/100`. This assumes ideal linear volumetric mixing.
+- **Dwell time:** `t_D = V_D/F`.
+- **Void volume:** `V₀ = ε·π·(d/2)²·L`. With `d` and `L` in mm the result is in mm³; ÷1000 converts to mL. `ε` is the total porosity: 0.65 for fully porous silica, about 0.35 for interstitial-only volume with pore-excluded proteins.
+- **Void time:** `t₀ = V₀/F`, unless `voidTime_min` overrides it. Example: a 150 × 4.6 mm column with ε = 0.65 gives V₀ = 1.62 mL, so t₀ = 1.62 min at 1 mL/min.
+- `gradientCurve(method, tMax, n)` is the composition reaching the **column inlet**: `B(t − t_D)`. Exact breakpoints, including both sides of each step, are merged into the grid. Pass `{includeVoid: true}` to also delay by t₀, which approximates the column outlet.
+- `Bat(method, t_R)` is the %B at elution: `B_program(max(0, t_R − t_D − t₀))`. It is the mobile phase that left the mixer t_D + t₀ before the peak reached the detector. `elution()` returns the same value together with its inputs and concentration.
+- **Assumptions:** constant flow, a plug-flow dwell volume (no gradient rounding by the mixer) and no extra-column volume after the column.
+- **Limitation:** strongly retained solutes actually elute at a slightly lower %B than this estimate predicts.
+- Ref: Snyder & Dolan, *High-Performance Gradient Elution* (Wiley, 2007).
+
+### Comparison tools
+
+- `normalize({x, y}, mode, {range})`: `'max'` scales so the maximum in the range is 1; `'area'` scales so the trapezoid area in the range is 1 (y·min).
+- `align(x, shift)` adds a constant time shift.
+- `difference(A, B)` linearly resamples B onto A's x values and subtracts. Points outside B's x range become `NaN` rather than extrapolated values.
+
+### Peak fitting (`fitPeaks(x, y, peaks, {model, maxIter=200, baseline})`)
+
+**Models.** Fits are joint over the union of the peaks' windows. `y` should be baseline-corrected; set `baseline: 'linear'` to fit a local `b₀ + b₁(t − t_c)` as well.
+- **Gaussian:** `A·exp(−u²/2)`, with `u = (t − μ)/σ`.
+- **EMG:** a Gaussian with amplitude `A` convolved with a unit-area exponential of time constant `τ`:
+  `f = A·(σ/τ)·√(π/2)·exp(−u²/2)·erfcx(z)`, with `z = (σ/τ − u)/√2`.
+  - Using the scaled complementary error function `erfcx` avoids overflow when τ is small and returns the Gaussian exactly as τ → 0.
+  - For `z < 0`, the reflection `erfcx(z) = 2e^{z²} − erfcx(−z)` is applied with the exponents combined (`z² − u²/2 = r²/2 − r·u`, where `r = σ/τ`).
+  - `erfcx` is computed with a power series below 2 and a continued fraction above, accurate to about 1e-14.
+- **Area (both models)** = `A·σ·√(2π)`. Because the exponential kernel has unit area, the EMG area does not depend on τ.
+
+**Algorithm.** Levenberg–Marquardt with Marquardt diagonal scaling, solving `(JᵀJ + λ·diag JᵀJ) δ = Jᵀr`.
+- The Jacobian uses central differences. Only the perturbed component is re-evaluated; baseline columns are analytic.
+- Bounds are enforced by projection: A ≥ 0, μ inside the window, σ ≥ Δx/20, τ ≥ Δx/100.
+- `converged` is true when the relative RSS decrease is below 1e-8, the relative step is below 1e-6, or no downhill step exists.
+
+**Uncertainty.**
+- `cov = s²(JᵀJ)⁻¹`, with `s² = RSS/(n − p)` and `dof = n − p`.
+- **Area SE** uses the delta method with the A–σ covariance term:
+  `Var(area) = (σ√2π)²Var(A) + (A√2π)²Var(σ) + 2(σ√2π)(A√2π)Cov(A,σ)`.
+- Validated by simulation: about 92 % of true areas fall within ±2 SE across 60 synthetic fits.
+
+**Reported per component:** apex `rt` (golden-section maximum of the fitted curve), `fwhm` (bisection), `height` and `areaPct`. `r2 = 1 − RSS/TSS`.
+
+**Limitations**
+- Local minimum only: the fit starts from the detected apex and half-widths.
+- The SE assumes white, independent noise and a correct model, and ignores parameters fixed at a bound.
+- Real peak shapes that are not EMG or Gaussian give biased areas.
+- Approach inspired by chromatoPy (MIT); the implementation is independent.
+
+**Refs.**
+- Marquardt, *SIAM J. Appl. Math.* 11 (1963) 431.
+- Grushka, *Anal. Chem.* 44 (1972) 1733 (EMG).
+- Kalambet et al., *J. Chemometrics* 25 (2011) 352 (numerically stable EMG).
+- Foley & Dorsey, *Anal. Chem.* 55 (1983) 730.
+
+### Sample data
+
+- `syntheticChromatogram({tMax, n, peaks, drift, noise, seed})` sums EMG peaks (specified by apex height), a smooth drift (`1.5 + 0.25t + 1.2 sin(πt/14)`) and Gaussian noise from a seeded mulberry32 PRNG with Box–Muller. It returns the ground truth (apex rt, μ, area, σ, τ) for tests.
+- `sampleMethod()`: RP-HPLC on a C18 column (150 × 4.6 mm, 5 µm) at 1 mL/min, dwell volume 1.1 mL. The gradient runs 5 → 95 %B over 20 min, holds for 3 min, steps back to 5 %B and re-equilibrates. A = water + 0.1 % FA, B = MeCN + 0.1 % FA; 254 nm, 30 °C.
+- `sampleFPLCMethod()`: IMAC with an imidazole step and a linear gradient, where 100 %B = 500 mM imidazole.
