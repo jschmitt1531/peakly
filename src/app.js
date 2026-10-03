@@ -1,4 +1,5 @@
-/* Peakly app shell: state, rendering, interaction, import/export. Loads last. */
+/* SPDX-License-Identifier: MIT */
+/* Peakly app shell: state, rendering, interaction, import/export, clipping/calibration UI, About. Loads last. */
 (function (PK) {
   'use strict';
   var U = PK.util || {};
@@ -6,6 +7,14 @@
   var HAS_DOM = typeof document !== 'undefined';
   var FORMAT_TAG = 'peakly-project';
   var SHARE_WARN = 8000, SHARE_MAX = 60000, UNDO_CAP = 100;
+  var SCH = PK.schema || null;
+  var PROJECT_VERSION = (SCH && SCH.PROJECT_VERSION) || 2;
+  var CLIP_MODES = (SCH && SCH.CLIP_MODES) || ['drop', 'valley', 'baseline', 'skim-tangent', 'skim-exp', 'fit'];
+  var CLIP_LABELS = (SCH && SCH.CLIP_LABELS) || { drop: 'Perpendicular drop', valley: 'Valley to valley', baseline: 'Common baseline', 'skim-tangent': 'Tangent skim', 'skim-exp': 'Exponential skim', fit: 'Curve fit' };
+  var CLIP_HELP = (SCH && SCH.CLIP_HELP) || {};
+  function blankCalibration() { return SCH && SCH.blankCalibration ? SCH.blankCalibration() : { analytes: [], unit: '' }; }
+  function appVersion() { return (PK.config && PK.config.version) || PK.version || ''; }
+  app.version = appVersion;
 
   /* ------------------------------------------------------------------ helpers */
   function an(name) { return PK.analysis && typeof PK.analysis[name] === 'function' ? PK.analysis[name] : null; }
@@ -16,6 +25,7 @@
   function fmt(v, d) { return U.fmt ? U.fmt(v, d) : (isNum(v) ? String(+v.toPrecision(d || 4)) : '—'); }
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function toArr(a) { return a ? Array.prototype.slice.call(a) : []; }
+  function toNumOrNaN(v) { return v == null || v === '' ? NaN : Number(v); }
   function toast(m, k) { if (PK.toast) PK.toast(m, k); }
   function debounce(fn, ms) { var t; return function () { var a = arguments, s = this; clearTimeout(t); t = setTimeout(function () { fn.apply(s, a); }, ms); }; }
   function hexA(hex, a) {
@@ -65,10 +75,12 @@
       flow: null, dwellVolume_mL: null, wavelength_nm: null, temperature_C: null, notes: '', voidTime_min: null, run: {} };
   }
   function emptyProject() {
-    return { version: 1, format: FORMAT_TAG, name: 'Untitled project', traces: [], method: blankMethod(), images: {},
+    return { version: PROJECT_VERSION, schema: { name: FORMAT_TAG, version: PROJECT_VERSION }, format: FORMAT_TAG, name: 'Untitled project', traces: [], method: blankMethod(), images: {},
+      calibration: blankCalibration(),
       settings: { normalization: 'none', showGradient: true, showRaw: false, ghost: { show: true, opacity: 0.35 }, alignRef: null, differenceOf: null,
         labels: { mode: 'auto', size: 10, all: false }, grid: true, mirror: false, darkPlot: false, caption: true, gradientIncludeVoid: true,
-        stack: 0, compareTol: 0.1, compareRef: null, compareLabels: [], fitModel: 'gaussian', snapAll: false },
+        stack: 0, compareTol: 0.1, compareRef: null, compareLabels: [], fitModel: 'gaussian', snapAll: false,
+        clipDefault: 'drop', askClip: true, lineStyles: false },
       activeTraceId: null };
   }
   function mergeDeep(dst, src) {
@@ -91,7 +103,7 @@
   /** Fill defaults and sanitize a trace partial. Pure (no DOM). */
   function normalizeTrace(t, project) {
     if (!t || typeof t !== 'object') throw new Error('Trace must be an object');
-    var x = toArr(t.x).map(Number), y = toArr(t.y).map(Number);
+    var x = toArr(t.x).map(toNumOrNaN), y = toArr(t.y).map(toNumOrNaN); // null (JSON NaN) → NaN, dropped below
     var n = Math.min(x.length, y.length), pts = [];
     for (var i = 0; i < n; i++) if (isFinite(x[i]) && isFinite(y[i])) pts.push([x[i], y[i]]);
     var sorted = true;
@@ -109,7 +121,8 @@
       proc: mergeDeep(defaultProc(pts.length), t.proc || {}),
       peaks: toArr(t.peaks).filter(function (p) { return p && isNum(+p.start) && isNum(+p.end); }).map(function (p) {
         var o = { id: p.id || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
-        if (p.manual) o.manual = true; if (p.label != null && String(p.label).trim()) o.label = String(p.label); return o;
+        if (p.manual) o.manual = true; if (p.label != null && String(p.label).trim()) o.label = String(p.label);
+        if (CLIP_MODES.indexOf(p.clip) >= 0) o.clip = p.clip; return o;
       }),
       fit: t.fit && typeof t.fit === 'object' ? t.fit : null
     };
@@ -132,7 +145,11 @@
   function sanitizeProject(p) {
     if (!p || typeof p !== 'object') throw new Error('Not a Peakly project');
     if (p.traces != null && !Array.isArray(p.traces)) throw new Error('Project traces must be an array');
+    var from = +p.version || 1, mig = null;
+    if (SCH && SCH.migrate && from < PROJECT_VERSION) { mig = SCH.migrate(p, { report: true }); p = mig.project; }
+    if (from > PROJECT_VERSION) throw new Error('This project was saved by a newer Peakly (format v' + from + '). Update Peakly to open it.');
     var out = emptyProject();
+    app.lastMigration = mig && mig.from < mig.to ? mig : null;
     out.name = p.name ? String(p.name) : out.name;
     out.method = mergeDeep(blankMethod(), p.method || {});
     if (!Array.isArray(out.method.gradient)) out.method.gradient = [];
@@ -141,6 +158,8 @@
       .map(function (r) { return { t: +r.t, B: +r.B, flow: isNum(+r.flow) && r.flow !== null && r.flow !== '' ? +r.flow : null }; });
     out.settings = mergeDeep(out.settings, p.settings || {});
     out.images = p.images && typeof p.images === 'object' ? p.images : {};
+    if (CLIP_MODES.indexOf(out.settings.clipDefault) < 0) out.settings.clipDefault = 'drop';
+    out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (p.calibration && typeof p.calibration === 'object' ? p.calibration : blankCalibration());
     (p.traces || []).forEach(function (t) { out.traces.push(normalizeTrace(t, out)); });
     out.activeTraceId = p.activeTraceId && out.traces.some(function (t) { return t.id === p.activeTraceId; }) ? p.activeTraceId : (out.traces[0] ? out.traces[0].id : null);
     return out;
@@ -180,11 +199,12 @@
     var p = project || emptyProject();
     var settings = clone(p.settings || {}); delete settings.theme;
     return {
-      app: 'Peakly', v: 1, name: p.name, method: clone(p.method), settings: settings, activeTraceId: p.activeTraceId,
+      app: 'Peakly', v: 1, schema: PROJECT_VERSION, version: PROJECT_VERSION, name: p.name, method: clone(p.method), settings: settings, activeTraceId: p.activeTraceId,
+      calibration: clone(p.calibration || blankCalibration()),
       traces: (p.traces || []).map(function (t) {
         var o = { id: t.id, name: t.name, xUnit: t.xUnit, yUnit: t.yUnit, source: t.source, meta: t.meta, style: t.style, proc: t.proc,
           x: packArray(toArr(t.x), 7), y: packDelta(toArr(t.y)),
-          peaks: (t.peaks || []).map(function (k) { var q = { id: k.id, start: roundSig(k.start, 7), apex: roundSig(k.apex, 7), end: roundSig(k.end, 7) }; if (k.manual) q.manual = 1; if (k.label) q.label = k.label; return q; }) };
+          peaks: (t.peaks || []).map(function (k) { var q = { id: k.id, start: roundSig(k.start, 7), apex: roundSig(k.apex, 7), end: roundSig(k.end, 7) }; if (k.manual) q.manual = 1; if (k.label) q.label = k.label; if (k.clip) q.clip = k.clip; return q; }) };
         if (t.digitized) { o.digitized = clone(t.digitized); o.digitized.imageMissing = true; }
         if (t.derived) o.derived = t.derived;
         if (t.fit) { o.fit = clone(t.fit); delete o.fit.curve; delete o.fit.cov; }
@@ -195,6 +215,7 @@
   function unpackShare(obj) {
     if (!obj || typeof obj !== 'object' || obj.app !== 'Peakly') throw new Error('This link does not contain a Peakly project');
     var p = clone(obj);
+    p.version = +obj.schema || +obj.version || 1; // share links before v1.1 carried no schema → v1 (migrated)
     p.traces = (p.traces || []).map(function (t) { t.x = unpackArray(t.x); t.y = unpackArray(t.y); return t; });
     p.images = {};
     return sanitizeProject(p);
@@ -370,21 +391,28 @@
     // Noise from the raw (unsmoothed) signal: the MAD of first differences ignores drift, and smoothing would
     // otherwise shrink σ, which would inflate S/N and lower the auto threshold.
     var f = an('noise'), nz = null;
-    if (f) { try { nz = f(t.x, t.y); } catch (e) { nz = null; } }
+    if (f) { try { nz = f(t.x, t.y, quantumOpts(t)); } catch (e) { nz = null; } }
     c.noise = nz || { sigma: NaN, method: 'n/a' }; return c.noise;
   }
+  /** Digitized traces: the y step of one pixel is the quantization of the signal (analysis noise()/detectPeaks accept {quantum}). */
+  function quantumOpts(t) { var d = t && t.digitized; return d && isNum(d.dy) && d.dy > 0 ? { quantum: d.dy } : undefined; }
   function clearFit(t) { t.fit = null; }
   function detectFor(t, silent) {
     var f = an('detectPeaks'); if (!f) { if (!silent) toast('Peak detection is unavailable (analysis module not loaded).', 'error'); return false; }
     var pr = processed(t), o = t.proc.peaks, res;
     var keep = t.peaks.filter(function (p) { return p.manual; });
+    state.prevPeaks = t.peaks.slice();
     var thr = o.threshold;
     if (thr === 'auto' || !isNum(+thr)) { var nz = noiseOf(t); if (isNum(nz.sigma) && nz.sigma > 0) thr = 9 * nz.sigma; else thr = 'auto'; } // 9σ_raw ⇒ S/N ≥ 3 (h = 6σ)
-    try { res = f(pr.x, pr.y, { threshold: thr, minDist: o.minDist, minWidth: o.minWidth, keep: keep }) || []; }
+    try { res = f(pr.x, pr.y, mergeDeep({ threshold: thr, minDist: o.minDist, minWidth: o.minWidth, keep: keep }, quantumOpts(t) || {})) || []; }
     catch (e) { console.error(e); if (!silent) toast('Peak detection failed: ' + e.message, 'error'); return false; }
     t.peaks = toArr(res).filter(function (p) { return p && isNum(p.start) && isNum(p.end); })
-      .map(function (p) { var q = { id: p.id || PK.uid('pk'), start: +p.start, apex: isNum(p.apex) ? +p.apex : (p.start + p.end) / 2, end: +p.end }; if (p.manual) q.manual = true; if (p.label) q.label = p.label; return q; })
+      .map(function (p) { var q = { id: p.id || PK.uid('pk'), start: +p.start, apex: isNum(p.apex) ? +p.apex : (p.start + p.end) / 2, end: +p.end }; if (p.manual) q.manual = true; if (p.label) q.label = p.label; if (CLIP_MODES.indexOf(p.clip) >= 0) q.clip = p.clip; return q; })
       .sort(function (a, b) { return a.apex - b.apex; });
+    // keep a user-chosen clip on peaks that survive re-detection (same apex within 2 samples)
+    var dx2 = pr.x.length > 1 ? 2 * (pr.x[pr.x.length - 1] - pr.x[0]) / (pr.x.length - 1) : 0, prev = state.prevPeaks || [];
+    t.peaks.forEach(function (q) { if (q.clip) return; var o = prev.filter(function (p0) { return p0.clip && Math.abs(p0.apex - q.apex) <= dx2; })[0]; if (o) q.clip = o.clip; });
+    keep.forEach(function (k) { if (!k.clip) return; t.peaks.forEach(function (q) { if (q.id === k.id && !q.clip) q.clip = k.clip; }); });
     clearFit(t);
     if (state.selPeakId && !t.peaks.some(function (p) { return p.id === state.selPeakId; })) state.selPeakId = null;
     return true;
@@ -395,15 +423,32 @@
   function metricsFor(t) {
     if (!t || !t.peaks.length) return [];
     var pr = processed(t), c = state.cache[t.id], t0 = voidInXUnits(t);
-    var mkey = JSON.stringify(t.peaks) + '|' + t0;
+    var mkey = JSON.stringify(t.peaks) + '|' + t0 + '|' + clipKey();
     if (c.mkey === mkey && c.metrics) return c.metrics;
-    var f = an('peakMetrics'), ms = [];
+    var f = an('peakMetrics'), ms = [], ig = integrationFor(t);
     if (f) {
-      try { ms = toArr(f(pr.x, pr.y, t.peaks, { voidTime: isNum(t0) ? t0 : undefined, noise: noiseOf(t) })); }
+      try { ms = toArr(f(pr.x, pr.y, t.peaks, { voidTime: isNum(t0) ? t0 : undefined, noise: noiseOf(t), clip: P().settings.clipDefault || 'drop', integration: ig.raw || undefined, skimRatio: 10, model: P().settings.fitModel || 'gaussian' })); }
       catch (e) { console.error(e); warnOnce('metrics', 'Peak metrics failed: ' + e.message); ms = []; }
     }
     if (ms.length !== t.peaks.length) ms = t.peaks.map(function (p) { return basicMetric(pr, p); });
+    applyIntegration(ms, ig);
     c.mkey = mkey; c.metrics = ms; return ms;
+  }
+  /** Area (and height, when given) come from the applied clip baseline; Area % is recomputed from those areas. */
+  function applyIntegration(ms, ig) {
+    var changed = false;
+    ms.forEach(function (m, i) {
+      var g = ig[i]; if (!g || !m) return;
+      m.clip = g.clip; m.integration = g;
+      if (isNum(g.area) && (!isNum(m.area) || Math.abs(g.area - m.area) > 1e-9 * Math.max(1, Math.abs(g.area)))) { m.area = g.area; changed = true; }
+      if (isNum(g.height) && g.source === 'analysis') m.height = g.height;
+      m.formulas = m.formulas || {};
+      if (g.math && g.math.formula) m.formulas.area = { expr: g.math.formula, inputs: mathInputs(g.math), value: m.area, note: clipNote(g) };
+    });
+    if (changed) { var tot = 0; ms.forEach(function (m) { if (m && isNum(m.area) && m.area > 0) tot += m.area; }); ms.forEach(function (m) { if (!m) return; m.areaPct = tot > 0 && isNum(m.area) ? 100 * m.area / tot : null; if (m.formulas && m.formulas.areaPct) { m.formulas.areaPct.value = m.areaPct; } }); }
+  }
+  function mathInputs(mt) {
+    var o = {}; ['tStart', 'tEnd', 'yStart', 'yEnd', 'n', 'dt', 'grossArea', 'baselineArea', 'netArea'].forEach(function (k) { if (mt[k] != null) o[k] = mt[k]; }); return o;
   }
   /** Minimal metrics when the analysis module is unavailable. */
   function basicMetric(pr, p) {
@@ -428,6 +473,150 @@
     while (a > 0 && y[a - 1] <= y[a]) a--;
     while (b < x.length - 1 && y[b + 1] <= y[b]) b++;
     return { start: x[a], apex: x[im], end: x[b] };
+  }
+
+  /* ================================================================== integration: peak clipping */
+  function clipKey() { var s = P().settings; return (s.clipDefault || 'drop') + '|' + (s.fitModel || 'gaussian'); }
+  /** Effective clip: the peak's own, else valley for manual peaks (bounds set by hand), else the project default. */
+  app.clipOf = function (pk, settings) { return CLIP_MODES.indexOf(pk && pk.clip) >= 0 ? pk.clip : pk && pk.manual ? 'valley' : ((settings && settings.clipDefault) || 'drop'); };
+  function clipOf(pk) { return app.clipOf(pk, P().settings); }
+  /** Pure fallback grouping: consecutive peaks whose bounds touch or overlap (within 1.5 samples) are one fused cluster. */
+  function localClusters(x, peaks) {
+    var dx = x.length > 1 ? (x[x.length - 1] - x[0]) / (x.length - 1) : 0, order = peaks.map(function (p, i) { return i; }).sort(function (a, b) { return peaks[a].apex - peaks[b].apex; }), out = [], cur = null;
+    order.forEach(function (i) {
+      if (cur && peaks[i].start <= peaks[cur[cur.length - 1]].end + 1.5 * dx) cur.push(i); else { cur = [i]; out.push(cur); }
+    });
+    return out;
+  }
+  app.localClusters = localClusters;
+  function clustersFor(t) {
+    var pr = processed(t), c = state.cache[t.id], key = JSON.stringify(t.peaks);
+    if (c.ckey === key && c.clusters) return c.clusters;
+    var f = an('clusters'), res = null;
+    if (f) { try { res = f(pr.x, pr.y, t.peaks); } catch (e) { console.error(e); res = null; } }
+    if (!Array.isArray(res) || !res.every(Array.isArray)) res = localClusters(pr.x, t.peaks);
+    c.ckey = key; c.clusters = res; return res;
+  }
+  function clusterOf(t, peakIdx) { var cs = clustersFor(t); for (var i = 0; i < cs.length; i++) if (cs[i].indexOf(peakIdx) >= 0) return cs[i]; return [peakIdx]; }
+  /** Trapezoid integral of f over the samples of x in [s, e] with interpolated end points. */
+  function integ(x, fy, s, e) {
+    var i0 = lowerIdx(x, s), xs = [s], ys = [fy(s, null)];
+    for (var i = i0; i < x.length && x[i] < e; i++) if (x[i] > s) { xs.push(x[i]); ys.push(fy(x[i], i)); }
+    xs.push(e); ys.push(fy(e, null));
+    var a = 0; for (var j = 0; j < xs.length - 1; j++) a += (xs[j + 1] - xs[j]) * (ys[j] + ys[j + 1]) / 2;
+    return { area: a, n: xs.length, xs: xs };
+  }
+  /** Local integration (used when PK.analysis.integrate is missing): valley = own straight baseline; drop/baseline = one straight
+      line from cluster start to cluster end with vertical drops at the shared bounds. Skim and fit fall back to drop. */
+  function localIntegrate(x, y, peaks, defClip) {
+    var cl = localClusters(x, peaks), cOf = {};
+    cl.forEach(function (c) { c.forEach(function (i) { cOf[i] = c; }); });
+    function Y(v, i) { return i != null ? y[i] : interp(x, y, v); }
+    return peaks.map(function (pk, i) {
+      var want = app.clipOf(pk, { clipDefault: defClip }), c = cOf[i] || [i], mode = want, note = [];
+      if (mode !== 'valley' && mode !== 'drop' && mode !== 'baseline') { note.push(CLIP_LABELS[want] + ' needs the analysis module; perpendicular drop used instead.'); mode = 'drop'; }
+      var s = pk.start, e = pk.end, bs = s, be = e;
+      if (mode !== 'valley' && c.length > 1) { bs = Math.min.apply(null, c.map(function (k) { return peaks[k].start; })); be = Math.max.apply(null, c.map(function (k) { return peaks[k].end; })); }
+      var yb0 = Y(bs), yb1 = Y(be), sl = be > bs ? (yb1 - yb0) / (be - bs) : 0;
+      function B(v) { return yb0 + sl * (v - bs); }
+      var g = integ(x, Y, s, e), b = integ(x, function (v) { return B(v); }, s, e), net = g.area - b.area, dt = g.n > 1 ? (e - s) / (g.n - 1) : 0;
+      var kind = mode === 'valley' || c.length < 2 ? 'line' : 'common line';
+      return {
+        id: pk.id, clip: mode, requested: want, area: net, source: 'local',
+        baseline: { kind: kind, points: [[s, B(s)], [e, B(e)]] },
+        math: { method: CLIP_LABELS[mode] || mode, formula: 'A_net = Σ ½[(yᵢ − bᵢ) + (yᵢ₊₁ − bᵢ₊₁)]·(tᵢ₊₁ − tᵢ),  b(t) = y(t₁) + (t − t₁)·[y(t₂) − y(t₁)]/(t₂ − t₁)',
+          steps: [
+            { label: 'Integration window', expr: 't_start … t_end', value: fmt(s, 6) + ' … ' + fmt(e, 6) },
+            { label: 'Baseline anchors', expr: kind === 'line' ? 'line through the peak\'s own start and end points' : 'line through the fused group\'s start and end', value: '(' + fmt(bs, 5) + ', ' + fmt(yb0, 5) + ') → (' + fmt(be, 5) + ', ' + fmt(yb1, 5) + ')' },
+            { label: 'Gross area', expr: 'Σ ½(yᵢ + yᵢ₊₁)·Δtᵢ', value: g.area },
+            { label: 'Area under baseline', expr: '½[b(t_start) + b(t_end)]·(t_end − t_start)', value: b.area },
+            { label: 'Net area', expr: 'gross − baseline', value: net }],
+          notes: note, n: g.n, dt: dt, tStart: s, tEnd: e, yStart: Y(s), yEnd: Y(e), baselineArea: b.area, grossArea: g.area, netArea: net }
+      };
+    });
+  }
+  app.localIntegrate = localIntegrate;
+  function toPoints(b) {
+    if (!b) return null;
+    var p = Array.isArray(b) ? b : (b.points || b.samples || b.polyline || null);
+    if (!p && b.x && b.y) p = b;
+    if (p && !Array.isArray(p) && p.x && p.y) { var xs = toArr(p.x), ys = toArr(p.y); return xs.map(function (v, i) { return [+v, +ys[i]]; }); }
+    if (Array.isArray(p) && p.length && Array.isArray(p[0])) return p.map(function (q) { return [+q[0], +q[1]]; }).filter(function (q) { return isNum(q[0]) && isNum(q[1]); });
+    if (Array.isArray(p) && p.length && p[0] && typeof p[0] === 'object' && 't' in p[0]) return p.map(function (q) { return [+q.t, +q.y]; });
+    return null;
+  }
+  function baseAt(pts, v) {
+    if (!pts || !pts.length) return NaN; if (pts.length === 1) return pts[0][1];
+    if (v <= pts[0][0]) { var a = pts[0], b = pts[1]; return b[0] === a[0] ? a[1] : a[1] + (b[1] - a[1]) * (v - a[0]) / (b[0] - a[0]); }
+    for (var i = 0; i < pts.length - 1; i++) if (v <= pts[i + 1][0]) { var p = pts[i], q = pts[i + 1]; return q[0] === p[0] ? q[1] : p[1] + (q[1] - p[1]) * (v - p[0]) / (q[0] - p[0]); }
+    var m = pts[pts.length - 2], n = pts[pts.length - 1]; return n[0] === m[0] ? n[1] : n[1] + (n[1] - m[1]) * (v - n[0]) / (n[0] - m[0]);
+  }
+  /** Normalize one integrate() result into {id, clip, area, height?, baseline:{kind, points}, shade:{x, top, bot}, math}. */
+  function normIntegration(r, pk, pr) {
+    r = r || {};
+    var pts = toPoints(r.baseline) || toPoints(r.baselinePoints);
+    var mt = r.math || {}, s = pk.start, e = pk.end;
+    if (!pts || pts.length < 1) { var y0 = isNum(mt.yStart) ? mt.yStart : interp(pr.x, pr.y, s), y1 = isNum(mt.yEnd) ? mt.yEnd : interp(pr.x, pr.y, e); pts = [[s, y0], [e, y1]]; }
+    pts.sort(function (a, b) { return a[0] - b[0]; });
+    var out = { id: r.id || pk.id, clip: CLIP_MODES.indexOf(r.clip) >= 0 ? r.clip : (r.method && CLIP_MODES.indexOf(r.method) >= 0 ? r.method : clipOf(pk)), area: isNum(r.area) ? r.area : (isNum(mt.netArea) ? mt.netArea : NaN),
+      height: isNum(r.height) ? r.height : undefined, source: r.source || 'analysis', raw: r,
+      baseline: { kind: (r.baseline && r.baseline.kind) || r.baselineKind || (pts.length > 2 ? 'curve' : 'line'), points: pts } };
+    out.math = { method: mt.method || CLIP_LABELS[out.clip] || out.clip, formula: mt.formula || mt.expr || '', steps: toArr(mt.steps), notes: Array.isArray(mt.notes) ? mt.notes : (mt.notes || mt.note ? [mt.notes || mt.note] : []),
+      n: mt.n, dt: mt.dt, tStart: isNum(mt.tStart) ? mt.tStart : s, tEnd: isNum(mt.tEnd) ? mt.tEnd : e, yStart: mt.yStart, yEnd: mt.yEnd, baselineArea: mt.baselineArea, grossArea: mt.grossArea, netArea: isNum(mt.netArea) ? mt.netArea : out.area };
+    // shading polygon (net area only): explicit segments if supplied, else signal (or fitted component) over the baseline
+    var seg = Array.isArray(r.segments) ? r.segments : (r.segments && Array.isArray(r.segments.x) ? [r.segments] : null), sh = null;
+    if (seg && seg.length) {
+      sh = { x: [], top: [], bot: [] };
+      seg.forEach(function (g) {
+        if (Array.isArray(g) && g.length === 3 && isNum(g[0])) { sh.x.push(+g[0]); sh.top.push(+g[1]); sh.bot.push(+g[2]); return; }
+        var gx = toArr(g.x || g.t), gt = toArr(g.top || g.y || g.upper), gb = toArr(g.bottom || g.bot || g.b || g.base || g.lower);
+        if (gx.length && gx.length === gt.length && gx.length === gb.length) gx.forEach(function (v, i) { sh.x.push(+v); sh.top.push(+gt[i]); sh.bot.push(+gb[i]); });
+      });
+      if (sh.x.length < 2) sh = null;
+    }
+    if (!sh) {
+      var comp = r.component || r.curve || null, cx = comp && toArr(comp.x || comp.t), cy = comp && toArr(comp.y || comp.yFit);
+      sh = { x: [s], top: [], bot: [] };
+      var i0 = lowerIdx(pr.x, s);
+      for (var i = i0; i < pr.x.length && pr.x[i] < e; i++) if (pr.x[i] > s) sh.x.push(pr.x[i]);
+      sh.x.push(e);
+      sh.x.forEach(function (v) {
+        var b = baseAt(pts, v); sh.bot.push(b);
+        sh.top.push(cx && cx.length > 1 ? b + interp(cx, cy, v) : interp(pr.x, pr.y, v));
+      });
+    }
+    out.shade = sh;
+    return out;
+  }
+  /** Per-peak integration for trace t (aligned with t.peaks), cached. Uses PK.analysis.integrate when present. */
+  function integrationFor(t, override) {
+    if (!t || !t.peaks.length) return [];
+    var pr = processed(t), c = state.cache[t.id], key = JSON.stringify(t.peaks) + '|' + clipKey();
+    if (!override && c.ikey === key && c.integ) return c.integ;
+    var peaks = override || t.peaks, f = an('integrate'), raw = null, out = null;
+    if (f) {
+      try { raw = f(pr.x, pr.y, peaks, { clip: P().settings.clipDefault || 'drop', skimRatio: 10, model: P().settings.fitModel || 'gaussian' }); }
+      catch (e) { console.error(e); warnOnce('integrate', 'Integration failed (' + e.message + '); using valley-to-valley baselines.'); raw = null; }
+      var list = raw && (Array.isArray(raw) ? raw : raw.peaks);
+      if (Array.isArray(list) && list.length === peaks.length) {
+        var byId = {}; list.forEach(function (r) { if (r && r.id) byId[r.id] = r; });
+        out = peaks.map(function (pk, i) { return normIntegration(byId[pk.id] || list[i], pk, pr); });
+      }
+    }
+    if (!out) out = localIntegrate(pr.x, pr.y, peaks, P().settings.clipDefault).map(function (r, i) { return normIntegration(r, peaks[i], pr); });
+    out.raw = Array.isArray(raw) ? raw : (raw && raw.peaks) || null;
+    if (!override) { c.ikey = key; c.integ = out; }
+    return out;
+  }
+  app.integrationFor = function (traceId) { var t = traceById(traceId) || activeTrace(); return t ? integrationFor(t) : []; };
+  function clipNote(g) {
+    var base = { drop: 'Perpendicular drop: the fused group shares one baseline and vertical lines at the valleys split the area.',
+      valley: 'Valley to valley: a straight baseline joins this peak\'s own start and end points.',
+      baseline: 'Common baseline: one straight line from the start to the end of the group; vertical drops at the valleys.',
+      'skim-tangent': 'Tangent skim: the rider peak sits on the parent\'s tail and is cut off with a straight tangent line, so the parent keeps the area under the line.',
+      'skim-exp': 'Exponential skim: the rider is cut off with an exponential curve fitted to the parent\'s tail.',
+      fit: 'Curve fit: the area is the fitted Gaussian/EMG component, so overlapping area is assigned by peak shape.' }[g.clip] || '';
+    return base + (g.math && g.math.notes && g.math.notes.length ? ' ' + g.math.notes.join(' ') : '');
   }
 
   /* ================================================================== DOM rendering */
@@ -550,12 +739,24 @@
       '<label class="field"><span>Min distance (' + xu + ')</span><input type="number" min="0" step="0.01" data-p="peaks.minDist" value="' + pr.peaks.minDist + '"></label>' +
       '<label class="field"><span>Min width (' + xu + ')</span><input type="number" min="0" step="0.005" data-p="peaks.minWidth" value="' + pr.peaks.minWidth + '"></label></div>' +
       '<div class="row"><button class="btn sm primary" data-pa="detect" title="Detect peaks; manually set peaks are kept">Detect peaks</button><button class="btn sm" data-pa="clearmanual" title="Discard manual edits and detect from scratch">Re-detect all</button><button class="btn sm" data-pa="clear">Clear peaks</button></div></div>' +
+      clipGroupHTML() +
       '<div class="proc-group"><div class="gh">Peak fitting (deconvolution)</div>' +
       '<div class="row"><select data-s="fitModel" aria-label="Peak model"><option value="gaussian"' + (fitModel === 'gaussian' ? ' selected' : '') + '>Gaussian</option><option value="emg"' + (fitModel === 'emg' ? ' selected' : '') + '>EMG (tailing)</option></select>' +
       '<button class="btn sm" data-pa="fit">Fit peaks</button><button class="btn sm ghost" data-pa="clearfit">Clear fit</button></div>' +
       '<div id="fit-status" class="small muted" style="margin-top:6px"></div></div>' +
       '<div id="proc-status" class="small muted" style="margin-top:8px"></div>';
     procBuiltFor = t.id; updateProcStatus();
+  }
+  /** "Peak integration" settings (project-wide): default clip with a one-line explanation per mode, and the ask option. */
+  function clipGroupHTML() {
+    var s = P().settings, cd = s.clipDefault || 'drop';
+    return '<div class="proc-group"><div class="gh">Peak integration</div>' +
+      '<label class="field"><span>Default peak clip (how fused peaks are split)</span><select data-s="clipDefault" id="clip-default" aria-describedby="clip-default-help">' +
+      CLIP_MODES.map(function (m) { return '<option value="' + m + '"' + (m === cd ? ' selected' : '') + '>' + esc(CLIP_LABELS[m] || m) + '</option>'; }).join('') + '</select></label>' +
+      '<p class="small muted" id="clip-default-help" style="margin:0 0 6px">' + esc(CLIP_HELP[cd] || '') + '</p>' +
+      '<details class="small"><summary class="muted">What each mode does</summary><dl class="clip-dl">' + CLIP_MODES.map(function (m) { return '<dt>' + esc(CLIP_LABELS[m]) + '</dt><dd>' + esc(CLIP_HELP[m] || '') + '</dd>'; }).join('') + '</dl></details>' +
+      '<label class="inline" style="margin-top:6px" title="Open the split dialog when detection or a click-integration creates fused peaks"><input type="checkbox" data-s="askClip"' + (s.askClip !== false ? ' checked' : '') + '> Ask how to split fused peaks</label>' +
+      '<p class="small muted" style="margin:4px 0 0">Manual windows (Integrate, G) default to valley-to-valley. Change single peaks in the table’s Clip column, or select a fused peak and press <strong>Split…</strong>.</p></div>';
   }
   function updateProcStatus() {
     var t = activeTrace(), st = $('proc-status'), fs = $('fit-status'); if (!t || !st) return;
@@ -613,7 +814,9 @@
         if (el.hasAttribute('data-p')) onEdit(e);
         var s = el.getAttribute('data-s');
         if (s === 'showRaw') { P().settings.showRaw = el.checked; renderPlot(); }
-        if (s === 'fitModel') { P().settings.fitModel = el.value; }
+        if (s === 'fitModel') { P().settings.fitModel = el.value; if (t && t.peaks.some(function (q) { return clipOf(q) === 'fit'; })) { renderPlot(); renderTable(); } }
+        if (s === 'clipDefault') { app.pushUndo('Change default peak clip'); P().settings.clipDefault = el.value; var hp = $('clip-default-help'); if (hp) hp.textContent = CLIP_HELP[el.value] || ''; renderPlot(); renderTable(); toast('Default peak clip: ' + (CLIP_LABELS[el.value] || el.value) + '. Peaks without their own Clip setting now use it.', 'ok'); }
+        if (s === 'askClip') { P().settings.askClip = el.checked; }
       }
       state.procSession = null;
     });
@@ -630,7 +833,7 @@
   function detectPeaksCmd() {
     var t = activeTrace(); if (!t || isAux(t)) { toast('Select a chromatogram trace first.', 'warn'); return; }
     app.pushUndo('Detect peaks'); t.proc.peaks.auto = true;
-    if (detectFor(t)) { renderAll(); toast(t.peaks.length + ' peak' + (t.peaks.length === 1 ? '' : 's') + ' detected on "' + t.name + '"', t.peaks.length ? 'ok' : 'warn'); }
+    if (detectFor(t)) { renderAll(); toast(t.peaks.length + ' peak' + (t.peaks.length === 1 ? '' : 's') + ' detected on "' + t.name + '"', t.peaks.length ? 'ok' : 'warn'); maybeAskClusters(t, 'detect'); }
     else { state.undo.pop(); updateUndoButtons(); }
   }
   function fitPeaksCmd() {
@@ -763,8 +966,9 @@
       '<h1>Analyze an HPLC/FPLC chromatogram</h1>' +
       '<p class="muted">Drop instrument exports or chromatogram images anywhere on this page, or choose files. Everything runs in your browser. Nothing is uploaded.</p>' +
       '<div class="row"><button class="btn primary" data-action="open-files">Choose files…</button><button class="btn" data-action="paste">Paste data</button><button class="btn" data-action="image">Digitize an image</button></div>' +
-      '<div class="row"><span class="small muted">Or try a sample:</span><button class="btn sm" data-action="sample">HPLC run + blank</button><button class="btn sm" data-action="sample-fplc">FPLC / IMAC run</button><button class="btn sm" data-action="sample-image">Chromatogram image</button></div>' +
+      '<div class="row"><span class="small muted">Or try a sample:</span><button class="btn sm" data-action="sample">HPLC run + blank</button><button class="btn sm" data-action="sample-cal">Calibration set (5 standards + unknown)</button><button class="btn sm" data-action="sample-fplc">FPLC / IMAC run</button><button class="btn sm" data-action="sample-image">Chromatogram image</button></div>' +
       '<div class="formats">' + formatsList() + '</div>' +
+      '<p class="small muted" style="margin-top:12px" data-disclaimer>' + esc((PK.config && PK.config.disclaimer) || '') + '</p>' +
       '<p class="small muted" style="margin-top:12px">File not recognized? <a href="#" data-action="fallback">Map the columns manually</a>.</p></div>';
   }
   function renderPlotTools() {
@@ -793,6 +997,14 @@
     if (ref.length && ref.every(function (t) { return t.xUnit !== 'min'; }) && !ref.every(function (t) { return t.xUnit === mainUnit; })) mainUnit = ref[0].xUnit;
     return { vis: vis, mains: mains, mainUnit: mainUnit, xa: function (t) { return t.xUnit === mainUnit ? 'x' : 'x2'; } };
   }
+  /** Line dash: derived = dot, aux = dash; with "Distinguish traces by line style" every main trace gets its own pattern. */
+  var DASHES = ['solid', 'dash', 'dot', 'dashdot', 'longdash', 'longdashdot', '6px,2px,2px,2px'];
+  function traceDash(t, AX, aux) {
+    if (aux) return 'dash';
+    if (P().settings.lineStyles) { var i = AX.mains.indexOf(t); return DASHES[(i < 0 ? 0 : i) % DASHES.length]; }
+    return (t.derived || (t.meta && t.meta.derived)) ? 'dot' : 'solid';
+  }
+  app.DASHES = DASHES;
   function unitTitle(u) { return u === 'min' ? 'Retention time (min)' : u === 'mL' ? 'Elution volume (mL)' : u === 'CV' ? 'Column volumes (CV)' : String(u);
   }
   /** Vertical waterfall offsets for visible main traces (settings.stack = fraction of max |y|). */
@@ -895,7 +1107,7 @@
       var isAct = act && t.id === act.id;
       var tm = xToMin(t, pr.x[pr.x.length - 1] + off); if (isNum(tm) && tm > xMaxMin) xMaxMin = tm;
       data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, xaxis: xa, yaxis: ya, name: t.name + (t.digitized ? ' (digitized)' : ''),
-        line: { color: t.style.color, width: (t.style.width || 1.5) + (isAct && AX.mains.length > 1 && !opts.export ? 0.5 : 0), dash: (t.derived || (t.meta && t.meta.derived)) ? 'dot' : aux ? 'dash' : 'solid' },
+        line: { color: t.style.color, width: (t.style.width || 1.5) + (isAct && AX.mains.length > 1 && !opts.export ? 0.5 : 0), dash: traceDash(t, AX, aux) },
         hovertemplate: '%{y:.4~g} ' + esc(k === 1 ? t.yUnit : 'norm.') + '<extra>' + esc(t.name).slice(0, 30) + '</extra>', _pkId: t.id, _pkOff: off });
       if (isAct && !aux && s.showRaw && pr.baseline && !opts.export) {
         data.push({ type: 'scatter', mode: 'lines', x: xs, y: pr.yRaw.map(function (v) { return v * k + dy; }), xaxis: xa, yaxis: ya, name: 'Raw', line: { color: col.muted, width: 1, dash: 'dot' }, hoverinfo: 'skip' });
@@ -919,12 +1131,26 @@
     var labelTraces = [];
     if (act && act.style.visible !== false && !isAux(act) && act.peaks.length) {
       var dsa = disp[act.id], pr = dsa.pr, k = dsa.k, off = dsa.off, dy = dsa.dy, xa = dsa.xa, mx = [], my = [], mid = [], msz = [];
-      act.peaks.forEach(function (pk) {
-        var sel = pk.id === state.selPeakId, i0 = lowerIdx(pr.x, pk.start), i1 = lowerIdx(pr.x, pk.end), px = [pk.start + off], py = [interp(pr.x, pr.y, pk.start) * k + dy];
-        for (var j = i0; j < i1 && j < pr.x.length; j++) if (pr.x[j] > pk.start) { px.push(pr.x[j] + off); py.push(pr.y[j] * k + dy); }
-        px.push(pk.end + off); py.push(interp(pr.x, pr.y, pk.end) * k + dy);
+      var igs = integrationFor(act), blx = [], bly = [];
+      act.peaks.forEach(function (pk, pi) {
+        var sel = pk.id === state.selPeakId, g = igs[pi], sh = g && g.shade, px, py;
+        if (sh && sh.x.length > 1) { // net area only: signal (or fitted component) down to the applied baseline
+          px = sh.x.map(function (v) { return v + off; }).concat(sh.x.slice().reverse().map(function (v) { return v + off; }));
+          py = sh.top.map(function (v) { return v * k + dy; }).concat(sh.bot.slice().reverse().map(function (v) { return v * k + dy; }));
+        } else {
+          var i0 = lowerIdx(pr.x, pk.start), i1 = lowerIdx(pr.x, pk.end); px = [pk.start + off]; py = [interp(pr.x, pr.y, pk.start) * k + dy];
+          for (var j = i0; j < i1 && j < pr.x.length; j++) if (pr.x[j] > pk.start) { px.push(pr.x[j] + off); py.push(pr.y[j] * k + dy); }
+          px.push(pk.end + off); py.push(interp(pr.x, pr.y, pk.end) * k + dy);
+        }
         data.push({ type: 'scatter', mode: 'lines', x: px, y: py, xaxis: xa, yaxis: 'y', fill: 'toself', fillcolor: hexA(act.style.color, sel ? 0.38 : 0.18),
-          line: { width: sel ? 1.2 : 0.6, color: hexA(act.style.color, sel ? 0.9 : 0.45) }, hoverinfo: 'skip', showlegend: false, _pkPeak: pk.id });
+          line: { width: 0 }, hoverinfo: 'skip', showlegend: false, _pkPeak: pk.id });
+        if (g && g.baseline && g.baseline.points && g.baseline.points.length) { // applied baseline + drop lines at the bounds
+          var bp = g.baseline.points, seg = [[pk.start, interp(pr.x, pr.y, pk.start)], [pk.start, baseAt(bp, pk.start)]];
+          bp.forEach(function (q) { if (q[0] > pk.start && q[0] < pk.end) seg.push(q); });
+          seg.push([pk.end, baseAt(bp, pk.end)], [pk.end, interp(pr.x, pr.y, pk.end)]);
+          seg.forEach(function (q) { blx.push(q[0] + off); bly.push(q[1] * k + dy); });
+          blx.push(null); bly.push(null);
+        }
         mx.push(pk.apex + off); my.push(interp(pr.x, pr.y, pk.apex) * k + dy); mid.push(pk.id); msz.push(sel ? 10 : 6);
         if (sel && !opts.export) {
           [['pk-start', pk.start], ['pk-end', pk.end]].forEach(function (b) {
@@ -932,6 +1158,7 @@
           });
         }
       });
+      if (blx.length) data.push({ type: 'scatter', mode: 'lines', x: blx, y: bly, xaxis: xa, yaxis: 'y', name: 'Integration baselines', showlegend: false, connectgaps: false, line: { color: col.text, width: 0.9 }, hoverinfo: 'skip', _pkBaselines: true });
       if (!opts.export) data.push({ type: 'scatter', mode: 'markers', x: mx, y: my, xaxis: xa, yaxis: 'y', customdata: mid, marker: { size: msz, color: act.style.color, symbol: 'line-ew-open', line: { width: 2, color: act.style.color } }, name: 'Peaks', showlegend: false, hoverinfo: 'skip', _pkMarkers: true });
       if (act.fit && act.fit.curve && act.fit.curve.x && act.fit.curve.yFit) {
         var fx = toArr(act.fit.curve.x).map(function (v) { return v + off; });
@@ -1139,7 +1366,7 @@
   /* ================================================================== peak table + audit */
   var METRIC_LABELS = { rt: 'Retention time', height: 'Height', area: 'Area', areaPct: 'Area %', fwhm: 'Width at half height (W½)', w5: 'Width at 5 % height',
     tailing: 'USP tailing factor', asymmetry: 'Asymmetry (10 %)', plates: 'Plates N (half-height)', platesUSP: 'Plates N (USP tangent)', resolution: 'Resolution Rs', sn: 'Signal-to-noise',
-    pctB: '%B at elution', kprime: "Retention factor k′", fit: 'Fitted area ± SE' };
+    pctB: '%B at elution', kprime: "Retention factor k′", fit: 'Fitted area ± SE', clip: 'Peak clipping (how the area is separated)', conc: 'Concentration from the calibration curve (± 95 % interval)' };
   function tableColumns(t, ctx) {
     var xu = t.xUnit, cols = [
       { key: 'name', label: 'Name', d: 0 },
@@ -1148,6 +1375,8 @@
       { key: 'height', label: 'Height (' + t.yUnit + ')', d: 4 },
       { key: 'area', label: 'Area (' + t.yUnit + '·' + xu + ')', d: 5 },
       { key: 'areaPct', label: 'Area %', d: 4 },
+      { key: 'conc', label: 'Conc.' + (ctx.concUnit ? ' (' + ctx.concUnit + ')' : ''), d: 4, hide: !ctx.hasConc },
+      { key: 'clip', label: 'Clip', d: 0 },
       { key: 'fwhm', label: 'W½ (' + xu + ')', d: 3 },
       { key: 'tailing', label: 'Tailing', d: 3 },
       { key: 'plates', label: 'N', d: 4 },
@@ -1161,7 +1390,9 @@
   }
   function tableCtx(t) {
     var m = P().method;
-    return { m: m, ci: concInfo(m), hasGrad: hasGradient(m), t0: voidInXUnits(t), dwell: dwellTime(m), t0min: voidTime(m), dig: t.digitized || null };
+    var cq = concForTrace(t);
+    return { m: m, ci: concInfo(m), hasGrad: hasGradient(m), t0: voidInXUnits(t), dwell: dwellTime(m), t0min: voidTime(m), dig: t.digitized || null,
+      conc: cq, hasConc: cq.some(Boolean), concUnit: (P().calibration && P().calibration.unit) || '' };
   }
   function fitComp(t, pk, i) {
     if (!t.fit || !t.fit.components) return null;
@@ -1184,6 +1415,7 @@
         var b = bAt(ctx.m, rtm); return ctx.ci && isNum(b) ? b * ctx.ci.k : b; }
       case 'kprime': return isNum(m.k) ? m.k : (isNum(ctx.t0) && ctx.t0 > 0 && isNum(m.rt) ? (m.rt - ctx.t0) / ctx.t0 : NaN);
       case 'fit': { var c = fitComp(t, pk, i); return c ? c.area : NaN; }
+      case 'conc': { var q = ctx.conc && ctx.conc[i]; return q ? q.x : NaN; }
       default: return m[key];
     }
   }
@@ -1205,13 +1437,28 @@
       var m = ms[i] || {}, selC = pk.id === state.selPeakId;
       var cells = cols.map(function (c) {
         if (c.key === 'name') return '<td style="text-align:left"><input type="text" class="pk-name" value="' + esc(pk.label || '') + '" placeholder="' + esc(fmt(m.rt, 4)) + '" aria-label="Name of peak ' + (i + 1) + '" style="width:110px;min-height:24px;padding:2px 6px"></td>';
+        if (c.key === 'clip') {
+          var cur = CLIP_MODES.indexOf(pk.clip) >= 0 ? pk.clip : '', applied = (m.clip || clipOf(pk));
+          return '<td><select class="pk-clip" aria-label="Clip mode for peak ' + (i + 1) + '" title="' + esc(CLIP_HELP[applied] || '') + '">' +
+            '<option value=""' + (cur ? '' : ' selected') + '>' + (pk.manual ? 'default for manual (Valley)' : 'default (' + esc(CLIP_LABELS[P().settings.clipDefault || 'drop']) + ')') + '</option>' +
+            CLIP_MODES.map(function (md) { return '<option value="' + md + '"' + (md === cur ? ' selected' : '') + '>' + esc(CLIP_LABELS[md]) + '</option>'; }).join('') + '</select>' +
+            (m.clip && m.clip !== clipOf(pk) ? ' <span class="badge warn" title="' + esc(CLIP_LABELS[clipOf(pk)]) + ' could not be applied here; ' + esc(CLIP_LABELS[m.clip] || m.clip) + ' was used">' + esc(m.clip) + '</span>' : '') +
+            '<button class="cell-i" data-audit="clip" aria-label="Integration math for peak ' + (i + 1) + '">&#9432;</button></td>';
+        }
+        if (c.key === 'conc') {
+          var cq = ctx.conc && ctx.conc[i];
+          if (!cq) return '<td class="muted">—</td>';
+          return '<td title="' + esc(cq.analyte.name + ': 95 % interval ' + fmt(cq.lo, 4) + ' – ' + fmt(cq.hi, 4) + ' ' + ctx.concUnit) + '">' + esc(fmt(cq.x, 4)) + (isNum(cq.lo) && isNum(cq.hi) ? ' <span class="muted">± ' + esc(fmt((cq.hi - cq.lo) / 2, 2)) + '</span>' : '') +
+            cq.flags.map(function (f) { return ' <span class="badge ' + (f === 'standard' ? '' : 'warn') + '" title="' + esc(CONC_FLAG_HELP[f] || f) + '">' + esc(CONC_FLAG_LABEL[f] || f) + '</span>'; }).join('') +
+            '<button class="cell-i" data-audit="conc" aria-label="How the concentration of peak ' + (i + 1) + ' was computed">&#9432;</button></td>';
+        }
         if (c.key === 'printed') { var pf = printedFor(t, m); return '<td' + (pf && pf.mismatch ? ' class="mismatch" title="Printed area % differs from the computed value"' : '') + '>' + (pf ? esc(fmt(pf.p.rt, 4)) + ' / ' + esc(fmt(pf.p.areaPct, 3)) : '—') + '</td>'; }
         var v = cellValue(c.key, t, pk, m, i, ctx), txt = esc(fmt(v, c.d));
         if (c.key === 'rt' && dig && isNum(dig.dxMin)) txt += ' <span class="unc">±' + esc(fmt(dig.dxMin, 2)) + '</span>';
         if (c.key === 'fit') { var fc = fitComp(t, pk, i); if (fc && isNum(fc.areaSE)) txt += ' <span class="muted">± ' + esc(fmt(fc.areaSE, 2)) + '</span>'; }
-        return '<td>' + txt + '<button class="cell-i" tabindex="-1" data-audit="' + c.key + '" aria-label="How ' + esc(METRIC_LABELS[c.key] || c.key) + ' was computed">&#9432;</button></td>';
+        return '<td>' + txt + '<button class="cell-i" data-audit="' + c.key + '" aria-label="How ' + esc(METRIC_LABELS[c.key] || c.key) + ' was computed">&#9432;</button></td>';
       }).join('');
-      return '<tr data-id="' + esc(pk.id) + '"' + (selC ? ' class="selected" aria-selected="true"' : '') + '><td>' + (i + 1) + (pk.manual ? ' <span class="badge manual" title="Manually added or edited">M</span>' : '') + (dig ? ' <span class="badge digitized">dig.</span>' : '') + '</td>' + cells +
+      return '<tr data-id="' + esc(pk.id) + '" tabindex="0" aria-selected="' + selC + '"' + (selC ? ' class="selected"' : '') + '><td>' + (i + 1) + (pk.manual ? ' <span class="badge manual" title="Manually added or edited">M</span>' : '') + (dig ? ' <span class="badge digitized">dig.</span>' : '') + '</td>' + cells +
         '<td class="row-actions"><button class="btn ghost sm icon" data-row="audit" aria-label="Show calculation details for peak ' + (i + 1) + '" title="Calculation details">&#9432;</button>' +
         '<button class="btn ghost sm icon" data-row="window" aria-label="Integrate the same window in all visible traces" title="Apply this integration window to all visible traces">&#8649;</button>' +
         '<button class="btn ghost sm icon danger" data-row="del" aria-label="Remove peak ' + (i + 1) + '" title="Remove peak (Del)">&#10005;</button></td></tr>';
@@ -1222,7 +1469,7 @@
     var tb = $('peak-table');
     tb.addEventListener('click', function (e) {
       if (state.view === 'compare') return onCompareClick(e);
-      if (e.target.closest('input')) return;
+      if (e.target.closest('input, select')) return;
       var tr = e.target.closest('tr[data-id]'); if (!tr) return; var id = tr.getAttribute('data-id'), t = activeTrace(); if (!t) return;
       var idx = -1; t.peaks.forEach(function (p, i) { if (p.id === id) idx = i; });
       var au = e.target.closest('[data-audit]'), rb = e.target.closest('[data-row]');
@@ -1241,8 +1488,12 @@
     tb.addEventListener('change', function (e) {
       if (e.target.classList.contains('grp-label')) setGroupLabel(+e.target.getAttribute('data-rt'), e.target.value);
       if (e.target.classList.contains('pk-name')) { var tr = e.target.closest('tr[data-id]'), t = activeTrace(); if (tr && t) setPeakLabel(t, tr.getAttribute('data-id'), e.target.value); }
+      if (e.target.classList.contains('pk-clip')) { var tr2 = e.target.closest('tr[data-id]'), t2 = activeTrace(); if (tr2 && t2) setPeakClip(t2, [tr2.getAttribute('data-id')], e.target.value || null); }
     });
-    tb.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.classList.contains('pk-name')) e.target.blur(); });
+    tb.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.classList.contains('pk-name')) { e.target.blur(); return; }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr[data-id]')) { e.preventDefault(); selectPeak(e.target.getAttribute('data-id'), { zoom: true }); var r = document.querySelector('#peak-table tr[data-id="' + cssEsc(e.target.getAttribute('data-id')) + '"]'); if (r) r.focus(); }
+    });
     $('table-trace').addEventListener('change', function (e) { app.selectTrace(e.target.value); });
   }
   function setPeakLabel(t, id, label) {
@@ -1251,6 +1502,15 @@
     app.pushUndo('Rename peak'); if (label) pk.label = label; else delete pk.label;
     renderPlot(); renderTable();
   }
+  /** Set (or clear with null) the clip mode of the given peaks; undoable. */
+  function setPeakClip(t, ids, clip, label) {
+    if (clip != null && CLIP_MODES.indexOf(clip) < 0) return;
+    var hit = t.peaks.filter(function (p) { return ids.indexOf(p.id) >= 0 && (p.clip || null) !== (clip || null); }); if (!hit.length) return;
+    app.pushUndo(label || 'Change peak clip');
+    hit.forEach(function (p) { if (clip) p.clip = clip; else delete p.clip; });
+    renderPlot(); renderTable(); refreshMathModal();
+  }
+  app.setPeakClip = function (traceId, peakIds, clip) { var t = traceById(traceId); if (t) setPeakClip(t, peakIds, clip); };
   app.setPeakLabel = function (traceId, peakId, label) { var t = traceById(traceId); if (t) setPeakLabel(t, peakId, label); };
   function fmtInputs(inp) {
     if (!inp || typeof inp !== 'object') return '';
@@ -1258,9 +1518,18 @@
   }
   function auditEntries(t, idx, only) {
     var ms = withAreaPct(metricsFor(t)), m = ms[idx] || {}, pk = t.peaks[idx], ctx = tableCtx(t), out = [], F = m.formulas || {};
-    var keys = only ? [only] : ['rt', 'height', 'area', 'areaPct', 'fwhm', 'tailing', 'asymmetry', 'plates', 'platesUSP', 'resolution', 'sn', 'pctB', 'kprime', 'fit'];
+    var keys = only ? [only] : ['rt', 'height', 'area', 'areaPct', 'conc', 'fwhm', 'tailing', 'asymmetry', 'plates', 'platesUSP', 'resolution', 'sn', 'pctB', 'kprime', 'fit'];
     keys.forEach(function (k) {
       var f = F[k], e = { key: k, label: METRIC_LABELS[k] || k };
+      if (k === 'conc') {
+        var q = ctx.conc && ctx.conc[idx]; if (!q) return;
+        var cf = q.inv && q.inv.formula ? { expr: q.inv.formula.expr, inputs: q.inv.formula.inputs, note: q.inv.formula.note || '' } : calFormula(q.fit, 'inverse'), a = q.analyte, cu = ctx.concUnit;
+        e.label = 'Concentration of ' + a.name; e.value = q.x; e.expr = cf.expr;
+        e.inputs = mergeDeep({ 'response y₀': q.y, equation: calEquation(a, q.fit), 's_y/x': q.fit.syx, n: q.fit.n, 'SE(x̂)': q.se, '95 % low': q.lo, '95 % high': q.hi, LOD: q.fit.lod, LOQ: q.fit.loq }, cf.inputs || {});
+        e.note = cf.note + ' Unit: ' + (cu || 'as entered') + '. Matched by RT ' + fmt(a.peakMatch.rt, 4) + ' ± ' + fmt(a.peakMatch.tol, 3) + '; response = ' + a.response + '; model ' + a.model + ', weighting ' + a.weighting + '.' +
+          (q.flags.length ? ' Flags: ' + q.flags.map(function (fl) { return CONC_FLAG_HELP[fl]; }).join(' ') : '') + (q.inv && q.inv.notes && q.inv.notes.length ? ' ' + q.inv.notes.join(' ') : '');
+        out.push(e); return;
+      }
       if (k === 'pctB') {
         if (!ctx.hasGrad) return; var rtm = xToMin(t, m.rt); if (!isNum(rtm)) return;
         var elf = an('elution'), eo = null; if (elf) { try { eo = elf(ctx.m, rtm); } catch (er) { eo = null; } }
@@ -1286,25 +1555,31 @@
     });
     return out;
   }
-  function showAudit(t, idx, only, anchor) {
+  function showAudit(t, idx, only, anchor, tab) {
     var pop = $('audit-pop'); if (!pop || idx < 0) return;
-    var es = auditEntries(t, idx, only), pk = t.peaks[idx];
-    pop.innerHTML = '<div class="row" style="justify-content:space-between"><strong>Peak ' + (idx + 1) + ' · ' + esc(t.name) + '</strong><button class="btn ghost sm" data-close-audit aria-label="Close">&#10005;</button></div>' +
-      '<label class="inline" style="margin:6px 0">Name <input type="text" data-audit-name value="' + esc(pk.label || '') + '" placeholder="e.g. Caffeine" style="flex:1"></label>' +
-      '<div class="small muted">Window ' + esc(fmt(pk.start, 5)) + ' – ' + esc(fmt(pk.end, 5)) + ' ' + esc(t.xUnit) + ', drop-line baseline between the bound points' + (pk.manual ? ' · manually set' : '') + '</div>' +
+    tab = tab || (only === 'clip' ? 'integration' : 'values');
+    var es = auditEntries(t, idx, only === 'clip' ? null : only), pk = t.peaks[idx], ig = integrationFor(t)[idx];
+    var body = tab === 'integration' ? integrationMathHTML(t, idx, { sketch: true }) :
       (es.length ? es.map(function (e) {
-        return '<div class="metric"><div><strong>' + esc(e.label) + '</strong> = <span class="mono">' + esc(fmt(e.value, 6)) + '</span></div>' + (e.expr ? '<div class="expr">' + esc(e.expr) + '</div>' : '') +
+        return '<div class="metric"><div><strong>' + esc(e.label) + '</strong> = <span class="mono">' + esc(typeof e.value === 'string' ? e.value : fmt(e.value, 6)) + '</span></div>' + (e.expr ? '<div class="expr">' + esc(e.expr) + '</div>' : '') +
           (e.inputs ? '<div class="inputs">' + fmtInputs(e.inputs) + '</div>' : '') + (e.note ? '<div class="small muted">' + esc(e.note) + '</div>' : '') + '</div>';
-      }).join('') : '<p class="muted">No formula details available for this value.</p>') +
+      }).join('') : '<p class="muted">No formula details available for this value.</p>');
+    pop.innerHTML = '<div class="row" style="justify-content:space-between"><strong id="audit-title">Peak ' + (idx + 1) + ' · ' + esc(t.name) + '</strong><button class="btn ghost sm" data-close-audit aria-label="Close calculation details">&#10005;</button></div>' +
+      '<label class="inline" style="margin:6px 0">Name <input type="text" data-audit-name value="' + esc(pk.label || '') + '" placeholder="e.g. Caffeine" style="flex:1"></label>' +
+      '<div class="small muted">Window ' + esc(fmt(pk.start, 5)) + ' – ' + esc(fmt(pk.end, 5)) + ' ' + esc(t.xUnit) + ' · ' + esc(CLIP_LABELS[ig ? ig.clip : clipOf(pk)] || '') + (pk.clip ? '' : ' (default)') + (pk.manual ? ' · manually set' : '') + '</div>' +
+      '<div class="tabs" role="tablist" aria-label="Detail view" style="margin:8px 0 4px"><button class="tab" role="tab" data-audit-tab="values" aria-selected="' + (tab === 'values') + '">Values</button><button class="tab" role="tab" data-audit-tab="integration" aria-selected="' + (tab === 'integration') + '">Integration</button></div>' +
+      '<div role="tabpanel">' + body + '</div>' +
       (t.digitized ? '<div class="note warn" style="margin-top:6px">Digitized from an image: values are estimates. Uncertainty ±' + esc(fmt(t.digitized.dxMin, 3)) + ' ' + esc(t.xUnit) + ', ±' + esc(fmt(t.digitized.dy, 3)) + ' ' + esc(t.yUnit) + '.</div>' : '') +
-      '<div class="row" style="margin-top:8px"><button class="btn sm" data-audit-window>&#8649; Apply this window to all traces</button></div>';
+      '<div class="row" style="margin-top:8px"><button class="btn sm" data-audit-window>&#8649; Apply this window to all traces</button>' + (clusterOf(t, idx).length > 1 ? '<button class="btn sm" data-audit-split>Split…</button>' : '') + '</div>';
+    pop.setAttribute('aria-labelledby', 'audit-title');
     pop.hidden = false;
-    var r = anchor ? anchor.getBoundingClientRect() : { left: 100, bottom: 100, top: 100 }, pw = pop.offsetWidth, ph = pop.offsetHeight;
+    var r = anchor && document.contains(anchor) ? anchor.getBoundingClientRect() : (pop._rect || { left: 100, bottom: 100, top: 100 }), pw = pop.offsetWidth, ph = pop.offsetHeight;
+    pop._rect = { left: r.left, bottom: r.bottom, top: r.top };
     var left = Math.min(Math.max(8, r.left - pw / 2), window.innerWidth - pw - 8), top = r.bottom + 6;
     if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
     pop.style.left = left + 'px'; pop.style.top = top + 'px';
-    pop._ctx = { t: t, idx: idx, anchor: anchor };
-    var c = pop.querySelector('[data-close-audit]'); if (c) c.focus();
+    pop._ctx = { t: t, idx: idx, anchor: anchor && document.contains(anchor) ? anchor : (pop._ctx && pop._ctx.anchor), only: only, tab: tab };
+    var c = pop.querySelector(tab === (state.auditFocusTab || '') ? '[data-audit-tab="' + tab + '"]' : '[data-close-audit]'); state.auditFocusTab = null; if (c) c.focus();
   }
   function hideAudit() { var pop = $('audit-pop'); if (pop && !pop.hidden) { pop.hidden = true; var a = pop._ctx && pop._ctx.anchor; if (a && a.focus && document.contains(a)) a.focus(); } }
   function bindAudit() {
@@ -1312,9 +1587,15 @@
     pop.addEventListener('click', function (e) {
       if (e.target.closest('[data-close-audit]')) hideAudit();
       else if (e.target.closest('[data-audit-window]') && pop._ctx) { var c = pop._ctx; hideAudit(); applyWindowToAll(c.t, c.t.peaks[c.idx]); }
+      else if (e.target.closest('[data-audit-split]') && pop._ctx) { var c2 = pop._ctx; hideAudit(); openClipDialog(c2.t, clusterOf(c2.t, c2.idx), { reason: 'split' }); }
+      else if (e.target.closest('[data-audit-tab]') && pop._ctx) { var c3 = pop._ctx; state.auditFocusTab = e.target.closest('[data-audit-tab]').getAttribute('data-audit-tab'); showAudit(c3.t, c3.idx, c3.only, c3.anchor, state.auditFocusTab); }
     });
     pop.addEventListener('change', function (e) { if (e.target.hasAttribute('data-audit-name') && pop._ctx) { var c = pop._ctx, pk = c.t.peaks[c.idx]; if (pk) setPeakLabel(c.t, pk.id, e.target.value); } });
-    pop.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.hasAttribute('data-audit-name')) e.target.blur(); });
+    pop.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.hasAttribute('data-audit-name')) e.target.blur();
+      else if (e.key === 'Tab') trapFocus(pop, e);
+      else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.target.hasAttribute('data-audit-tab') && pop._ctx) { var c = pop._ctx; state.auditFocusTab = c.tab === 'values' ? 'integration' : 'values'; showAudit(c.t, c.idx, c.only, c.anchor, state.auditFocusTab); }
+    });
     document.addEventListener('mousedown', function (e) { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('[data-audit],[data-row="audit"]')) hideAudit(); });
   }
 
@@ -1337,7 +1618,7 @@
     if (e - s < (pr.x[1] - pr.x[0]) * 2) return null;
     var np = null, iw = an('integrateWindow');
     if (iw) { try { np = iw(pr.x, pr.y, s, e); } catch (er) { np = null; } }
-    np = { id: (np && np.id) || PK.uid('pk'), start: s, apex: np && isNum(np.apex) ? np.apex : apexIn(pr, s, e), end: e, manual: true };
+    np = { id: (np && np.id) || PK.uid('pk'), start: s, apex: np && isNum(np.apex) ? np.apex : apexIn(pr, s, e), end: e, manual: true, clip: 'valley' }; // manual windows: straight line between the clicked points
     if (opts.label) np.label = opts.label;
     t.peaks = t.peaks.filter(function (q) { return !(q.apex >= s && q.apex <= e); });
     t.peaks.push(np); t.peaks.sort(function (a, b) { return a.apex - b.apex; });
@@ -1414,7 +1695,7 @@
     if (cd.vis.length < 1 || !cd.groups.length) { tb.innerHTML = '<tbody><tr><td class="table-empty">' + (cd.vis.length < 2 ? 'Show two or more traces to compare peaks across runs.' : 'No peaks to compare. Detect peaks on each trace, or integrate a window and apply it to all traces (⇉).') + '</td></tr></tbody>'; return; }
     var refId = cd.ref && cd.ref.id, xu = cd.ref && cd.ref.xUnit === 'mL' ? 'mL' : 'min';
     var h1 = '<tr><th scope="col" rowspan="2">Peak group</th>' + cd.vis.map(function (t) { var ref = t.id === refId; return '<th scope="colgroup" colspan="' + (ref ? 4 : 6) + '" style="text-align:center;border-left:1px solid var(--border)"><span class="swatch" style="background:' + esc(t.style.color) + '"></span>' + esc(t.name) + (ref ? ' (ref)' : '') + '</th>'; }).join('') + '</tr>';
-    var h2 = '<tr>' + cd.vis.map(function (t) { var ref = t.id === refId; return '<th style="border-left:1px solid var(--border)">RT</th><th>Area</th><th>Area %</th><th>Height</th>' + (ref ? '' : '<th>ΔRT</th><th>Area ratio</th>'); }).join('') + '</tr>';
+    var h2 = '<tr>' + cd.vis.map(function (t) { var ref = t.id === refId; return '<th scope="col" style="border-left:1px solid var(--border)">RT</th><th scope="col">Area</th><th scope="col">Area %</th><th scope="col">Height</th>' + (ref ? '' : '<th scope="col">ΔRT</th><th scope="col">Area ratio</th>'); }).join('') + '</tr>';
     var hlKey = state.compareGroupRt;
     var rows = cd.groups.map(function (g) {
       var refP = refId && g.members[refId], lbl = groupLabel(g.rt, cd.tol, g), sel = isNum(hlKey) && Math.abs(hlKey - g.rt) < 1e-9;
@@ -1452,7 +1733,7 @@
   }
   function compareCSV() {
     var cd = compareData(), refId = cd.ref && cd.ref.id, L = [];
-    L.push('# Peakly ' + (PK.version || '') + ' cross-trace peak comparison');
+    L.push('# Peakly ' + appVersion() + ' cross-trace peak comparison');
     L.push('# Exported ' + new Date().toISOString() + '; RT matching tolerance ' + cd.tol + ' (after per-trace RT offsets); reference: ' + (cd.ref ? cd.ref.name : '—'));
     L.push('# RT values include each trace\'s display offset (alignment). Area ratio = area / reference area. ΔRT = RT − reference RT.');
     cd.vis.forEach(function (t) { if (t.digitized) L.push('# ' + t.name + ': DIGITIZED from an image, RT uncertainty ±' + t.digitized.dxMin + ' ' + t.xUnit); });
@@ -1746,8 +2027,10 @@
   function showModal(name) {
     var el = $('modal-' + name); if (!el) return;
     if (el.hidden) { el._prevFocus = document.activeElement; el.hidden = false; modalStack.push(name); }
+    if (!el._pkTrap && name !== 'digitizer') { el._pkTrap = true; el.addEventListener('keydown', function (e) { if (e.key === 'Tab') trapFocus(el.querySelector('.pk-modal-card') || el, e); }); }
     setTimeout(function () {
       if (name === 'digitizer') return; // the digitizer manages its own focus
+      if (name === 'about' || name === 'math') { var cb = el.querySelector('[data-close]'); if (cb) cb.focus(); return; }
       var f = el.querySelector('.pk-modal-body input:not([type=hidden]), .pk-modal-body select, .pk-modal-body textarea, .pk-modal-body button, .pk-modal-body [tabindex="0"]');
       (f || el.querySelector('[data-close]')).focus();
     }, 30);
@@ -1765,6 +2048,9 @@
     if (!HAS_DOM) return;
     if (isOpen('method')) renderMethod();
     if (isOpen('export')) renderExport();
+    if (isOpen('calib')) { state.calCache = {}; renderCalibration(); }
+    if (isOpen('math')) renderMathModal();
+    if (isOpen('clip')) hideModal('clip');
   }
   app.openPanel = function (name) {
     if (!HAS_DOM) return;
@@ -1777,6 +2063,9 @@
       case 'share': renderShare(); showModal('share'); break;
       case 'paste': showModal('paste'); break;
       case 'help': renderHelp(); showModal('help'); break;
+      case 'about': renderAbout(); showModal('about'); break;
+      case 'calibration': openCalibration(); break;
+      case 'math': openMathModal(); break;
       case 'fallback': openFallback({}); break;
       default: console.warn('Unknown panel', name);
     }
@@ -1847,7 +2136,7 @@
   }
   function renderGradTable() {
     var tb = $('m-grad'); if (!tb) return; var g = P().method.gradient, ci = concInfo(P().method);
-    tb.innerHTML = '<thead><tr><th>Time (min)</th><th>%B' + (ci ? ' (' + ci.unit + ')' : '') + '</th><th>Flow (mL/min)</th><th></th></tr></thead><tbody>' +
+    tb.innerHTML = '<thead><tr><th scope="col">Time (min)</th><th scope="col">%B' + (ci ? ' (' + ci.unit + ')' : '') + '</th><th scope="col">Flow (mL/min)</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
       (g.length ? g.map(function (r, i) {
         return '<tr><td><input type="number" step="any" data-g="' + i + '.t" value="' + esc(r.t) + '" aria-label="Row ' + (i + 1) + ' time"></td><td><input type="number" step="any" min="0" max="100" data-g="' + i + '.B" value="' + esc(r.B) + '" aria-label="Row ' + (i + 1) + ' percent B"></td>' +
           '<td><input type="number" step="any" min="0" data-g="' + i + '.flow" value="' + esc(r.flow == null ? '' : r.flow) + '" placeholder="' + esc(P().method.flow || '') + '" aria-label="Row ' + (i + 1) + ' flow"></td><td><button class="btn ghost sm icon danger" data-gdel="' + i + '" aria-label="Remove row ' + (i + 1) + '">&#10005;</button></td></tr>';
@@ -1955,7 +2244,7 @@
       (t ? '<div class="row" style="margin-bottom:8px"><select id="ri-trace" aria-label="Trace">' + mains.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === t.id ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('') + '</select>' +
         '<button class="btn sm" id="ri-prefill" title="Fill empty fields from metadata found in the file">Pre-fill from file</button><button class="btn sm ghost" id="ri-copy" title="Copy instrument, column, method and operator to the other traces">Copy to all traces</button></div>' +
         fields(t.id, t.meta.run || {}, d) +
-        (metaKeys.length ? '<details><summary class="small muted">Metadata found in the file (' + metaKeys.length + ')</summary><table class="plain small">' + metaKeys.slice(0, 80).map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + esc(String(t.meta[k]).slice(0, 120)) + '</td></tr>'; }).join('') + '</table></details>' : '')
+        (metaKeys.length ? '<details><summary class="small muted">Metadata found in the file (' + metaKeys.length + ')</summary><table class="plain small">' + metaKeys.slice(0, 80).map(function (k) { return '<tr><th scope="row" style="font-weight:500">' + esc(k) + '</th><td>' + esc(String(t.meta[k]).slice(0, 120)) + '</td></tr>'; }).join('') + '</table></details>' : '')
         : '<p class="muted">No traces yet.</p>') +
       '</div><div><h3 style="margin-top:0">Project defaults</h3><p class="small muted" style="margin-top:0">Used for any field a trace leaves empty (shown as placeholders on the left).</p>' + fields('project', d, null) + '</div></div>';
   }
@@ -1977,7 +2266,7 @@
       '</div><div>' +
       '<div class="section"><h3>Tables &amp; data</h3>' +
       '<div class="row"><button class="btn" data-ex="peaks">Peak table (CSV): active trace</button><button class="btn" data-ex="peaks-all">Peak tables (CSV): all visible</button></div>' +
-      '<div class="row" style="margin-top:6px"><button class="btn" data-ex="compare">Comparison table (CSV)</button></div>' +
+      '<div class="row" style="margin-top:6px"><button class="btn" data-ex="compare">Comparison table (CSV)</button><button class="btn" data-ex="cal-csv">Calibration (CSV)</button><button class="btn" data-ex="cal-json">Calibration (JSON)</button></div>' +
       '<div class="row" style="margin-top:10px"><label class="inline">Traces <select id="ex-scope"><option value="active">active</option><option value="visible">visible</option><option value="all">all</option></select></label>' +
       '<button class="btn" data-ex="xy-csv">x,y CSV</button><button class="btn" data-ex="xy-json">JSON</button></div>' +
       '<p class="small muted">Digitized traces are flagged in headers along with their ± uncertainty.</p></div>' +
@@ -2008,6 +2297,8 @@
         else if (k === 'compare') U.downloadText(compareCSV(), fileSafe(P().name) + '_comparison.csv', 'text/csv');
         else if (k === 'xy-csv' || k === 'xy-json') exportXY(k === 'xy-json' ? 'json' : 'csv');
         else if (k === 'save') saveProject();
+        else if (k === 'cal-csv') U.downloadText(calibrationCSV(), fileSafe(P().name) + '_calibration.csv', 'text/csv');
+        else if (k === 'cal-json') U.downloadText(JSON.stringify(calibrationJSON(), null, 1), fileSafe(P().name) + '_calibration.json', 'application/json');
         else if (k === 'load') $('project-input').click();
       } catch (err) { console.error(err); toast('Export failed: ' + err.message, 'error'); }
     });
@@ -2043,23 +2334,31 @@
         fwhm: m.fwhm, tailing: m.tailing, plates: m.plates, resolution: m.resolution, sn: m.sn, k: cellValue('kprime', t, pk, m, i, ctx), fitArea: fc ? fc.area : null, fitSE: fc ? fc.areaSE : null, manual: !!pk.manual };
     });
   }
+  /** Schema rows for the given traces (PK.schema.peakTableRows with the app's cached metrics, integration and calibration). */
+  function schemaPeakRows(ts) {
+    var ids = ts.map(function (t) { return t.id; });
+    return SCH.peakTableRows(P(), { traceIds: ids, metrics: function (t) { return withAreaPct(metricsFor(t)); }, integration: function (t) { return integrationFor(t); },
+      extra: function (t, pk, i, m) {
+        var ctx = tableCtx(t), fc = fitComp(t, pk, i), q = ctx.conc[i], o = { elution: cellValue('pctB', t, pk, m, i, ctx), k_prime: cellValue('kprime', t, pk, m, i, ctx), fit_area: fc ? fc.area : null, fit_area_se: fc ? fc.areaSE : null };
+        if (q) { o.analyte = q.analyte.name; o.conc = q.x; o.conc_lo = isNum(q.lo) ? q.lo : null; o.conc_hi = isNum(q.hi) ? q.hi : null; o.conc_flags = q.flags.join(';'); }
+        Object.keys(o).forEach(function (k) { if (typeof o[k] === 'number' && !isFinite(o[k])) o[k] = null; });
+        return o;
+      } });
+  }
+  app.peakRows = function (traceIds) { return SCH ? schemaPeakRows(P().traces.filter(function (t) { return !traceIds || traceIds.indexOf(t.id) >= 0; }).filter(function (t) { return !isAux(t); })) : []; };
   function peakCSV(t) {
-    var L = [], xu = t.xUnit, ci = concInfo(P().method), F = (PK.analysis && PK.analysis.FORMULAS) || {};
-    L.push('# Peakly ' + (PK.version || '') + ' peak table');
-    L.push('# Trace: ' + t.name + ' | source: ' + [t.source.kind, t.source.format, t.source.filename].filter(Boolean).join(', '));
-    L.push('# Exported: ' + new Date().toISOString());
-    L.push('# Units: RT/start/end/W_half [' + xu + ']; height [' + t.yUnit + ']; area [' + t.yUnit + '*' + xu + ']; ' + (ci ? 'elution conc [' + ci.unit + ']' : '%B at elution [%]'));
-    L.push('# Processing: ' + procSummary(t));
-    ['area', 'fwhm', 'tailing', 'plates', 'resolution', 'sn', 'k', 'Bat'].forEach(function (k) { if (F[k]) L.push('# ' + (F[k].name || k) + ': ' + F[k].expr); });
-    L.push('# Integration: trapezoid above a straight drop-line between the signal at start and end.');
-    if (t.digitized) L.push('# DIGITIZED from an image: values are estimates. RT uncertainty +/-' + t.digitized.dxMin + ' ' + xu + ', y uncertainty +/-' + t.digitized.dy + ' ' + t.yUnit + ' (pixel size).');
-    var cols = ['#', 'name', 'RT_' + xu, 'RT_uncertainty_' + xu, 'start_' + xu, 'end_' + xu, ci ? 'elution_' + ci.unit : 'pctB_elution', 'height', 'area', 'area_pct', 'W_half_' + xu, 'tailing_USP', 'plates_N', 'Rs', 'S_N', 'k_prime', 'fit_area', 'fit_area_SE', 'digitized', 'manual'];
-    L.push(cols.join(','));
-    peakRows(t).forEach(function (r) {
-      L.push([r.i, r.name, r.rt, r.unc, r.start, r.end, r.pctB, r.height, r.area, r.areaPct, r.fwhm, r.tailing, r.plates, r.resolution, r.sn, r.k, r.fitArea, r.fitSE, t.digitized ? 'yes' : 'no', r.manual ? 'yes' : 'no']
-        .map(function (v) { return csvCell(typeof v === 'number' ? (isFinite(v) ? +v.toPrecision(8) : '') : v == null ? '' : v); }).join(','));
-    });
-    return L.join('\n') + '\n';
+    if (!SCH) return '# Peakly schema module missing\n';
+    var ci = concInfo(P().method), F = (PK.analysis && PK.analysis.FORMULAS) || {}, cm = [];
+    cm.push('Peakly ' + appVersion() + ' peak table · export schema v' + PROJECT_VERSION + ' (columns documented in docs/SCHEMA.md)');
+    cm.push('Trace: ' + t.name + ' | source: ' + [t.source.kind, t.source.format, t.source.filename].filter(Boolean).join(', '));
+    cm.push('Exported: ' + new Date().toISOString());
+    cm.push('Processing: ' + procSummary(t));
+    ['area', 'fwhm', 'tailing', 'plates', 'resolution', 'sn', 'k', 'Bat'].forEach(function (k) { if (F[k]) cm.push((F[k].name || k) + ': ' + F[k].expr); });
+    cm.push('Integration: default clip = ' + (P().settings.clipDefault || 'drop') + ' (' + (CLIP_HELP[P().settings.clipDefault || 'drop'] || '') + ') Per-peak clip and baseline are in the clip / baseline_kind columns; area = net area above the applied baseline.');
+    t.peaks.forEach(function (pk, i) { cm.push('integration ' + integrationSummary(t, i)); });
+    if (t.digitized) cm.push('DIGITIZED from an image: values are estimates. RT uncertainty +/-' + t.digitized.dxMin + ' ' + t.xUnit + ', y uncertainty +/-' + t.digitized.dy + ' ' + t.yUnit + ' (pixel size).');
+    var cols = SCH.peakColumns(t, { eluUnit: ci ? ci.unit : '%B', concUnit: (P().calibration && P().calibration.unit) || '' });
+    return SCH.toCSV(cols, schemaPeakRows([t]), { comments: cm });
   }
   function downloadPeaks(ts) {
     ts = ts.filter(function (t) { return t && !isAux(t); });
@@ -2075,20 +2374,25 @@
   function exportXY(kind) {
     var ts = scopeTraces(state.exp.scope); if (!ts.length) { toast('No traces to export.', 'warn'); return; }
     if (kind === 'json') {
-      var o = { app: 'Peakly', version: PK.version, exported: new Date().toISOString(), traces: ts.map(function (t) {
-        var pr = processed(t); return { name: t.name, xUnit: t.xUnit, yUnit: t.yUnit, source: t.source, digitized: t.digitized ? { dxMin: t.digitized.dxMin, dy: t.digitized.dy, note: 'digitized from an image; values are estimates' } : false,
-          run: effectiveRun(t), x: t.x, y: t.y, yProcessed: pr.y, peaks: t.peaks };
-      }) };
+      var ids = ts.map(function (t) { return t.id; });
+      var o = { schema: { name: 'peakly-traces', version: PROJECT_VERSION }, app: 'Peakly', version: appVersion(), exported: new Date().toISOString(),
+        columns: SCH ? { peaks: SCH.PEAK_COLUMNS, traces: SCH.TRACE_COLUMNS } : undefined,
+        traceRows: SCH ? SCH.traceRows(P(), { traceIds: ids, procSummary: procSummary }) : [], peakRows: SCH ? schemaPeakRows(ts.filter(function (t) { return !isAux(t); })) : [],
+        traces: ts.map(function (t) {
+          var pr = processed(t); return { id: t.id, name: t.name, xUnit: t.xUnit, yUnit: t.yUnit, source: t.source, digitized: t.digitized ? { dxMin: t.digitized.dxMin, dy: t.digitized.dy, note: 'digitized from an image; values are estimates' } : false,
+            run: effectiveRun(t), x: t.x, y: t.y, yProcessed: pr.y, peaks: t.peaks };
+        }), calibration: (P().calibration && P().calibration.analytes.length) ? calibrationJSON() : null };
       U.downloadText(JSON.stringify(o), fileSafe(P().name) + '_traces.json', 'application/json'); return;
     }
-    var L = ['# Peakly ' + (PK.version || '') + ' trace data (long format). y = raw signal, y_processed = smoothed & baseline-corrected.'];
+    var L = ['# Peakly ' + appVersion() + ' trace data (long format) · export schema v' + PROJECT_VERSION + '. y = raw signal, y_processed = smoothed & baseline-corrected.'];
     ts.forEach(function (t) { L.push('# ' + t.name + ': x [' + t.xUnit + '], y [' + t.yUnit + ']' + (t.digitized ? '; DIGITIZED from an image, uncertainty +/-' + t.digitized.dxMin + ' ' + t.xUnit + ', +/-' + t.digitized.dy + ' ' + t.yUnit : '')); });
-    L.push('trace,x,y,y_processed,digitized');
-    ts.forEach(function (t) { var pr = processed(t), nm = csvCell(t.name), dg = t.digitized ? 'yes' : 'no'; for (var i = 0; i < t.x.length; i++) L.push(nm + ',' + t.x[i] + ',' + t.y[i] + ',' + (+pr.y[i].toPrecision(10)) + ',' + dg); });
+    L.push('# units: trace_id=-, trace_name=-, x=' + (ts[0].xUnit) + ', y=' + ts[0].yUnit + ', y_processed=' + ts[0].yUnit + ', digitized=-');
+    L.push('trace_id,trace_name,x,y,y_processed,digitized');
+    ts.forEach(function (t) { var pr = processed(t), id = csvCell(t.id), nm = csvCell(t.name), dg = t.digitized ? 'true' : 'false'; for (var i = 0; i < t.x.length; i++) L.push(id + ',' + nm + ',' + t.x[i] + ',' + t.y[i] + ',' + (+pr.y[i].toPrecision(10)) + ',' + dg); });
     U.downloadText(L.join('\n') + '\n', fileSafe(P().name) + '_traces.csv', 'text/csv');
   }
   function saveProject() {
-    var p = clone(P()); p.format = FORMAT_TAG; p.version = 1; p.app = 'Peakly'; p.peaklyVersion = PK.version; p.saved = new Date().toISOString();
+    var p = clone(P()); p.format = FORMAT_TAG; p.version = PROJECT_VERSION; p.schema = { name: FORMAT_TAG, version: PROJECT_VERSION }; p.app = 'Peakly'; p.peaklyVersion = appVersion(); p.saved = new Date().toISOString();
     p.traces.forEach(function (t) { if (t.meta) delete t.meta._src; });
     U.downloadText(JSON.stringify(p), fileSafe(p.name) + '.peakly.json', 'application/json');
     toast('Project saved (' + Math.round(JSON.stringify(p).length / 1024) + ' KB)', 'ok');
@@ -2103,7 +2407,14 @@
     if (isEmpty()) { toast('Nothing to report yet.', 'warn'); return; }
     toast('Building PDF…', 'info');
     var imgP = typeof Plotly !== 'undefined' ? figureImage('png', 1600, 800, 1, { grad: true, ghost: false }).catch(function () { return null; }) : Promise.resolve(null);
-    imgP.then(function (img) {
+    var cals = (calibrationCtx().analytes || []).map(function (a) { return calibrationFor(a); });
+    var calImgs = Promise.all(cals.map(function (r) {
+      if (!r.fit || typeof Plotly === 'undefined') return Promise.resolve(null);
+      var f = calFigure(r, { width: 1000, height: 560, title: 'Calibration: ' + r.analyte.name });
+      return Plotly.toImage({ data: f.data, layout: f.layout, config: { displayModeBar: false } }, { format: 'png', width: 1000, height: 560, scale: 1 }).catch(function () { return null; });
+    }));
+    Promise.all([imgP, calImgs]).then(function (both) {
+      var img = both[0], calImgList = both[1];
       var doc = new J({ unit: 'mm', format: 'a4' }), W = 210, H = 297, M = 14, y = M, CW = W - 2 * M, p = P();
       function need(h) { if (y + h > H - 14) { doc.addPage(); y = M; } }
       function text(s, size, style, color) { doc.setFont('helvetica', style || 'normal'); doc.setFontSize(size || 9); if (Array.isArray(color)) doc.setTextColor(color[0], color[1], color[2]); else doc.setTextColor(color || 0); var lines = doc.splitTextToSize(pdfSafe(s), CW); need(lines.length * size * 0.42 + 1); doc.text(lines, M, y + size * 0.35); y += lines.length * size * 0.42 + 1.2; }
@@ -2122,7 +2433,7 @@
       }
       var mains = p.traces.filter(function (t) { return !isAux(t) && t.style.visible !== false; }), anyDig = p.traces.some(function (t) { return t.digitized; });
       text(isDefaultTitle(p.name) ? 'Chromatogram report' : p.name, 17, 'bold');
-      text('Generated ' + new Date().toLocaleString() + ' with Peakly ' + (PK.version || '') + ' (runs in the browser; no data leaves your computer)', 8.5, 'normal', 90);
+      text('Generated ' + new Date().toLocaleString() + ' with Peakly ' + appVersion() + ' (runs in the browser; no data leaves your computer)', 8.5, 'normal', 90);
       if (anyDig) text('Contains DIGITIZED data reconstructed from an image. Values are estimates (see uncertainty notes).', 9, 'bold', [180, 83, 9]);
       // method
       var m = p.method, c = m.column || {}, t0 = voidTime(m), ci = concInfo(m);
@@ -2144,14 +2455,30 @@
       mains.forEach(function (t) {
         if (!t.peaks.length) return;
         h2('Peaks: ' + t.name + (t.digitized ? ' [digitized, RT +/-' + fmt(t.digitized.dxMin, 2) + ' ' + t.xUnit + ']' : ''));
-        var rows = peakRows(t), hasB = rows.some(function (r) { return isNum(r.pctB); }), hasK = rows.some(function (r) { return isNum(r.k); });
-        var cols = ['#', 'Name', 'RT', hasB ? (ci ? ci.unit : '%B') : null, 'Height', 'Area', 'Area %', 'W1/2', 'Tail', 'N', 'Rs', 'S/N', hasK ? "k'" : null], wid = [6, 22, 14, hasB ? 12 : 0, 15, 17, 12, 12, 10, 14, 10, 12, hasK ? 10 : 0];
-        var keep = cols.map(function (cc) { return cc != null; });
-        table(cols.filter(Boolean), rows.map(function (r) {
-          var a = [r.i, r.name, fmt(r.rt, 5), fmt(r.pctB, 3), fmt(r.height, 4), fmt(r.area, 4), fmt(r.areaPct, 4), fmt(r.fwhm, 3), fmt(r.tailing, 3), fmt(r.plates, 4), fmt(r.resolution, 3), fmt(r.sn, 3), fmt(r.k, 3)];
+        var rows = peakRows(t), hasB = rows.some(function (r) { return isNum(r.pctB); }), hasK = rows.some(function (r) { return isNum(r.k); }), cq = concForTrace(t), hasC = cq.some(Boolean), cu = calibrationCtx().unit || '';
+        var cols = ['#', 'Name', 'RT', hasB ? (ci ? ci.unit : '%B') : null, 'Height', 'Area', 'Area %', 'Clip', hasC ? 'Conc ' + cu : null, 'W1/2', 'Tail', 'N', 'Rs', 'S/N', hasK ? "k'" : null], wid = [6, 20, 13, hasB ? 11 : 0, 14, 16, 11, 13, hasC ? 22 : 0, 11, 9, 13, 9, 11, hasK ? 9 : 0];
+        var keep = cols.map(function (cc) { return cc != null; }), igs = integrationFor(t);
+        table(cols.filter(Boolean), rows.map(function (r, ri) {
+          var q = cq[ri], cs = q ? fmt(q.x, 4) + (isNum(q.lo) ? ' +/- ' + fmt((q.hi - q.lo) / 2, 2) : '') + (q.flags.length ? ' ' + q.flags.map(function (f) { return CONC_FLAG_LABEL[f]; }).join(' ') : '') : '';
+          var a = [r.i, r.name, fmt(r.rt, 5), fmt(r.pctB, 3), fmt(r.height, 4), fmt(r.area, 4), fmt(r.areaPct, 4), igs[ri] ? igs[ri].clip : '', cs, fmt(r.fwhm, 3), fmt(r.tailing, 3), fmt(r.plates, 4), fmt(r.resolution, 3), fmt(r.sn, 3), fmt(r.k, 3)];
           return a.filter(function (_, i) { return keep[i]; }).map(String);
         }), wid.filter(function (_, i) { return keep[i]; }), 7);
+        text('Integration (default clip: ' + (CLIP_LABELS[p.settings.clipDefault || 'drop']) + '; area = net area above the applied baseline, ' + t.yUnit + '*' + t.xUnit + '):', 7.5, 'bold');
+        t.peaks.forEach(function (pk, k) { text(integrationSummary(t, k), 7); });
         if (t.fit) text('Peak fit (' + t.fit.model + '): R2 = ' + fmt(t.fit.r2, 5) + '. Fitted areas: ' + rows.filter(function (r) { return isNum(r.fitArea); }).map(function (r) { return '#' + r.i + ' ' + fmt(r.fitArea, 4) + ' +/- ' + fmt(r.fitSE, 2); }).join('; '), 8);
+      });
+      // calibration
+      cals.forEach(function (r, ci0) {
+        var a = r.analyte, fit = r.fit, cu = calibrationCtx().unit || '';
+        h2('Calibration: ' + a.name + ' (RT ' + fmt(a.peakMatch.rt, 4) + ' +/- ' + fmt(a.peakMatch.tol, 3) + ', ' + a.response + ', ' + a.model + ', weighting ' + a.weighting + ')');
+        if (!fit) { text('No fit: ' + r.err, 8.5); return; }
+        var sm = fitSummary(a, fit);
+        text(sm.equation + '   R2 = ' + fmt(fit.r2, 6) + '   s_y/x = ' + fmt(fit.syx, 4) + '   n = ' + fit.n + '   LOD = ' + fmt(fit.lod, 4) + ' ' + cu + '   LOQ = ' + fmt(fit.loq, 4) + ' ' + cu, 8.5, 'bold');
+        text('Coefficients: ' + Object.keys(sm.coefficients).filter(function (k) { return !/_se$/.test(k); }).map(function (k) { return k + ' = ' + fmt(sm.coefficients[k], 6) + ' +/- ' + fmt(sm.coefficients[k + '_se'], 3); }).join('; ') + '. LOD = 3.3 s_y/x / slope, LOQ = 10 s_y/x / slope (ICH Q2).', 7.5);
+        var ci2 = calImgList[ci0]; if (ci2) { need(CW * 0.56 * 0.8 + 4); doc.addImage(ci2, 'PNG', M + CW * 0.1, y, CW * 0.8, CW * 0.8 * 0.56, undefined, 'FAST'); y += CW * 0.8 * 0.56 + 3; }
+        table(['Level', 'Trace', 'Conc ' + cu, 'Response', 'Used', 'Residual', 'Back-calc', 'Recovery %'], calLevelRows(a, r).map(function (l) { return [String(l.level), l.trace_name || '(typed)', fmt(l.conc, 5), fmt(l.response, 5), l.included ? 'yes' : 'no', fmt(l.residual, 3), fmt(l.back_calc_conc, 4), fmt(l.recovery_pct, 4)]; }), [10, 40, 16, 18, 10, 16, 16, 14], 7);
+        var un = calUnknowns(a);
+        if (un.length) table(['Unknown', 'Response', 'Conc ' + cu, '95 % interval', 'Flags'], un.map(function (u) { return [u.trace_name, fmt(u.response, 5), fmt(u.conc, 5), '[' + fmt(u.conc_lo, 4) + ', ' + fmt(u.conc_hi, 4) + ']', u.flags.join(', ')]; }), [50, 22, 22, 36, 30], 7.5);
       });
       // comparison
       if (state.view === 'compare' && mains.length > 1) {
@@ -2171,12 +2498,13 @@
       h2('Audit notes');
       var F = (PK.analysis && PK.analysis.FORMULAS) || {};
       Object.keys(F).forEach(function (k) { var f = F[k]; text((f.name || k) + ': ' + (f.expr || '') + (f.description ? '. ' + f.description : '') + (f.ref ? ' [' + f.ref + ']' : ''), 7.5); });
-      text('Integration: trapezoid rule above a straight drop-line baseline between the signal values at the start and end bounds. Manually set bounds are marked "manual" in the CSV export.', 7.5);
+      text('Integration: trapezoid rule; each peak\'s area is the net area above its applied baseline (clip modes: ' + CLIP_MODES.map(function (m0) { return m0 + ' = ' + (CLIP_HELP[m0] || ''); }).join(' ') + ') Manually set bounds are marked "manual" in the CSV export.', 7.5);
       mains.forEach(function (t) { text('Processing of "' + t.name + '": ' + procSummary(t) + (num(t.style.offset, 0) ? '; display RT offset ' + t.style.offset : ''), 7.5); });
       if (anyDig) text('Digitized-data disclaimer: traces marked digitized were reconstructed from an image by color masking and axis calibration. Their accuracy is limited by image resolution, line thickness and calibration. The stated +/- values reflect pixel size only. Do not use them for regulated decisions without checking against the original instrument data.', 7.5, 'bold');
-      text('Privacy: this report was generated entirely in your browser by Peakly ' + (PK.version || '') + '. No data was uploaded. Peakly has no tracking or analytics.', 7.5, 'normal', 90);
+      text('Privacy: this report was generated entirely in your browser by Peakly ' + appVersion() + '. No data was uploaded. Peakly has no tracking or analytics.', 7.5, 'normal', 90);
       var np = doc.getNumberOfPages();
-      for (var i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(pdfSafe('Peakly ' + (PK.version || '') + ' · page ' + i + ' / ' + np), W - M, H - 7, { align: 'right' }); }
+      var disc = pdfSafe((PK.config && PK.config.disclaimer) || '');
+      for (var i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(disc, M, H - 10.5); doc.text(pdfSafe('Peakly ' + appVersion() + ' · page ' + i + ' / ' + np), W - M, H - 7, { align: 'right' }); }
       doc.save(fileSafe(p.name) + '_report.pdf'); toast('PDF report saved', 'ok');
     }).catch(function (err) { console.error(err); toast('PDF export failed: ' + err.message, 'error'); });
   }
@@ -2220,9 +2548,13 @@
   }
 
   /* ================================================================== help + self-test */
+  function renderDisclaimers() {
+    var d = (PK.config && PK.config.disclaimer) || '';
+    toArr(document.querySelectorAll('[data-disclaimer]')).forEach(function (el) { el.textContent = d; });
+  }
   function renderHelp() {
     var f = $('help-formats'); if (f) f.innerHTML = formatsList();
-    var v1 = $('help-version'), v2 = $('foot-version'); if (v1) v1.textContent = PK.version || ''; if (v2) v2.textContent = PK.version || '';
+    var v1 = $('help-version'), v2 = $('foot-version'); if (v1) v1.textContent = appVersion(); if (v2) v2.textContent = appVersion();
     var fm = $('help-formulas'), F = (PK.analysis && PK.analysis.FORMULAS) || null;
     if (fm) fm.innerHTML = F ? '<table class="plain">' + Object.keys(F).map(function (k) { var x = F[k]; return '<tr><td><strong>' + esc(x.name || k) + '</strong><br><span class="mono">' + esc(x.expr || '') + '</span></td><td class="muted">' + esc(x.description || '') + (x.ref ? ' <em>' + esc(x.ref) + '</em>' : '') + '</td></tr>'; }).join('') + '</table>' : '<p class="muted">The analysis module is not loaded.</p>';
   }
@@ -2297,7 +2629,7 @@
     if (!url) { toast('Could not create the sample image.', 'error'); return; }
     openDigitizer({ dataURL: url, name: 'sample-chromatogram.png' });
   }
-  app.loadSample = function (kind) { if (kind === 'fplc') loadSampleFPLC(); else if (kind === 'image') loadSampleImage(); else loadSampleHPLC(); };
+  app.loadSample = function (kind, o) { if (kind === 'fplc') loadSampleFPLC(); else if (kind === 'image') loadSampleImage(); else if (kind === 'calibration') loadSampleCalibration(o || { open: false }); else loadSampleHPLC(); };
 
   /* ================================================================== curve-tracing cursor + click-to-integrate */
   state.cursorOn = true; state.cursor = { traceId: null, idx: null, xDisp: null }; state.integ = null;
@@ -2413,6 +2745,8 @@
     state.selPeakId = np.id; renderAll();
     var ms = withAreaPct(metricsFor(t)), i = -1; t.peaks.forEach(function (p, k) { if (p.id === np.id) i = k; });
     var m = ms[i] || {};
+    var cl = clusterOf(t, i);
+    if (cl.length > 1 && P().settings.askClip !== false && !state.demo) { openClipDialog(t, cl, { reason: 'integrate' }); return; }
     toast('Integrated ' + fmt(np.start, 5) + '–' + fmt(np.end, 5) + ' ' + t.xUnit + ': RT ' + fmt(m.rt, 5) + ', area ' + fmt(m.area, 5) + '. Use ⇉ in the table to apply this window to all traces.', 'ok');
   }
   function snapNative(t, ev) {
@@ -2523,6 +2857,7 @@
       else if (id === 'po-grid') s.grid = e.target.checked;
       else if (id === 'po-mirror') s.mirror = e.target.checked;
       else if (id === 'po-dark') s.darkPlot = e.target.checked;
+      else if (id === 'po-dash') s.lineStyles = e.target.checked;
       else if (id === 'po-cap') s.caption = e.target.checked;
       else if (id === 'po-ev') s.showEvents = e.target.checked;
       else if (id === 'po-title') p_setTitle(e.target.value);
@@ -2534,12 +2869,13 @@
   function renderPlotMenu() {
     var s = P().settings, menu = $('plot-menu'), l = s.labels || {};
     menu.innerHTML = '<label class="field"><span>Plot title</span><input type="text" id="po-title" value="' + esc(isDefaultTitle(P().name) ? '' : P().name) + '" placeholder="Untitled"></label>' +
-      '<label class="field"><span>Peak labels</span><select id="po-lmode"><option value="auto">Name, else RT</option><option value="name">Name only</option><option value="rt">RT</option><option value="name+rt">Name + RT</option><option value="area">Area %</option><option value="none">None</option></select></label>' +
-      '<div class="row"><label class="inline">Size <input type="number" id="po-lsize" min="6" max="24" value="' + num(l.size, 10) + '" style="width:60px"></label><label class="inline"><input type="checkbox" id="po-lall"' + (l.all ? ' checked' : '') + '> Label all traces</label></div>' +
+      '<label class="field"><span>Peak labels</span><select id="po-lmode" aria-label="Peak label content"><option value="auto">Name, else RT</option><option value="name">Name only</option><option value="rt">RT</option><option value="name+rt">Name + RT</option><option value="area">Area %</option><option value="none">None</option></select></label>' +
+      '<div class="row"><label class="inline">Size <input type="number" id="po-lsize" aria-label="Peak label font size" min="6" max="24" value="' + num(l.size, 10) + '" style="width:60px"></label><label class="inline"><input type="checkbox" id="po-lall"' + (l.all ? ' checked' : '') + '> Label all traces</label></div>' +
       '<label class="inline"><input type="checkbox" id="po-grid"' + (s.grid !== false ? ' checked' : '') + '> Gridlines</label>' +
       '<label class="inline"><input type="checkbox" id="po-mirror"' + (s.mirror ? ' checked' : '') + '> Full axis frame</label>' +
       '<label class="inline"><input type="checkbox" id="po-cap"' + (s.caption !== false ? ' checked' : '') + '> Method caption</label>' +
       '<label class="inline"><input type="checkbox" id="po-ev"' + (s.showEvents !== false ? ' checked' : '') + '> Instrument events (fractions, injections)</label>' +
+      '<label class="inline"><input type="checkbox" id="po-dash"' + (s.lineStyles ? ' checked' : '') + '> Distinguish traces by line style (dashes; prints in grayscale)</label>' +
       '<label class="inline"><input type="checkbox" id="po-dark"' + (s.darkPlot ? ' checked' : '') + '> Dark plot (screen only; exports stay white)</label>' +
       '<p class="small muted" style="margin:6px 0 0">Click a peak label or the title on the plot to edit it in place.</p>';
     $('po-lmode').value = l.mode || 'auto';
@@ -2570,6 +2906,705 @@
     setTimeout(drawCursor, 0);
   }
 
+  /* ================================================================== integration math (audit tab, modal, sketch) */
+  /** Tiny inline SVG of one peak: signal, applied baseline, shaded net area; neighbours in its fused group in grey. */
+  function peakSketchSVG(t, idx, W, H) {
+    W = W || 300; H = H || 120;
+    var pr = processed(t), igs = integrationFor(t), g = igs[idx], pk = t.peaks[idx]; if (!g || !pk) return '';
+    var cl = clusterOf(t, idx), lo = Math.min.apply(null, cl.map(function (i) { return t.peaks[i].start; })), hi = Math.max.apply(null, cl.map(function (i) { return t.peaks[i].end; }));
+    var w = Math.max(hi - lo, (pr.x[1] - pr.x[0]) * 10), a = lo - 0.25 * w, b = hi + 0.25 * w;
+    var i0 = lowerIdx(pr.x, a), i1 = Math.min(lowerIdx(pr.x, b), pr.x.length - 1), step = Math.max(1, Math.floor((i1 - i0) / 300)), xs = [], ys = [];
+    for (var i = i0; i <= i1; i += step) { xs.push(pr.x[i]); ys.push(pr.y[i]); }
+    var all = ys.slice(); cl.forEach(function (k) { var gg = igs[k]; if (gg && gg.baseline) gg.baseline.points.forEach(function (q) { if (q[0] >= a && q[0] <= b) all.push(q[1]); }); });
+    var y0 = Math.min.apply(null, all), y1 = Math.max.apply(null, all); if (!(y1 > y0)) y1 = y0 + 1; var pad = (y1 - y0) * 0.08; y0 -= pad; y1 += pad;
+    function X(v) { return ((v - a) / (b - a) * (W - 8) + 4).toFixed(1); } function Y(v) { return (H - 4 - (v - y0) / (y1 - y0) * (H - 8)).toFixed(1); }
+    function poly(gg) { var sh = gg.shade; if (!sh) return ''; var p = []; for (var j = 0; j < sh.x.length; j++) p.push(X(sh.x[j]) + ',' + Y(sh.top[j])); for (j = sh.x.length - 1; j >= 0; j--) p.push(X(sh.x[j]) + ',' + Y(sh.bot[j])); return p.join(' '); }
+    function bl(gg, p0) { var bp = gg.baseline.points, seg = [[p0.start, interp(pr.x, pr.y, p0.start)], [p0.start, baseAt(bp, p0.start)]]; bp.forEach(function (q) { if (q[0] > p0.start && q[0] < p0.end) seg.push(q); }); seg.push([p0.end, baseAt(bp, p0.end)], [p0.end, interp(pr.x, pr.y, p0.end)]); return seg.map(function (q) { return X(q[0]) + ',' + Y(q[1]); }).join(' '); }
+    var parts = [];
+    cl.forEach(function (k) { if (k !== idx && igs[k]) parts.push('<polygon points="' + poly(igs[k]) + '" style="fill:var(--muted);opacity:.22"/>'); });
+    parts.push('<polygon points="' + poly(g) + '" style="fill:var(--accent);opacity:.35"/>');
+    parts.push('<polyline fill="none" style="stroke:var(--text)" stroke-width="1.3" points="' + xs.map(function (v, j) { return X(v) + ',' + Y(ys[j]); }).join(' ') + '"/>');
+    cl.forEach(function (k) { if (igs[k]) parts.push('<polyline fill="none" style="stroke:var(--warn)" stroke-width="' + (k === idx ? 1.6 : 1) + '"' + (k === idx ? '' : ' stroke-dasharray="3 2"') + ' points="' + bl(igs[k], t.peaks[k]) + '"/>'); });
+    return '<svg class="peak-sketch" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Sketch of peak ' + (idx + 1) + ': signal, applied ' + esc(g.baseline.kind || '') + ' baseline and shaded net area">' + parts.join('') + '</svg>';
+  }
+  function mathVal(v, d) { return typeof v === 'number' ? fmt(v, d || 6) : v == null ? '—' : String(v); }
+  function integrationMathHTML(t, idx, o) {
+    o = o || {};
+    var g = integrationFor(t)[idx], pk = t.peaks[idx]; if (!g || !pk) return '<p class="muted">No integration result.</p>';
+    var mt = g.math || {}, au = t.yUnit + '·' + t.xUnit, req = g.requested && g.requested !== g.clip ? ' <span class="badge warn" title="Requested mode could not be applied here">requested ' + esc(CLIP_LABELS[g.requested] || g.requested) + '</span>' : '';
+    var steps = toArr(mt.steps).filter(Boolean);
+    var summary = isNum(mt.grossArea) && isNum(mt.baselineArea) ? '<p class="small mono" style="margin:6px 0">A_net = ' + esc(fmt(mt.grossArea, 6)) + ' − ' + esc(fmt(mt.baselineArea, 6)) + ' = ' + esc(fmt(isNum(mt.netArea) ? mt.netArea : mt.grossArea - mt.baselineArea, 6)) + ' ' + esc(au) + '</p>'
+      : '<p class="small mono" style="margin:6px 0">A_net = ' + esc(fmt(g.area, 6)) + ' ' + esc(au) + '</p>';
+    return '<div class="imath">' + (o.sketch ? peakSketchSVG(t, idx, 300, 110) : '') +
+      '<div><strong>Method:</strong> ' + esc(CLIP_LABELS[g.clip] || mt.method || g.clip) + (pk.clip ? '' : ' <span class="muted small">(' + (pk.manual ? 'default for manual peaks' : 'project default') + ')</span>') + req + ' · <span class="small muted">baseline: ' + esc(g.baseline.kind || 'line') + '</span></div>' +
+      (mt.formula ? '<div class="expr">' + esc(mt.formula) + '</div>' : '') +
+      (steps.length ? '<table class="plain small steps"><thead><tr><th scope="col">Step</th><th scope="col">Expression</th><th scope="col">Value</th></tr></thead><tbody>' +
+        steps.map(function (st) { return '<tr><td>' + esc(st.label || st.name || '') + '</td><td class="mono">' + esc(st.expr || st.formula || '') + '</td><td class="mono" style="text-align:right">' + esc(mathVal(st.value)) + '</td></tr>'; }).join('') + '</tbody></table>' : '') +
+      summary +
+      '<p class="small">' + esc(clipNote({ clip: g.clip, math: { notes: [] } })) + '</p>' +
+      (mt.notes && mt.notes.length ? '<ul class="small muted" style="margin:4px 0 0;padding-left:18px">' + mt.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
+      '<p class="small muted" style="margin:4px 0 0">' + (isNum(mt.n) ? esc(mt.n) + ' points' : '') + (isNum(mt.dt) ? ' · Δt ≈ ' + esc(fmt(mt.dt, 3)) + ' ' + esc(t.xUnit) : '') + ' · window ' + esc(fmt(mt.tStart, 5)) + ' – ' + esc(fmt(mt.tEnd, 5)) + ' ' + esc(t.xUnit) + (g.source === 'local' ? ' · computed by the app fallback (analysis integrate() unavailable)' : '') + '</p></div>';
+  }
+  /** One-line plain-text summary of a peak's integration (CSV comments, PDF). */
+  function integrationSummary(t, idx) {
+    var g = integrationFor(t)[idx], pk = t.peaks[idx]; if (!g || !pk) return '';
+    var mt = g.math || {}, au = t.yUnit + '*' + t.xUnit;
+    return 'peak ' + (idx + 1) + (pk.label ? ' (' + pk.label + ')' : '') + ': clip=' + g.clip + (pk.clip ? '' : ' (default)') + '; baseline=' + (g.baseline.kind || 'line') + '; window ' + fmt(mt.tStart, 6) + '-' + fmt(mt.tEnd, 6) + ' ' + t.xUnit +
+      (isNum(mt.grossArea) && isNum(mt.baselineArea) ? '; A_net = gross ' + fmt(mt.grossArea, 6) + ' - baseline ' + fmt(mt.baselineArea, 6) : '') + ' = ' + fmt(g.area, 6) + ' ' + au + (mt.formula ? '; ' + mt.formula : '');
+  }
+  function renderMathModal() {
+    var host = $('math-root'); if (!host) return;
+    var t = activeTrace();
+    if (!t || isAux(t) || !t.peaks.length) { host.innerHTML = '<p class="muted">Select a chromatogram trace with peaks to see how each area was computed.</p>'; return; }
+    host.innerHTML = '<p class="small">Trace <strong>' + esc(t.name) + '</strong> · default clip: <strong>' + esc(CLIP_LABELS[P().settings.clipDefault || 'drop']) + '</strong> (' + esc(CLIP_HELP[P().settings.clipDefault || 'drop'] || '') + ') Areas below are the same numbers as the peak table, in ' + esc(t.yUnit + '·' + t.xUnit) + '.</p>' +
+      t.peaks.map(function (pk, i) {
+        var m = withAreaPct(metricsFor(t))[i] || {};
+        return '<section class="math-peak" aria-labelledby="mp-' + i + '"><h3 id="mp-' + i + '">Peak ' + (i + 1) + (pk.label ? ' · ' + esc(pk.label) : '') + ' · RT ' + esc(fmt(m.rt, 5)) + ' ' + esc(t.xUnit) + ' · area ' + esc(fmt(m.area, 5)) + '</h3>' + integrationMathHTML(t, i, { sketch: true }) + '</section>';
+      }).join('');
+  }
+  function refreshMathModal() { if (HAS_DOM && isOpen('math')) renderMathModal(); }
+  function openMathModal() { renderMathModal(); showModal('math'); }
+  app.openIntegrationMath = openMathModal;
+
+  /* ================================================================== "How should these peaks be split?" dialog */
+  /** Pure: recommend a clip mode for one fused group. info = {heights:[], resolutions:[] (Rs between neighbours), skimRatio}. */
+  function recommendClip(info) {
+    var h = (info.heights || []).filter(isNum), rs = (info.resolutions || []).filter(isNum), ratio = h.length > 1 ? Math.max.apply(null, h) / Math.max(1e-12, Math.min.apply(null, h)) : 1;
+    var minRs = rs.length ? Math.min.apply(null, rs) : NaN, sk = info.skimRatio || 10;
+    if (h.length < 2) return { clip: 'valley', reason: 'A single peak: its own straight baseline is enough.', ratio: ratio, rs: minRs };
+    if (ratio >= sk) return { clip: 'skim-tangent', reason: 'Dyson criterion met: the main peak is ' + fmt(ratio, 3) + '× taller than the small one (≥ ' + sk + '×). The small rider peak sits on the big peak’s slope, so it is skimmed off with a tangent (or an exponential for a strongly tailing parent); a vertical drop would give the rider area that belongs to the parent.', ratio: ratio, rs: minRs };
+    if (isNum(minRs) && minRs < 0.8) return { clip: 'fit', reason: 'Heavily overlapped (Rs = ' + fmt(minRs, 3) + ' < 0.8): any straight line misassigns a lot of area. Fitting peak shapes (Gaussian/EMG) splits the overlap by shape.', ratio: ratio, rs: minRs };
+    if (isNum(minRs) && minRs < 1.5) return { clip: 'drop', reason: 'Partly resolved (Rs = ' + fmt(minRs, 3) + ' < 1.5) with ' + (ratio < 3 ? 'similar heights (ratio ' + fmt(ratio, 3) + ')' : 'a height ratio of ' + fmt(ratio, 3)) + ': a perpendicular drop at the valley is the standard choice and keeps both areas on one baseline.', ratio: ratio, rs: minRs };
+    return { clip: 'drop', reason: 'The peaks touch but are nearly resolved' + (isNum(minRs) ? ' (Rs = ' + fmt(minRs, 3) + ')' : '') + '. Perpendicular drop and valley-to-valley give almost the same areas.', ratio: ratio, rs: minRs };
+  }
+  app.recommendClip = recommendClip;
+  function clusterInfo(t, idxs) {
+    var ms = metricsFor(t), sorted = idxs.slice().sort(function (a, b) { return t.peaks[a].apex - t.peaks[b].apex; });
+    return { heights: sorted.map(function (i) { return ms[i] && ms[i].height; }), resolutions: sorted.slice(1).map(function (i) { return ms[i] && ms[i].resolution; }), skimRatio: 10 };
+  }
+  function clipPreviews(t, idxs) {
+    var pr = processed(t), co = an('clipOptions'), coRes = null, applicable = null, notes = {}, rec = null, why = '';
+    if (co) { try { coRes = co(pr.x, pr.y, t.peaks, idxs.slice()); } catch (e) { console.error(e); coRes = null; } }
+    var list = coRes && (Array.isArray(coRes) ? coRes : (coRes.options || coRes.modes));
+    if (Array.isArray(list)) {
+      applicable = [];
+      list.forEach(function (o) { var m = o && (o.clip || o.mode); if (CLIP_MODES.indexOf(m) >= 0 && o.applicable !== false) { applicable.push(m); if (o.note || o.reason) notes[m] = o.note || o.reason; } if (o && o.recommended === true && !rec) rec = m; });
+    }
+    if (coRes && !Array.isArray(coRes)) {
+      var r0 = coRes.recommended || coRes.recommendation; if (r0 && typeof r0 === 'object') { why = r0.reason || ''; r0 = r0.clip || r0.mode; } if (CLIP_MODES.indexOf(r0) >= 0) rec = r0;
+      why = coRes.reason || why;
+    }
+    if (!an('integrate')) applicable = ['drop', 'valley', 'baseline'];
+    if (!applicable || !applicable.length) applicable = CLIP_MODES.slice();
+    var local = recommendClip(clusterInfo(t, idxs));
+    if (CLIP_MODES.indexOf(rec) < 0 || applicable.indexOf(rec) < 0) { rec = applicable.indexOf(local.clip) >= 0 ? local.clip : applicable[0]; why = local.reason; }
+    else if (!why) why = rec === local.clip ? local.reason : '';
+    var previews = applicable.map(function (mode) {
+      var forced = t.peaks.map(function (p, i) { if (idxs.indexOf(i) < 0) return p; var q = mergeDeep({}, p); q.clip = mode; return q; }), res;
+      try { res = integrationFor(t, forced); } catch (e) { console.error(e); return null; }
+      return { clip: mode, peaks: idxs.map(function (i) { return res[i]; }), note: notes[mode] || '' };
+    }).filter(Boolean);
+    return { previews: previews, rec: rec, why: why, local: local };
+  }
+  function clipPreviewSVG(t, idxs, pv, W, H) {
+    var pr = processed(t), lo = Math.min.apply(null, idxs.map(function (i) { return t.peaks[i].start; })), hi = Math.max.apply(null, idxs.map(function (i) { return t.peaks[i].end; }));
+    var w = hi - lo, a = lo - 0.15 * w, b = hi + 0.15 * w, i0 = lowerIdx(pr.x, a), i1 = Math.min(lowerIdx(pr.x, b), pr.x.length - 1), step = Math.max(1, Math.floor((i1 - i0) / 260)), xs = [], ys = [];
+    for (var i = i0; i <= i1; i += step) { xs.push(pr.x[i]); ys.push(pr.y[i]); }
+    var all = ys.slice(); pv.peaks.forEach(function (g) { if (g && g.shade) all = all.concat(g.shade.bot); });
+    var y0 = Math.min.apply(null, all), y1 = Math.max.apply(null, all); if (!(y1 > y0)) y1 = y0 + 1; var pd = (y1 - y0) * 0.06; y0 -= pd; y1 += pd;
+    function X(v) { return ((v - a) / (b - a) * (W - 6) + 3).toFixed(1); } function Y(v) { return (H - 3 - (v - y0) / (y1 - y0) * (H - 6)).toFixed(1); }
+    var cols = ['#1f4fd8', '#ff7f0e', '#2ca02c', '#9467bd'], parts = [];
+    pv.peaks.forEach(function (g, k) {
+      if (!g || !g.shade) return; var sh = g.shade, p = [];
+      for (var j = 0; j < sh.x.length; j++) p.push(X(sh.x[j]) + ',' + Y(sh.top[j])); for (j = sh.x.length - 1; j >= 0; j--) p.push(X(sh.x[j]) + ',' + Y(sh.bot[j]));
+      parts.push('<polygon points="' + p.join(' ') + '" fill="' + cols[k % cols.length] + '" fill-opacity=".35"/>');
+    });
+    parts.push('<polyline fill="none" style="stroke:var(--text)" stroke-width="1.2" points="' + xs.map(function (v, j) { return X(v) + ',' + Y(ys[j]); }).join(' ') + '"/>');
+    pv.peaks.forEach(function (g, k) {
+      if (!g) return; var pk = t.peaks[idxs[k]], bp = g.baseline.points, seg = [[pk.start, interp(pr.x, pr.y, pk.start)], [pk.start, baseAt(bp, pk.start)]];
+      bp.forEach(function (q) { if (q[0] > pk.start && q[0] < pk.end) seg.push(q); }); seg.push([pk.end, baseAt(bp, pk.end)], [pk.end, interp(pr.x, pr.y, pk.end)]);
+      parts.push('<polyline fill="none" style="stroke:var(--text)" stroke-width="1" stroke-dasharray="3 2" points="' + seg.map(function (q) { return X(q[0]) + ',' + Y(q[1]); }).join(' ') + '"/>');
+    });
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="clip-svg" role="img" aria-label="Preview of ' + esc(CLIP_LABELS[pv.clip]) + ': baselines and shaded areas">' + parts.join('') + '</svg>';
+  }
+  function groupKey(t, idxs) { return t.id + ':' + idxs.map(function (i) { return t.peaks[i] && t.peaks[i].id; }).sort().join(','); }
+  /** Fused groups in t that would get the same recommendation (for "Apply to all similar"). */
+  function similarClusters(t, idxs, rec) {
+    return clustersFor(t).filter(function (c) { return c.length > 1 && groupKey(t, c) !== groupKey(t, idxs) && recommendClip(clusterInfo(t, c)).clip === rec; });
+  }
+  function openClipDialog(t, idxs, o) {
+    o = o || {};
+    if (!t || !idxs || idxs.length < 2) { toast('The selected peak is not fused with a neighbour. You can still change its clip in the table’s Clip column.', 'info'); return; }
+    idxs = idxs.slice().sort(function (a, b) { return t.peaks[a].apex - t.peaks[b].apex; });
+    state.clipAsked = state.clipAsked || {}; state.clipAsked[groupKey(t, idxs)] = 1;
+    var info = clipPreviews(t, idxs), ms = withAreaPct(metricsFor(t)), au = t.yUnit + '·' + t.xUnit, cur = t.peaks[idxs[0]].clip;
+    var sel = info.previews.some(function (p) { return p.clip === cur; }) && idxs.every(function (i) { return t.peaks[i].clip === cur; }) ? cur : info.rec;
+    var sim = similarClusters(t, idxs, info.local.clip);
+    state.clipDlg = { t: t, idxs: idxs, ids: idxs.map(function (i) { return t.peaks[i].id; }), sim: sim.map(function (c) { return c.map(function (i) { return t.peaks[i].id; }); }), rec: info.rec };
+    var names = idxs.map(function (i) { return '#' + (i + 1) + (t.peaks[i].label ? ' ' + t.peaks[i].label : '') + ' (RT ' + fmt(ms[i] && ms[i].rt, 4) + ')'; }).join(', ');
+    var intro = o.reason === 'detect' ? 'Peak detection found ' + (o.total || 1) + ' fused group' + ((o.total || 1) === 1 ? '' : 's') + ' on “' + esc(t.name) + '”. This group: ' + esc(names) + '.'
+      : o.reason === 'integrate' ? 'Your integration window touches existing peaks on “' + esc(t.name) + '”: ' + esc(names) + '.'
+      : 'Fused peaks on “' + esc(t.name) + '”: ' + esc(names) + '.';
+    $('clip-root').innerHTML = '<p style="margin-top:0">' + intro + ' Each preview shows the baselines (dashed) and the area each peak would get.</p>' +
+      '<div class="note" style="margin-bottom:10px"><strong>Recommended: ' + esc(CLIP_LABELS[info.rec]) + '.</strong> ' + esc(info.why || '') + '</div>' +
+      '<div class="clip-grid" role="radiogroup" aria-label="Split method">' + info.previews.map(function (pv) {
+        var isRec = pv.clip === info.rec;
+        return '<label class="clip-card' + (pv.clip === sel ? ' sel' : '') + '"><span class="row" style="gap:6px"><input type="radio" name="clipmode" value="' + pv.clip + '"' + (pv.clip === sel ? ' checked' : '') + '> <strong>' + esc(CLIP_LABELS[pv.clip]) + '</strong>' + (isRec ? ' <span class="badge manual">recommended</span>' : '') + '</span>' +
+          clipPreviewSVG(t, idxs, pv, 240, 100) +
+          '<span class="small mono">' + pv.peaks.map(function (g, k) { return '#' + (idxs[k] + 1) + ': ' + esc(fmt(g && g.area, 4)); }).join(' · ') + ' <span class="muted">' + esc(au) + '</span></span>' +
+          (pv.peaks.some(function (g) { return g && g.clip !== pv.clip; }) ? '<span class="small" style="color:var(--warn)">Not applicable here; falls back to ' + esc(CLIP_LABELS[(pv.peaks.filter(function (g) { return g && g.clip !== pv.clip; })[0] || {}).clip] || '') + '.</span>' : '') +
+          '<span class="small muted">' + esc(pv.note || CLIP_HELP[pv.clip] || '') + '</span></label>';
+      }).join('') + '</div>' +
+      '<label class="inline" style="margin-top:10px"><input type="checkbox" id="clip-noask"' + (P().settings.askClip === false ? ' checked' : '') + '> Don’t ask again (use the default: ' + esc(CLIP_LABELS[P().settings.clipDefault || 'drop']) + ')</label>' +
+      '<div class="row" style="margin-top:10px"><button class="btn primary" id="clip-apply">Apply</button><button class="btn" id="clip-apply-all"' + (sim.length ? '' : ' disabled') + ' title="Apply to the other fused groups on this trace that get the same recommendation">Apply to all similar (' + (sim.length + 1) + ' groups)</button><button class="btn ghost" id="clip-cancel">Cancel</button></div>';
+    showModal('clip');
+  }
+  app.openClipDialog = function (traceId, peakIds) { var t = traceById(traceId) || activeTrace(); if (!t) return; var idxs = []; t.peaks.forEach(function (p, i) { if (!peakIds || peakIds.indexOf(p.id) >= 0) idxs.push(i); }); openClipDialog(t, peakIds ? idxs : clusterOf(t, idxs[0])); };
+  function idsToIdx(t, ids) { var out = []; t.peaks.forEach(function (p, i) { if (ids.indexOf(p.id) >= 0) out.push(i); }); return out; }
+  function nextQueuedClip() {
+    var q = state.clipQueue; if (!q || !q.items.length || P().settings.askClip === false) { state.clipQueue = null; return; }
+    var t = traceById(q.traceId); if (!t) { state.clipQueue = null; return; }
+    var ids = q.items.shift(), idxs = idsToIdx(t, ids);
+    if (idxs.length > 1 && idxs.every(function (i) { return !t.peaks[i].clip; })) setTimeout(function () { openClipDialog(t, idxs, { reason: 'detect', total: q.total }); }, 60); else nextQueuedClip();
+  }
+  function bindClipDialog() {
+    var host = $('clip-root'); if (!host) return;
+    host.addEventListener('change', function (e) {
+      if (e.target.name === 'clipmode') toArr(host.querySelectorAll('.clip-card')).forEach(function (c) { c.classList.toggle('sel', !!c.querySelector('input:checked')); });
+    });
+    host.addEventListener('click', function (e) {
+      var d = state.clipDlg; if (!d) return;
+      var id = e.target.id;
+      if (id === 'clip-cancel') { state.clipQueue = null; hideModal('clip'); return; }
+      if (id !== 'clip-apply' && id !== 'clip-apply-all') return;
+      var r = host.querySelector('input[name="clipmode"]:checked'), mode = r ? r.value : d.rec, noask = $('clip-noask').checked, t = d.t;
+      var ids = d.ids.slice();
+      if (id === 'clip-apply-all') { d.sim.forEach(function (g) { ids = ids.concat(g); }); if (state.clipQueue) state.clipQueue.items = state.clipQueue.items.filter(function (g) { return !d.sim.some(function (s0) { return s0.join() === g.join(); }); }); }
+      app.pushUndo(id === 'clip-apply-all' ? 'Split fused peaks (all similar)' : 'Split fused peaks');
+      t.peaks.forEach(function (p) { if (ids.indexOf(p.id) >= 0) p.clip = mode; });
+      if (noask !== (P().settings.askClip === false)) P().settings.askClip = !noask;
+      hideModal('clip'); renderAll(); refreshMathModal();
+      toast((CLIP_LABELS[mode] || mode) + ' applied to ' + ids.length + ' peak' + (ids.length === 1 ? '' : 's') + (noask ? '. Fused peaks now use the default without asking (Processing → Peak integration).' : '.'), 'ok');
+      nextQueuedClip();
+    });
+  }
+  /** After detection: ask about fused groups that have no explicit clip yet (once per group per session). */
+  function maybeAskClusters(t, reason) {
+    if (!HAS_DOM || P().settings.askClip === false || !t || isAux(t) || state.demo) return;
+    state.clipAsked = state.clipAsked || {};
+    var fused = clustersFor(t).filter(function (c) { return c.length > 1 && c.every(function (i) { return !t.peaks[i].clip; }) && !state.clipAsked[groupKey(t, c)]; });
+    if (!fused.length) return;
+    state.clipQueue = { traceId: t.id, total: fused.length, items: fused.slice(1).map(function (c) { return c.map(function (i) { return t.peaks[i].id; }); }) };
+    openClipDialog(t, fused[0], { reason: reason, total: fused.length });
+  }
+  function splitSelected() {
+    var t = activeTrace(); if (!t || isAux(t) || !t.peaks.length) { toast('Select a chromatogram trace with peaks first.', 'warn'); return; }
+    var idx = -1; t.peaks.forEach(function (p, i) { if (p.id === state.selPeakId) idx = i; });
+    if (idx < 0) { var fused = clustersFor(t).filter(function (c) { return c.length > 1; }); if (!fused.length) { toast('No fused peaks on this trace. Select a peak that touches a neighbour, then press Split…', 'info'); return; } openClipDialog(t, fused[0], { reason: 'split' }); return; }
+    openClipDialog(t, clusterOf(t, idx), { reason: 'split' });
+  }
+
+  /* ================================================================== calibration */
+  var CONC_FLAG_LABEL = { extrapolated: 'extrap.', below_LOQ: '<LOQ', below_LOD: '<LOD', standard: 'std' };
+  var CONC_FLAG_HELP = { extrapolated: 'The response is outside the range of the included standards, so the value is extrapolated.', below_LOQ: 'Below the limit of quantitation (LOQ = 10·s_y/x / slope).',
+    below_LOD: 'Below the limit of detection (LOD = 3.3·s_y/x / slope).', standard: 'This trace is a standard of this analyte; the value is back-calculated from the curve.' };
+  var TARGET = '\u0000analyte';
+  /** Pure: analyte ↔ peak matching across traces. list = [{traceId, peaks:[{id, rt, area, height}]}] → { traceId: peak }.
+      Peaks are grouped with PK.app.matchPeaks (the same RT-tolerance rule as the Compare view, with the analyte RT as an extra
+      member); each trace then gets its peak nearest to the analyte RT, within ± tol. */
+  app.matchAnalyte = function (analyte, list) {
+    var pm = (analyte && analyte.peakMatch) || {}, rt = +pm.rt, tol = +pm.tol > 0 ? +pm.tol : 0.1, out = {};
+    if (!isNum(rt) || pm.rt === null || pm.rt === '') return out;
+    var groups = app.matchPeaks([{ traceId: TARGET, peaks: [{ id: TARGET, rt: rt }] }].concat(list || []), tol);
+    var g = groups.filter(function (q) { return q.members[TARGET]; })[0];
+    if (g) Object.keys(g.members).forEach(function (k) { if (k !== TARGET && Math.abs(g.members[k].rt - rt) <= tol) out[k] = g.members[k]; });
+    (list || []).forEach(function (tr) { // nearest within tol wins (a neighbouring group may have captured a closer peak)
+      var best = out[tr.traceId] || null, bd = best ? Math.abs(best.rt - rt) : Infinity;
+      (tr.peaks || []).forEach(function (p) { var d = Math.abs(p.rt - rt); if (isNum(p.rt) && d <= tol && d < bd) { bd = d; best = p; } });
+      if (best) out[tr.traceId] = best;
+    });
+    return out;
+  };
+  /** Pure: calibration points for an analyte from its levels and the matched peaks. */
+  app.calibrationPoints = function (analyte, matches) {
+    var key = analyte.response === 'height' ? 'height' : 'area';
+    return (analyte.levels || []).map(function (l, i) {
+      var y = NaN, p = null, why = '';
+      if (l.traceId) { p = matches && matches[l.traceId]; if (p) y = +p[key]; else why = 'no peak within ±' + ((analyte.peakMatch && analyte.peakMatch.tol) || 0.1) + ' of RT ' + fmt(analyte.peakMatch && analyte.peakMatch.rt, 4); }
+      else if (isNum(l.response)) y = l.response; else why = 'no response';
+      var x = l.conc == null || l.conc === '' ? NaN : +l.conc;
+      if (!isNum(x)) why = why || 'no concentration';
+      return { level: i, x: x, y: y, include: l.include !== false && isNum(x) && isNum(y), excluded: l.include === false, traceId: l.traceId || null, peakId: p ? p.id : null, rt: p ? p.rt : null, missing: why };
+    });
+  };
+  /** Pure: flags for an inverse-predicted unknown. */
+  app.concFlags = function (x, y, fit, pts) {
+    var f = [], inc = (pts || []).filter(function (p) { return p.include; });
+    if (inc.length) {
+      var ys = inc.map(function (p) { return p.y; }), xs = inc.map(function (p) { return p.x; });
+      var tolY = 1e-9 * Math.max.apply(null, ys.map(Math.abs).concat([1]));
+      if (y < Math.min.apply(null, ys) - tolY || y > Math.max.apply(null, ys) + tolY || (isNum(x) && (x < Math.min.apply(null, xs) || x > Math.max.apply(null, xs)))) f.push('extrapolated');
+    }
+    if (fit && isNum(fit.lod) && isNum(x) && x < fit.lod) f.push('below_LOD');
+    else if (fit && isNum(fit.loq) && isNum(x) && x < fit.loq) f.push('below_LOQ');
+    return f;
+  };
+  /** Two-sided 95 % Student t quantile (exact table to 30 dof, Cornish–Fisher series beyond). */
+  function t975(dof) {
+    var T = [NaN, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179, 2.160, 2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086, 2.080, 2.074, 2.069, 2.064, 2.060, 2.056, 2.052, 2.048, 2.045, 2.042];
+    if (!(dof >= 1)) return NaN;
+    var tq = an('tQuantile'); if (tq) { try { var v0 = tq(0.975, dof); if (isNum(v0)) return v0; } catch (e) { /* table */ } }
+    if (dof <= 30) return T[Math.round(dof)];
+    var z = 1.959964, v = dof; return z + (z * z * z + z) / (4 * v) + (5 * Math.pow(z, 5) + 16 * z * z * z + 3 * z) / (96 * v * v);
+  }
+  app.t975 = t975;
+  function calPeakList() {
+    return P().traces.filter(function (t) { return !isAux(t); }).map(function (t) {
+      var ms = t.peaks.length ? withAreaPct(metricsFor(t)) : [];
+      return { traceId: t.id, peaks: t.peaks.map(function (p, i) { var m = ms[i] || {}; return { id: p.id, idx: i, rt: isNum(m.rt) ? m.rt : p.apex, area: m.area, height: m.height }; }) };
+    });
+  }
+  function calModelP(model) { return model === 'quadratic' ? 3 : model === 'linear0' ? 1 : 2; }
+  /** Basis order of fit.coef: tries ascending powers (b0, b1, b2) and checks against fit.predict. */
+  function calBasis(fit, model) {
+    var p = calModelP(model), pw = model === 'linear0' ? [1] : model === 'quadratic' ? [0, 1, 2] : [0, 1];
+    if (!fit || !Array.isArray(fit.coef) || fit.coef.length !== p || typeof fit.predict !== 'function') return pw;
+    function ev(order, x) { var s = 0; order.forEach(function (k, j) { s += fit.coef[j] * Math.pow(x, k); }); return s; }
+    var xs = [0.7, 3.1], ok = xs.every(function (x) { var v = fit.predict(x); return Math.abs(ev(pw, x) - v) <= 1e-6 * Math.max(1, Math.abs(v)); });
+    if (ok) return pw;
+    var rev = pw.slice().reverse(); ok = xs.every(function (x) { var v = fit.predict(x); return Math.abs(ev(rev, x) - v) <= 1e-6 * Math.max(1, Math.abs(v)); });
+    return ok ? rev : pw;
+  }
+  function calBand(fit, model, x) {
+    if (!fit) return null;
+    if (typeof fit.predictBand === 'function') { try { var pb = fit.predictBand(x); if (pb && isNum(pb.loMean) && isNum(pb.hiMean)) return { lo: pb.loMean, hi: pb.hiMean }; } catch (e) { /* fall through */ } }
+    var cov = fit.cov, pw = calBasis(fit, model); if (!Array.isArray(cov) || !Array.isArray(cov[0])) return null;
+    var g = pw.map(function (k) { return Math.pow(x, k); }), v = 0;
+    for (var i = 0; i < g.length; i++) for (var j = 0; j < g.length; j++) v += g[i] * (cov[i] && cov[i][j] || 0) * g[j];
+    var y = fit.predict(x), tq = t975(fit.dof); if (!isNum(v) || v < 0 || !isNum(tq)) return null;
+    return { lo: y - tq * Math.sqrt(v), hi: y + tq * Math.sqrt(v) };
+  }
+  function calibrationFor(a) {
+    var list = calPeakList(), sig = JSON.stringify(a) + '|' + JSON.stringify(list), c = state.calCache || (state.calCache = {});
+    if (c[a.id] && c[a.id].sig === sig) return c[a.id].res;
+    var matches = app.matchAnalyte(a, list), pts = app.calibrationPoints(a, matches), inc = pts.filter(function (p) { return p.include; }), f = an('calibrationFit'), fit = null, err = '';
+    var need = calModelP(a.model) + 1;
+    if (!f) err = 'Calibration math is not available (the analysis module has no calibrationFit).';
+    else if (inc.length < need) err = 'Add at least ' + need + ' included levels with a concentration and a matched peak for a ' + ({ linear: 'linear', linear0: 'linear-through-zero', quadratic: 'quadratic' }[a.model] || a.model) + ' fit (' + inc.length + ' so far).';
+    else { try { fit = f(inc.map(function (p) { return { x: p.x, y: p.y }; }), { model: a.model, weighting: a.weighting }); if (!fit || !Array.isArray(fit.coef)) { err = 'The fit returned no coefficients.'; fit = null; } } catch (e) { err = 'Fit failed: ' + e.message; fit = null; } }
+    var res = { analyte: a, matches: matches, points: pts, fit: fit, err: err };
+    c[a.id] = { sig: sig, res: res }; return res;
+  }
+  /** Concentration per peak of trace t (aligned with t.peaks) for every analyte whose RT window matches. */
+  function concForTrace(t) {
+    var out = t.peaks.map(function () { return null; }), cal = P().calibration;
+    if (!cal || !cal.analytes || !cal.analytes.length || isAux(t)) return out;
+    cal.analytes.forEach(function (a) {
+      var r = calibrationFor(a), m = r.matches[t.id]; if (!r.fit || !m || out[m.idx]) return;
+      var y = +(a.response === 'height' ? m.height : m.area), inv = null;
+      try { inv = typeof r.fit.inverse === 'function' ? r.fit.inverse(y) : null; } catch (e) { inv = null; }
+      if (!inv || !isNum(inv.x)) return;
+      var flags = app.concFlags(inv.x, y, r.fit, r.points), MAP = { extrapolated: 'extrapolated', belowLOD: 'below_LOD', belowLOQ: 'below_LOQ' };
+      toArr(inv.flags).forEach(function (f) { var k = MAP[f]; if (k && flags.indexOf(k) < 0) flags.push(k); });
+      if (flags.indexOf('below_LOD') >= 0) flags = flags.filter(function (f) { return f !== 'below_LOQ'; });
+      if ((a.levels || []).some(function (l) { return l.traceId === t.id; })) flags.unshift('standard');
+      out[m.idx] = { analyte: a, x: inv.x, se: inv.se, lo: inv.lo, hi: inv.hi, y: y, flags: flags, fit: r.fit, inv: inv };
+    });
+    return out;
+  }
+  app.concForTrace = function (traceId) { var t = traceById(traceId) || activeTrace(); return t ? concForTrace(t) : []; };
+  function calEquation(a, fit) {
+    if (!fit) return '';
+    var pw = calBasis(fit, a.model), terms = pw.map(function (k, j) { var c = fit.coef[j]; return fmt(c, 5) + (k === 0 ? '' : k === 1 ? '·x' : '·x²'); });
+    return 'y = ' + terms.join(' + ').replace(/\+ -/g, '− ');
+  }
+  function coefName(k) { return k === 0 ? 'b₀ (intercept)' : k === 1 ? 'b₁ (slope)' : 'b₂ (curvature)'; }
+  var CAL_DEFAULT_F = {
+    coef: { expr: 'b = (XᵀWX)⁻¹XᵀWy (weighted least squares)', note: 'W = diag(wᵢ) with wᵢ = 1, 1/xᵢ or 1/xᵢ² (normalized to mean 1).' },
+    se: { expr: 'SE(b_j) = √[s²_y/x · ((XᵀWX)⁻¹)_jj]', note: 'Standard error from the residual variance and the weighted design matrix.' },
+    r2: { expr: 'R² = 1 − Σwᵢ(yᵢ − ŷᵢ)² / Σwᵢ(yᵢ − ȳ_w)²', note: 'Share of the (weighted) response variance explained by the curve. A high R² alone does not prove linearity; look at the residual plot.' },
+    adjR2: { expr: 'R²_adj = 1 − (1 − R²)(n − 1)/(n − p)', note: 'Penalizes extra coefficients (p = number of coefficients).' },
+    syx: { expr: 's_y/x = √[Σwᵢ(yᵢ − ŷᵢ)² / (n − p)]', note: 'Residual standard deviation of the response (standard error of the regression).' },
+    lod: { expr: 'LOD = 3.3 · s_y/x / b₁', note: 'ICH Q2 approach based on the residual SD and the slope.' },
+    loq: { expr: 'LOQ = 10 · s_y/x / b₁', note: 'ICH Q2 approach based on the residual SD and the slope.' },
+    inverse: { expr: 'x̂ = (y₀ − b₀)/b₁;  s_x̂ = (s_y/x / b₁)·√[1/m + 1/n + (y₀ − ȳ)²/(b₁²·Σ(xᵢ − x̄)²)];  x̂ ± t₀.₉₇₅,ν·s_x̂', note: 'Inverse prediction (standard calibration formula; for quadratic fits the delta method is used). m = 1 replicate of the unknown.' }
+  };
+  function calFormula(fit, key) {
+    var F = (fit && fit.formulas) || {}, f = F[key] || (key === 'b0' || key === 'b1' || key === 'b2' ? (F.coef || F.coefficients || F.model) : null), d = CAL_DEFAULT_F[key] || CAL_DEFAULT_F[key.charAt(0) === 'b' ? 'coef' : key] || {};
+    return { expr: (f && (f.expr || f.formula)) || d.expr || '', inputs: f && f.inputs, note: (f && (f.note || f.description)) || d.note || '' };
+  }
+  function calibrationCtx() { var c = P().calibration || (P().calibration = blankCalibration()); if (!Array.isArray(c.analytes)) c.analytes = []; return c; }
+  function selAnalyte() { var c = calibrationCtx(), a = c.analytes.filter(function (q) { return q.id === state.calSel; })[0]; if (!a) { a = c.analytes[0] || null; state.calSel = a ? a.id : null; } return a; }
+  function newAnalyte(name, rt) { return { id: PK.uid ? PK.uid('an') : 'an_' + Date.now(), name: name || 'Analyte ' + (calibrationCtx().analytes.length + 1), peakMatch: { rt: isNum(rt) ? +rt.toFixed(4) : null, tol: 0.1 }, response: 'area', model: 'linear', weighting: 'none', levels: [] }; }
+  function respUnit(t, a) { return a && a.response === 'height' ? (t ? t.yUnit : 'y') : (t ? t.yUnit + '·' + t.xUnit : 'y·x'); }
+  function calFigure(r, o) {
+    o = o || {};
+    var a = r.analyte, fit = r.fit, col = plotColors(true), unit = calibrationCtx().unit || '', tr0 = traceById((a.levels.filter(function (l) { return l.traceId; })[0] || {}).traceId) || activeTrace();
+    var inc = r.points.filter(function (p) { return p.include; }), exc = r.points.filter(function (p) { return !p.include && isNum(p.x) && isNum(p.y); });
+    var data = [], xmax = Math.max.apply(null, r.points.filter(function (p) { return isNum(p.x); }).map(function (p) { return p.x; }).concat([0])), xmin = 0;
+    var unk = [];
+    P().traces.forEach(function (t) { if (isAux(t)) return; var cq = concForTrace(t); cq.forEach(function (q) { if (q && q.analyte.id === a.id && q.flags.indexOf('standard') < 0) unk.push({ t: t, q: q }); }); });
+    unk.forEach(function (u) { if (isNum(u.q.hi) && u.q.hi > xmax) xmax = u.q.hi; else if (u.q.x > xmax) xmax = u.q.x; });
+    if (fit) {
+      var xs = U.linspace(xmin, xmax * 1.06 || 1, 120), ys = xs.map(function (x) { return fit.predict(x); }), bands = xs.map(function (x) { return calBand(fit, a.model, x); });
+      if (bands.every(Boolean)) {
+        data.push({ type: 'scatter', mode: 'lines', x: xs, y: bands.map(function (b) { return b.lo; }), line: { width: 0 }, hoverinfo: 'skip', showlegend: false });
+        data.push({ type: 'scatter', mode: 'lines', x: xs, y: bands.map(function (b) { return b.hi; }), line: { width: 0 }, fill: 'tonexty', fillcolor: 'rgba(31,79,216,0.13)', name: '95 % confidence band', hoverinfo: 'skip' });
+      }
+      data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, line: { color: '#1f4fd8', width: 1.8 }, name: calEquation(a, fit), hovertemplate: 'x = %{x:.4~g}<br>ŷ = %{y:.4~g}<extra>fit</extra>' });
+    }
+    data.push({ type: 'scatter', mode: 'markers', x: inc.map(function (p) { return p.x; }), y: inc.map(function (p) { return p.y; }), customdata: inc.map(function (p) { return p.level; }), name: 'Standards (click to exclude)', marker: { size: 9, color: '#1f4fd8', line: { color: '#000', width: 1 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>included</extra>' });
+    if (exc.length) data.push({ type: 'scatter', mode: 'markers', x: exc.map(function (p) { return p.x; }), y: exc.map(function (p) { return p.y; }), customdata: exc.map(function (p) { return p.level; }), name: 'Excluded (click to include)', marker: { size: 10, symbol: 'x-open', color: '#d62728', line: { width: 2 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>excluded</extra>' });
+    if (unk.length) data.push({ type: 'scatter', mode: 'markers', x: unk.map(function (u) { return u.q.x; }), y: unk.map(function (u) { return u.q.y; }), text: unk.map(function (u) { return u.t.name; }), name: 'Unknowns (± 95 %)', marker: { size: 11, symbol: 'diamond', color: '#ff7f0e', line: { color: '#000', width: 1 } },
+      error_x: { type: 'data', symmetric: false, array: unk.map(function (u) { return isNum(u.q.hi) ? u.q.hi - u.q.x : 0; }), arrayminus: unk.map(function (u) { return isNum(u.q.lo) ? u.q.x - u.q.lo : 0; }), color: '#ff7f0e', thickness: 1.5 }, hovertemplate: '%{text}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>unknown</extra>' });
+    var shapes = [];
+    if (fit && isNum(fit.loq) && fit.loq > 0) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: fit.loq, x1: fit.loq, y0: 0, y1: 1, line: { color: '#7f7f7f', width: 1, dash: 'dot' } });
+    var axis = { gridcolor: col.grid, zeroline: false, linecolor: '#000', tickcolor: '#000', showline: true, ticks: 'outside', automargin: true, tickfont: { color: '#000' } };
+    var layout = { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 12, color: '#000' }, margin: { l: 60, r: 14, t: o.title ? 36 : 12, b: 46 },
+      title: o.title ? { text: esc(o.title), font: { size: 14 } } : undefined, showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#000', borderwidth: 1, font: { size: 10.5 } },
+      xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }),
+      yaxis: mergeDeep(clone(axis), { title: { text: 'Response: ' + (a.response === 'height' ? 'height' : 'area') + ' (' + respUnit(tr0, a) + ')' }, rangemode: 'tozero' }), shapes: shapes,
+      annotations: fit && isNum(fit.loq) && fit.loq > 0 ? [{ x: fit.loq, y: 1, xref: 'x', yref: 'paper', text: 'LOQ', showarrow: false, xanchor: 'left', yanchor: 'top', font: { size: 10, color: '#555' } }] : [] };
+    if (o.width) { layout.width = o.width; layout.height = o.height; }
+    var resid = null;
+    if (fit) {
+      var rp = r.points.filter(function (p) { return isNum(p.x) && isNum(p.y); });
+      resid = { data: [{ type: 'scatter', mode: 'markers', x: rp.map(function (p) { return p.x; }), y: rp.map(function (p) { return p.y - fit.predict(p.x); }), customdata: rp.map(function (p) { return p.level; }),
+        marker: { size: 8, color: rp.map(function (p) { return p.include ? '#1f4fd8' : '#d62728'; }), symbol: rp.map(function (p) { return p.include ? 'circle' : 'x-open'; }) }, hovertemplate: 'Level %{customdata}<br>residual %{y:.4~g}<extra></extra>', showlegend: false }],
+        layout: { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 11, color: '#000' }, margin: { l: 60, r: 14, t: 8, b: 40 }, height: 170,
+          xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }), yaxis: mergeDeep(clone(axis), { title: { text: 'Residual' }, zeroline: true, zerolinecolor: '#000' }) } };
+    }
+    return { data: data, layout: layout, resid: resid, config: { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'] } };
+  }
+  function calStatRow(label, key, value, d, fit, inputs) {
+    return '<tr><th scope="row">' + esc(label) + '</th><td class="mono">' + esc(fmt(value, d || 5)) + '</td><td><button class="cell-i vis" data-calaudit="' + esc(key) + '"' + (inputs ? ' data-calinp="' + esc(JSON.stringify(inputs)) + '"' : '') + ' aria-label="How ' + esc(label) + ' was computed">&#9432;</button></td></tr>';
+  }
+  function renderCalibration() {
+    var host = $('cal-root'); if (!host) return;
+    var c = calibrationCtx(), a = selAnalyte(), mains = P().traces.filter(function (t) { return !isAux(t); }), act = activeTrace(), focusId = document.activeElement && host.contains(document.activeElement) ? document.activeElement.id : null;
+    var selPk = act && act.peaks.filter(function (p) { return p.id === state.selPeakId; })[0];
+    if (!a) {
+      host.innerHTML = '<div class="dropzone" style="max-width:none"><h3 style="margin-top:0">No analytes yet</h3><p class="small muted">An analyte is a compound you quantify: its retention time (± a tolerance) finds its peak in every trace. Mark traces as standards with known concentrations, and Peakly fits a calibration curve and reports concentrations of the unknowns in the peak table.</p>' +
+        '<div class="row" style="justify-content:center"><button class="btn primary" id="cal-add">+ Add analyte' + (selPk ? ' from the selected peak' : '') + '</button><button class="btn" data-action="sample-cal">Load the sample calibration set</button></div></div>';
+      return;
+    }
+    var r = calibrationFor(a), fit = r.fit, pw = calBasis(fit, a.model), tr0 = traceById((a.levels.filter(function (l) { return l.traceId; })[0] || {}).traceId) || act, ru = respUnit(tr0, a), cu = c.unit || '';
+    function opt(v, l, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(l) + '</option>'; }
+    var lvRows = r.points.map(function (p, i) {
+      var l = a.levels[i], t = l.traceId && traceById(l.traceId);
+      var back = fit && isNum(p.y) && typeof fit.inverse === 'function' ? (function () { try { return fit.inverse(p.y).x; } catch (e) { return NaN; } })() : NaN;
+      return '<tr><td>' + (i + 1) + '</td><td><select id="lv-tr-' + i + '" data-lv="' + i + '" data-lf="traceId" aria-label="Standard trace for level ' + (i + 1) + '">' + opt('', '(typed response)', l.traceId || '') + mains.map(function (o) { return opt(o.id, o.name, l.traceId || ''); }).join('') + '</select></td>' +
+        '<td><input type="number" step="any" id="lv-c-' + i + '" data-lv="' + i + '" data-lf="conc" value="' + (l.conc == null ? '' : esc(l.conc)) + '" aria-label="Concentration of level ' + (i + 1) + '" style="width:80px"></td>' +
+        '<td>' + (l.traceId ? '<span class="mono">' + esc(fmt(p.y, 5)) + '</span>' + (p.missing ? ' <span class="badge warn" title="' + esc(p.missing) + '">no peak</span>' : ' <span class="small muted">RT ' + esc(fmt(p.rt, 4)) + '</span>') : '<input type="number" step="any" id="lv-r-' + i + '" data-lv="' + i + '" data-lf="response" value="' + (isNum(l.response) ? esc(l.response) : '') + '" aria-label="Response of level ' + (i + 1) + '" style="width:90px">') + '</td>' +
+        '<td class="mono">' + (fit && isNum(back) ? esc(fmt(back, 4)) + (isNum(p.x) && p.x ? ' <span class="small muted">(' + esc(fmt(100 * back / p.x, 4)) + ' %)</span>' : '') : '—') + '</td>' +
+        '<td><input type="checkbox" id="lv-i-' + i + '" data-lv="' + i + '" data-lf="include"' + (l.include !== false ? ' checked' : '') + ' aria-label="Include level ' + (i + 1) + ' in the fit"></td>' +
+        '<td><button class="btn ghost sm icon danger" data-lvdel="' + i + '" aria-label="Remove level ' + (i + 1) + '">&#10005;</button></td></tr>';
+    }).join('');
+    var unk = [];
+    mains.forEach(function (t) {
+      if ((a.levels || []).some(function (l) { return l.traceId === t.id; })) return;
+      var m = r.matches[t.id], q = m ? concForTrace(t)[m.idx] : null;
+      unk.push('<tr><td>' + esc(t.name) + '</td><td class="mono">' + (m ? esc(fmt(m.rt, 4)) : '—') + '</td><td class="mono">' + (m ? esc(fmt(a.response === 'height' ? m.height : m.area, 5)) : '<span class="muted">no peak in window</span>') + '</td>' +
+        '<td class="mono">' + (q && q.analyte.id === a.id ? esc(fmt(q.x, 4)) + (isNum(q.lo) ? ' <span class="muted">[' + esc(fmt(q.lo, 4)) + ', ' + esc(fmt(q.hi, 4)) + ']</span>' : '') : '—') + '</td><td>' + (q && q.analyte.id === a.id ? q.flags.map(function (f) { return '<span class="badge warn" title="' + esc(CONC_FLAG_HELP[f]) + '">' + esc(CONC_FLAG_LABEL[f]) + '</span>'; }).join(' ') : '') + '</td></tr>');
+    });
+    var stats = '';
+    if (fit) {
+      stats = '<p class="mono small" style="margin:6px 0">' + esc(calEquation(a, fit)) + '</p><table class="plain small cal-stats"><thead><tr><th scope="col">Coefficient</th><th scope="col">Value ± SE</th><th scope="col"><span class="sr-only">Formula</span></th></tr></thead><tbody>' +
+        pw.map(function (k, j) { return '<tr><th scope="row">' + esc(coefName(k)) + '</th><td class="mono">' + esc(fmt(fit.coef[j], 6)) + (fit.se && isNum(fit.se[j]) ? ' ± ' + esc(fmt(fit.se[j], 3)) : '') + '</td><td><button class="cell-i vis" data-calaudit="b' + k + '" data-calj="' + j + '" aria-label="How ' + esc(coefName(k)) + ' was computed">&#9432;</button></td></tr>'; }).join('') +
+        '</tbody></table><table class="plain small cal-stats"><tbody>' +
+        calStatRow('R²', 'r2', fit.r2, 6) + calStatRow('R² adjusted', 'adjR2', fit.adjR2, 6) + calStatRow('s_y/x (residual SD)', 'syx', fit.syx, 4) +
+        '<tr><th scope="row">n / degrees of freedom</th><td class="mono">' + esc(fit.n) + ' / ' + esc(fit.dof) + '</td><td></td></tr>' +
+        calStatRow('LOD (' + (cu || 'conc.') + ')', 'lod', fit.lod, 4) + calStatRow('LOQ (' + (cu || 'conc.') + ')', 'loq', fit.loq, 4) + '</tbody></table>';
+    }
+    host.innerHTML = '<div class="cal-grid"><div>' +
+      '<div class="row"><label class="inline">Analyte <select id="cal-sel" aria-label="Analyte">' + c.analytes.map(function (q) { return opt(q.id, q.name, a.id); }).join('') + '</select></label>' +
+      '<button class="btn sm" id="cal-add">+ Analyte</button><button class="btn sm ghost danger" id="cal-del">Remove</button></div>' +
+      '<div class="grid2" style="margin-top:8px"><label class="field"><span>Name</span><input type="text" id="cal-name" data-cal="name" value="' + esc(a.name) + '"></label>' +
+      '<label class="field"><span>Concentration unit (all analytes)</span><input type="text" id="cal-unit" data-cal="unit" value="' + esc(cu) + '" placeholder="e.g. µg/mL"></label>' +
+      '<label class="field"><span>Retention time (' + esc(tr0 ? tr0.xUnit : 'min') + ')</span><span class="row" style="gap:4px"><input type="number" step="any" id="cal-rt" data-cal="rt" value="' + (isNum(a.peakMatch.rt) ? esc(a.peakMatch.rt) : '') + '">' + (selPk ? '<button class="btn sm ghost" id="cal-rt-sel" title="Use the RT of the peak selected in the peak table">use selected</button>' : '') + '</span></label>' +
+      '<label class="field"><span>± tolerance</span><input type="number" step="any" min="0.001" id="cal-tol" data-cal="tol" value="' + esc(a.peakMatch.tol) + '"></label>' +
+      '<label class="field"><span>Response</span><select id="cal-resp" data-cal="response">' + opt('area', 'Peak area', a.response) + opt('height', 'Peak height', a.response) + '</select></label>' +
+      '<label class="field"><span>Model</span><select id="cal-model" data-cal="model">' + opt('linear', 'Linear (y = b₀ + b₁x)', a.model) + opt('linear0', 'Linear through 0 (y = b₁x)', a.model) + opt('quadratic', 'Quadratic (y = b₀ + b₁x + b₂x²)', a.model) + '</select></label>' +
+      '<label class="field"><span>Weighting</span><select id="cal-w" data-cal="weighting">' + opt('none', 'None', a.weighting) + opt('1/x', '1/x', a.weighting) + opt('1/x2', '1/x²', a.weighting) + '</select></label></div>' +
+      '<h3>Standards</h3><div class="table-scroll" style="max-height:260px"><table class="plain small cal-levels"><thead><tr><th scope="col">#</th><th scope="col">Trace</th><th scope="col">Conc.' + (cu ? ' (' + esc(cu) + ')' : '') + '</th><th scope="col">Response (' + esc(ru) + ')</th><th scope="col">Back-calc. (recovery)</th><th scope="col">Use</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
+      (lvRows || '<tr><td colspan="7" class="muted">No levels yet.</td></tr>') + '</tbody></table></div>' +
+      '<div class="row" style="margin-top:6px"><button class="btn sm" id="lv-add">+ Level</button><button class="btn sm" id="lv-all" title="Add one level per trace that is not yet a standard of this analyte">Add every trace as a level</button></div>' +
+      '<h3>Unknowns</h3><table class="plain small"><thead><tr><th scope="col">Trace</th><th scope="col">RT</th><th scope="col">Response</th><th scope="col">Conc. [95 %]</th><th scope="col">Flags</th></tr></thead><tbody>' + (unk.join('') || '<tr><td colspan="5" class="muted">Every trace is a standard. Load or import an unknown sample.</td></tr>') + '</tbody></table>' +
+      '</div><div>' +
+      (r.err ? '<p class="note warn">' + esc(r.err) + '</p>' : '') +
+      '<div id="cal-plot" class="cal-plot" role="img" aria-label="Calibration curve: standards, fitted curve with 95 % confidence band, and unknowns"></div><div id="cal-resid" class="cal-resid" role="img" aria-label="Residual plot"></div>' +
+      stats +
+      '<p class="small muted">Click a standard on the plot (or untick “Use”) to exclude it from the fit. Unknowns appear in the peak table’s Conc. column with their 95 % interval; <span class="badge warn">extrap.</span> marks values outside the calibrated range, <span class="badge warn">&lt;LOQ</span> values below the limit of quantitation.</p>' +
+      '<div class="row"><button class="btn sm" id="cal-csv">Calibration CSV</button><button class="btn sm" id="cal-json">Calibration JSON</button></div>' +
+      '</div></div>';
+    if (focusId && $(focusId)) $(focusId).focus();
+    renderCalPlots(r);
+  }
+  function renderCalPlots(r) {
+    var el = $('cal-plot'), el2 = $('cal-resid'); if (!el || typeof Plotly === 'undefined') { if (el) el.innerHTML = '<p class="muted small">Plot unavailable (Plotly did not load).</p>'; return; }
+    var fig = calFigure(r);
+    Promise.resolve(Plotly.react(el, fig.data, fig.layout, fig.config)).then(function () { if (el.clientWidth && el._fullLayout && Math.abs(el._fullLayout.width - el.clientWidth) > 2) { try { Plotly.Plots.resize(el); if (el2 && el2._fullLayout) Plotly.Plots.resize(el2); } catch (e) { /* ignore */ } } });
+    if (!el._pkBound) {
+      el._pkBound = true;
+      el.on('plotly_click', function (ev) {
+        var pt = ev && ev.points && ev.points[0]; if (!pt || pt.customdata == null || !/Standards|Excluded/.test(pt.data.name || '')) return;
+        var a = selAnalyte(), l = a && a.levels[+pt.customdata]; if (!l) return;
+        app.pushUndo(l.include === false ? 'Include calibration level' : 'Exclude calibration level'); l.include = l.include === false; calChanged();
+      });
+    }
+    if (el2) { if (fig.resid) Plotly.react(el2, fig.resid.data, fig.resid.layout, { responsive: true, displaylogo: false, displayModeBar: false }); else { try { Plotly.purge(el2); } catch (e) { /* ignore */ } el2.innerHTML = ''; } }
+  }
+  function calChanged() { state.calCache = {}; renderCalibration(); renderTable(); }
+  var calSession = null, calTimer = null;
+  function beginCalEdit(el) { if (calSession !== el) { app.pushUndo('Edit calibration'); calSession = el; } clearTimeout(calTimer); calTimer = setTimeout(function () { calSession = null; }, 1500); }
+  function showCalAudit(btn) {
+    var a = selAnalyte(), r = a && calibrationFor(a), fit = r && r.fit; if (!fit) return;
+    var key = btn.getAttribute('data-calaudit'), f = calFormula(fit, key), val, lbl;
+    if (/^b\d$/.test(key)) { var j = +btn.getAttribute('data-calj'); val = fit.coef[j]; lbl = coefName(+key.charAt(1)); f.inputs = mergeDeep({ SE: fit.se ? fit.se[j] : null, n: fit.n, model: a.model, weighting: a.weighting }, f.inputs || {}); }
+    else { val = fit[key]; lbl = { r2: 'R²', adjR2: 'R² adjusted', syx: 's_y/x', lod: 'LOD', loq: 'LOQ' }[key] || key; f.inputs = f.inputs || ({ r2: { n: fit.n }, adjR2: { 'R²': fit.r2, n: fit.n, p: fit.coef.length }, syx: { n: fit.n, p: fit.coef.length, dof: fit.dof }, lod: { 's_y/x': fit.syx, slope: fit.coef[calBasis(fit, a.model).indexOf(1)] }, loq: { 's_y/x': fit.syx, slope: fit.coef[calBasis(fit, a.model).indexOf(1)] } }[key]); }
+    showPopHTML('<div class="row" style="justify-content:space-between"><strong id="audit-title">' + esc(lbl) + ' · ' + esc(a.name) + '</strong><button class="btn ghost sm" data-close-audit aria-label="Close">&#10005;</button></div>' +
+      '<div class="metric"><div><strong>' + esc(lbl) + '</strong> = <span class="mono">' + esc(fmt(val, 6)) + '</span></div><div class="expr">' + esc(f.expr) + '</div>' + (f.inputs ? '<div class="inputs">' + fmtInputs(f.inputs) + '</div>' : '') + (f.note ? '<div class="small muted">' + esc(f.note) + '</div>' : '') + '</div>', btn);
+  }
+  /** Generic popover (reuses #audit-pop) for non-peak formula audits. */
+  function showPopHTML(html, anchor) {
+    var pop = $('audit-pop'); if (!pop) return;
+    pop.innerHTML = html; pop.hidden = false; pop.setAttribute('aria-labelledby', 'audit-title');
+    var r = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight, left = Math.min(Math.max(8, r.left - pw / 2), window.innerWidth - pw - 8), top = r.bottom + 6;
+    if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+    pop.style.left = left + 'px'; pop.style.top = top + 'px'; pop._ctx = { anchor: anchor };
+    var c = pop.querySelector('[data-close-audit]'); if (c) c.focus();
+  }
+  function bindCalibration() {
+    var host = $('cal-root'); if (!host) return;
+    host.addEventListener('change', function (e) {
+      var el = e.target, a = selAnalyte(), c = calibrationCtx();
+      if (el.id === 'cal-sel') { state.calSel = el.value; renderCalibration(); return; }
+      if (!a) return;
+      var k = el.getAttribute('data-cal');
+      if (k) {
+        beginCalEdit(el);
+        if (k === 'name') a.name = el.value.trim() || a.name;
+        else if (k === 'unit') c.unit = el.value.trim();
+        else if (k === 'rt') a.peakMatch.rt = el.value === '' ? null : num(el.value, null);
+        else if (k === 'tol') a.peakMatch.tol = Math.max(1e-4, num(el.value, 0.1));
+        else a[k] = el.value;
+        calChanged(); return;
+      }
+      var lv = el.getAttribute('data-lv');
+      if (lv != null) {
+        var l = a.levels[+lv], f = el.getAttribute('data-lf'); if (!l) return;
+        beginCalEdit(el);
+        if (f === 'traceId') { if (el.value) l.traceId = el.value; else delete l.traceId; }
+        else if (f === 'conc') l.conc = el.value === '' ? null : num(el.value, null);
+        else if (f === 'response') l.response = el.value === '' ? null : num(el.value, null);
+        else if (f === 'include') l.include = el.checked;
+        calChanged();
+      }
+    });
+    host.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var a = selAnalyte(), c = calibrationCtx(), act = activeTrace(), id = b.id;
+      if (b.hasAttribute('data-calaudit')) { e.stopPropagation(); showCalAudit(b); return; }
+      if (id === 'cal-add') {
+        var sp = act && act.peaks.filter(function (p) { return p.id === state.selPeakId; })[0], ms = sp ? withAreaPct(metricsFor(act)) : [], i = sp ? act.peaks.indexOf(sp) : -1;
+        app.pushUndo('Add analyte'); var na = newAnalyte(sp && sp.label, sp ? (isNum(ms[i] && ms[i].rt) ? ms[i].rt : sp.apex) : null); c.analytes.push(na); state.calSel = na.id; calChanged();
+        var f = $('cal-name'); if (f) f.focus();
+      } else if (id === 'cal-del' && a) { app.pushUndo('Remove analyte'); c.analytes = c.analytes.filter(function (q) { return q !== a; }); state.calSel = null; calChanged(); }
+      else if (id === 'cal-rt-sel' && a) { var sp2 = act && act.peaks.filter(function (p) { return p.id === state.selPeakId; })[0]; if (!sp2) return; var ms2 = withAreaPct(metricsFor(act)), m2 = ms2[act.peaks.indexOf(sp2)] || {}; app.pushUndo('Set analyte RT'); a.peakMatch.rt = +(isNum(m2.rt) ? m2.rt : sp2.apex).toFixed(4); if (!a.name || /^Analyte \d+$/.test(a.name)) a.name = sp2.label || a.name; calChanged(); }
+      else if (id === 'lv-add' && a) { app.pushUndo('Add calibration level'); a.levels.push({ conc: null, unit: '', include: true, traceId: act && !isAux(act) && !a.levels.some(function (l) { return l.traceId === act.id; }) ? act.id : undefined }); calChanged(); var ins = host.querySelectorAll('input[data-lf="conc"]'); if (ins.length) ins[ins.length - 1].focus(); }
+      else if (id === 'lv-all' && a) {
+        var add = P().traces.filter(function (t) { return !isAux(t) && !a.levels.some(function (l) { return l.traceId === t.id; }); });
+        if (!add.length) { toast('Every trace is already a level of this analyte.', 'info'); return; }
+        app.pushUndo('Add calibration levels'); add.forEach(function (t) { var cc = parseFloat(((t.meta && t.meta.run) || {}).conc); a.levels.push({ conc: isNum(cc) ? cc : null, unit: '', include: true, traceId: t.id }); }); calChanged();
+        toast('Added ' + add.length + ' level' + (add.length === 1 ? '' : 's') + '. Type each concentration (blank ones are ignored). Remove the unknowns from the list.', 'info');
+      } else if (b.hasAttribute('data-lvdel') && a) { app.pushUndo('Remove calibration level'); a.levels.splice(+b.getAttribute('data-lvdel'), 1); calChanged(); }
+      else if (id === 'cal-csv') U.downloadText(calibrationCSV(), fileSafe(P().name) + '_calibration.csv', 'text/csv');
+      else if (id === 'cal-json') U.downloadText(JSON.stringify(calibrationJSON(), null, 1), fileSafe(P().name) + '_calibration.json', 'application/json');
+    });
+  }
+  function openCalibration() { renderCalibration(); showModal('calib'); setTimeout(function () { var a = selAnalyte(); if (a) renderCalPlots(calibrationFor(a)); }, 40); }
+  app.openCalibration = openCalibration;
+  function fitSummary(a, fit) {
+    if (!fit) return null;
+    var pw = calBasis(fit, a.model), co = {};
+    pw.forEach(function (k, j) { co['b' + k] = fit.coef[j]; co['b' + k + '_se'] = fit.se ? fit.se[j] : null; });
+    return { equation: calEquation(a, fit), coefficients: co, r2: fit.r2, adjR2: fit.adjR2, syx: fit.syx, n: fit.n, dof: fit.dof, lod: fit.lod, loq: fit.loq };
+  }
+  function calLevelRows(a, r) {
+    var fit = r.fit;
+    return r.points.map(function (p, i) {
+      var t = p.traceId && traceById(p.traceId), pred = fit && isNum(p.x) ? fit.predict(p.x) : null, back = null;
+      if (fit && isNum(p.y) && typeof fit.inverse === 'function') { try { back = fit.inverse(p.y).x; } catch (e) { back = null; } }
+      return { schema_version: PROJECT_VERSION, analyte: a.name, level: i + 1, trace_id: p.traceId, trace_name: t ? t.name : null, conc: isNum(p.x) ? p.x : null, response: isNum(p.y) ? p.y : null, included: !!p.include,
+        predicted: isNum(pred) ? pred : null, residual: isNum(pred) && isNum(p.y) ? p.y - pred : null, back_calc_conc: isNum(back) ? back : null, recovery_pct: isNum(back) && p.x ? 100 * back / p.x : null };
+    });
+  }
+  function calUnknowns(a) {
+    var out = [];
+    P().traces.forEach(function (t) { if (isAux(t)) return; concForTrace(t).forEach(function (q, i) { if (q && q.analyte.id === a.id && q.flags.indexOf('standard') < 0) out.push({ trace_id: t.id, trace_name: t.name, peak_id: t.peaks[i].id, response: q.y, conc: q.x, conc_se: isNum(q.se) ? q.se : null, conc_lo: isNum(q.lo) ? q.lo : null, conc_hi: isNum(q.hi) ? q.hi : null, flags: q.flags }); }); });
+    return out;
+  }
+  function calibrationCSV() {
+    var c = calibrationCtx(), cols = SCH ? SCH.columnsWithUnits(SCH.CAL_COLUMNS, activeTrace(), { concUnit: c.unit }) : [], parts = [];
+    c.analytes.forEach(function (a) {
+      var r = calibrationFor(a), s = fitSummary(a, r.fit), cm = ['Peakly ' + appVersion() + ' calibration · schema v' + PROJECT_VERSION, 'Analyte: ' + a.name + ' · RT ' + a.peakMatch.rt + ' ± ' + a.peakMatch.tol + ' · response ' + a.response + ' · model ' + a.model + ' · weighting ' + a.weighting + ' · unit ' + (c.unit || '-')];
+      if (s) cm.push(s.equation + ' · R2 ' + fmt(s.r2, 6) + ' · s_y/x ' + fmt(s.syx, 5) + ' · n ' + s.n + ' · LOD ' + fmt(s.lod, 4) + ' · LOQ ' + fmt(s.loq, 4), 'Coefficients: ' + Object.keys(s.coefficients).filter(function (k) { return !/_se$/.test(k); }).map(function (k) { return k + ' = ' + fmt(s.coefficients[k], 8) + ' +/- ' + fmt(s.coefficients[k + '_se'], 4); }).join('; '));
+      else cm.push('No fit: ' + r.err);
+      calUnknowns(a).forEach(function (u) { cm.push('unknown: ' + u.trace_name + ' · response ' + fmt(u.response, 6) + ' · conc ' + fmt(u.conc, 6) + ' [' + fmt(u.conc_lo, 5) + ', ' + fmt(u.conc_hi, 5) + '] ' + (c.unit || '') + (u.flags.length ? ' · flags ' + u.flags.join(';') : '')); });
+      parts.push(SCH ? SCH.toCSV(cols, calLevelRows(a, r), { comments: cm }) : '');
+    });
+    return parts.join('\n') || '# No calibration defined\n';
+  }
+  function calibrationJSON() {
+    var c = calibrationCtx();
+    return { schema: { name: 'peakly-calibration', version: PROJECT_VERSION }, app: 'Peakly', version: appVersion(), exported: new Date().toISOString(), unit: c.unit,
+      analytes: c.analytes.map(function (a) { var r = calibrationFor(a); return { definition: clone(a), fit: fitSummary(a, r.fit), error: r.err || null, levels: calLevelRows(a, r), unknowns: calUnknowns(a) }; }) };
+  }
+  app.calibrationCSV = calibrationCSV; app.calibrationJSON = calibrationJSON;
+
+  /* ---------------- sample calibration set (5 standards + unknown) */
+  function loadSampleCalibration(o) {
+    o = o || {};
+    if (!confirmReplace('the sample calibration set')) return;
+    var A = PK.analysis || {}, levels = [5, 10, 25, 50, 100], R = A.rng ? A.rng(2024) : null, rnd = R ? R.normal : (function () { var r = localRng(2024); return function () { return gaussNoise(r); }; })();
+    // response factors (mAU apex height per µg/mL) with ~1.2 % injection-to-injection scatter and a slight detector curvature
+    function inj(conc, seed, name, run, extra) {
+      var e = 1 + 0.012 * rnd(), pk = [{ mu: 1.25, height: 3, sigma: 0.035, tau: 0.01 },
+        { mu: 4.80, height: 1.62 * conc * e * (1 - 0.0004 * conc), sigma: 0.045, tau: 0.02 }, { mu: 7.35, height: 1.08 * conc * (1 + 0.012 * rnd()), sigma: 0.05, tau: 0.015 }].filter(function (q) { return q.height > 0; }).concat(extra || []);
+      var s = null; try { if (A.syntheticChromatogram) s = A.syntheticChromatogram({ peaks: pk, seed: seed, noise: 0.05, tMax: 12, n: 2401, drift: function (t) { return 0.8 + 0.05 * t; } }); } catch (er) { s = null; }
+      if (!s) s = localSynth({ peaks: pk.map(function (q) { return [q.mu, q.height, q.sigma]; }), seed: seed, tMax: 12, n: 2401 });
+      return { id: 'tr_cal_' + seed, name: name, x: s.x, y: s.y, xUnit: 'min', yUnit: 'mAU', source: { kind: 'sample', format: 'synthetic calibration' }, meta: { wavelength: 254, synthetic: true, run: run } };
+    }
+    var traces = levels.map(function (c, i) { return inj(c, 101 + i, 'Std ' + (i + 1) + ' · ' + c + ' µg/mL', { sampleName: 'Calibration standard ' + (i + 1), sampleId: 'STD-' + (i + 1), conc: c + ' µg/mL', injVol: '10', instrument: 'Simulated HPLC', detector: 'UV 254 nm' }); });
+    // the unknown: 37.5 µg/mL paracetamol, 62 µg/mL caffeine and two small impurities (analyte peaks built at 0, added explicitly)
+    var unk = inj(0, 202, 'Unknown · tablet extract', { sampleName: 'Tablet extract (1:100)', sampleId: 'UNK-01', injVol: '10', instrument: 'Simulated HPLC', detector: 'UV 254 nm', notes: 'Synthetic unknown' },
+      [{ mu: 4.80, height: 1.62 * 37.5 * (1 - 0.0004 * 37.5), sigma: 0.045, tau: 0.02 }, { mu: 7.35, height: 1.08 * 62, sigma: 0.05, tau: 0.015 }, { mu: 6.1, height: 2.2, sigma: 0.05, tau: 0.01 }, { mu: 9.4, height: 4.5, sigma: 0.06, tau: 0.02 }]);
+    unk.id = 'tr_cal_unknown'; traces.push(unk);
+    var cal = { unit: 'µg/mL', analytes: [
+      { id: 'an_para', name: 'Paracetamol', peakMatch: { rt: 4.81, tol: 0.1 }, response: 'area', model: 'linear', weighting: '1/x', levels: levels.map(function (c, i) { return { conc: c, unit: '', include: true, traceId: 'tr_cal_' + (101 + i) }; }) },
+      { id: 'an_caf', name: 'Caffeine', peakMatch: { rt: 7.36, tol: 0.1 }, response: 'area', model: 'linear', weighting: '1/x', levels: levels.map(function (c, i) { return { conc: c, unit: '', include: true, traceId: 'tr_cal_' + (101 + i) }; }) }] };
+    var method = A.sampleMethod ? A.sampleMethod() : TEMPLATES.rp.make();
+    app.setProject({ name: 'Sample: calibration (5 standards + unknown)', traces: traces, method: method, settings: { showGradient: false, labels: { mode: 'name+rt', size: 10, all: false } }, calibration: cal, version: PROJECT_VERSION }, { label: 'Load calibration sample' });
+    P().traces.forEach(function (t) { var a0 = null, a1 = null; t.peaks.forEach(function (p) { if (Math.abs(p.apex - 4.81) < 0.1) a0 = p; if (Math.abs(p.apex - 7.36) < 0.1) a1 = p; }); if (a0) a0.label = 'Paracetamol'; if (a1) a1.label = 'Caffeine'; });
+    P().activeTraceId = 'tr_cal_unknown'; state.calSel = 'an_para'; state.calCache = {}; state.uirev = (state.uirev || 0) + 1; renderAll();
+    toast('Loaded 5 calibration standards (5–100 µg/mL) and an unknown. Concentrations appear in the peak table; press C for the curve.', 'ok');
+    if (o.open !== false && HAS_DOM) openCalibration();
+  }
+
+  /* ================================================================== About */
+  var THIRD_PARTY = [
+    { name: 'Plotly.js (plotly.js-dist-min)', version: '2.35.2', license: 'MIT', use: 'Interactive plots, PNG/SVG figure export' },
+    { name: 'SheetJS Community Edition (xlsx)', version: '0.18.5', license: 'Apache-2.0', use: 'Excel (.xlsx/.xls) import' },
+    { name: 'pako', version: '2.1.0', license: 'MIT and Zlib', use: 'zlib decompression for mzML' },
+    { name: 'lz-string', version: '1.5.0', license: 'MIT', use: 'Compressing share links' },
+    { name: 'jsPDF', version: '2.5.1', license: 'MIT', use: 'PDF reports' },
+    { name: 'PDF.js (pdfjs-dist)', version: '3.11.174', license: 'Apache-2.0', use: 'Reading PDF pages in the image digitizer' }
+  ];
+  app.THIRD_PARTY = THIRD_PARTY;
+  function citationText() {
+    var C = (PK.config && PK.config.citation) || {}, cfg = PK.config || {};
+    var doi = C.doi ? 'https://doi.org/' + C.doi : 'DOI assigned at first release';
+    return (C.authors || ['Schmitt, Jennifer']).join('; ') + ' (' + (C.year || new Date().getFullYear()) + '). ' + (C.title || 'Peakly') + ' (Version ' + (C.version || appVersion()) + ') [Computer software]. ' + doi + (cfg.repoUrl ? '. ' + cfg.repoUrl : '') + '.';
+  }
+  function bibtex() {
+    var C = (PK.config && PK.config.citation) || {}, cfg = PK.config || {}, L = ['@software{peakly_' + (C.year || ''), '  author  = {' + (C.authors || []).join(' and ') + '},', '  title   = {' + (C.title || 'Peakly') + '},', '  year    = {' + (C.year || '') + '},', '  version = {' + (C.version || appVersion()) + '},'];
+    if (C.doi) L.push('  doi     = {' + C.doi + '},'); else L.push('  note    = {DOI assigned at first release},');
+    if (cfg.repoUrl) L.push('  url     = {' + cfg.repoUrl + '},');
+    L.push('  license = {' + (cfg.license || 'MIT') + '}', '}');
+    return L.join('\n');
+  }
+  app.citationText = citationText; app.bibtex = bibtex;
+  function serviceButtons() {
+    var S = PK.services; if (!S || typeof S.enabled !== 'function') return '';
+    var caps = [['save', 'Save to'], ['load', 'Open from'], ['share', 'Share via'], ['auth', 'Sign in to']], html = [];
+    caps.forEach(function (c) { S.enabled(c[0]).forEach(function (svc) { html.push('<button class="btn sm" data-svc="' + esc(svc.id) + '" data-cap="' + c[0] + '">' + esc(c[1] + ' ' + (svc.name || svc.id)) + '</button>'); }); });
+    return html.join('');
+  }
+  function renderAbout() {
+    var host = $('about-root'); if (!host) return;
+    var cfg = PK.config || {}, au = cfg.author || {}, svc = serviceButtons(), name = cfg.appName || 'Peakly';
+    var link = au.linkedin && /^https:\/\/(www\.)?linkedin\.com\//.test(au.linkedin) ? '<a href="' + esc(au.linkedin) + '" target="_blank" rel="noopener noreferrer">LinkedIn profile<span class="sr-only"> (opens in a new tab)</span> &#8599;</a>' : '';
+    var repo = cfg.repoUrl && /^https:\/\//.test(cfg.repoUrl) ? '<a href="' + esc(cfg.repoUrl) + '" target="_blank" rel="noopener noreferrer">Source code<span class="sr-only"> (opens in a new tab)</span> &#8599;</a>' : '<span class="muted">Source repository link will appear here at the first public release.</span>';
+    host.innerHTML = '<div class="split"><div>' +
+      '<div class="section"><h3 style="margin-top:0">' + esc(name) + ' ' + esc(appVersion()) + '</h3><p class="small">A free, single-file HPLC/FPLC chromatogram analyzer that runs entirely in your browser. ' + repo + '</p>' +
+      '<p class="note warn small" style="margin:0"><strong>Disclaimer.</strong> ' + esc(cfg.disclaimer || '') + '</p></div>' +
+      '<div class="section about-author"><h3>Author</h3><p style="margin:0"><strong>' + esc(au.name || '') + '</strong></p>' + (au.headline ? '<p class="small muted" style="margin:2px 0 6px">' + esc(au.headline) + '</p>' : '') +
+      (au.bio || []).map(function (b) { return '<p class="small">' + esc(b) + '</p>'; }).join('') + (link ? '<p class="small">' + link + '</p>' : '') + '</div>' +
+      '<div class="section"><h3>Cite this tool</h3><p class="small" id="cite-text">' + esc(citationText()) + '</p>' +
+      (cfg.citation && cfg.citation.doi ? '' : '<p class="small muted">DOI assigned at first release.</p>') +
+      '<pre class="raw-text" id="cite-bib" tabindex="0" aria-label="BibTeX entry">' + esc(bibtex()) + '</pre>' +
+      '<div class="row" style="margin-top:6px"><button class="btn sm" data-copy="cite-text">Copy citation</button><button class="btn sm" data-copy="cite-bib">Copy BibTeX</button></div></div>' +
+      '</div><div>' +
+      '<div class="section"><h3 style="margin-top:0">Tell us how you used it</h3><p class="small">Stories about real use help decide what to build next.</p>' +
+      (cfg.discussionsUrl ? '<button class="btn sm" id="about-discuss">Open the discussion board (new tab)</button>' : '<p class="small muted" id="about-discuss-note">The public discussion board link will be added here when the repository opens. Peakly never sends anything about you or your data automatically.</p>') + '</div>' +
+      '<div class="section"><h3>Privacy</h3><p class="small">No telemetry: this app collects nothing, sets no cookies and makes no network requests with your data. Files stay in this browser tab. Analytics, if any, only ever run on the project website, never in the app. The only optional network call is the Claude image assist in the digitizer, which you start yourself with your own API key.</p></div>' +
+      '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is released under the ' + esc(cfg.license || 'MIT') + ' License. Algorithms are implemented from the published literature.</p>' +
+      '<h3>Third-party notices</h3><table class="plain small"><thead><tr><th scope="col">Library</th><th scope="col">Version</th><th scope="col">License</th><th scope="col">Used for</th></tr></thead><tbody>' +
+      THIRD_PARTY.map(function (l) { return '<tr><td>' + esc(l.name) + '</td><td class="mono">' + esc(l.version) + '</td><td>' + esc(l.license) + '</td><td class="muted">' + esc(l.use) + '</td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="small muted">Libraries load from public CDNs (pinned versions); their full license texts are in THIRD_PARTY_NOTICES in the repository.</p></div>' +
+      (svc ? '<div class="section"><h3>Optional services</h3><div class="row">' + svc + '</div></div>' : '') +
+      '</div></div>';
+  }
+  function bindAbout() {
+    var host = $('about-root'); if (!host) return;
+    host.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.hasAttribute('data-copy')) {
+        var src = $(b.getAttribute('data-copy')), txt = src ? src.textContent : '';
+        var ok = function () { toast('Copied', 'ok'); }, fail = function () { toast('Copy failed; select the text and copy it by hand.', 'warn'); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fail); else fail();
+      } else if (b.id === 'about-discuss') {
+        var u = PK.config && PK.config.discussionsUrl; if (u && /^https:\/\//.test(u)) window.open(u, '_blank', 'noopener,noreferrer');
+      } else if (b.hasAttribute('data-svc')) {
+        var svc = PK.services && PK.services.get(b.getAttribute('data-svc')), cap = b.getAttribute('data-cap');
+        if (!svc || !PK.services.isEnabled(svc.id)) return;
+        var fn = { save: svc.save, load: svc.load, share: svc.share, auth: svc.signIn }[cap]; if (typeof fn !== 'function') return;
+        Promise.resolve().then(function () { return cap === 'load' ? fn.call(svc) : fn.call(svc, P()); }).then(function (res) { if (cap === 'load' && res) loadProjectObj(res, svc.name); else toast((svc.name || svc.id) + ': done', 'ok'); }, function (err) { toast((svc.name || svc.id) + ': ' + err.message, 'error'); });
+      }
+    });
+  }
+
+  /* ================================================================== accessibility helpers */
+  function focusables(root) {
+    return toArr(root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      .filter(function (el) { return el.offsetParent !== null || el === document.activeElement; });
+  }
+  /** Keep Tab / Shift+Tab inside `root` (dialogs). */
+  function trapFocus(root, e) {
+    var f = focusables(root); if (!f.length) return;
+    var firstEl = f[0], last = f[f.length - 1];
+    if (e.shiftKey && (document.activeElement === firstEl || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { e.preventDefault(); firstEl.focus(); }
+  }
+  app.trapFocus = trapFocus;
+
+  /* ================================================================== ?demo= (documentation screenshots) */
+  function demoParam() { try { var m = /[?&]demo=([\w-]+)/.exec(location.search || ''); return m ? m[1] : null; } catch (e) { return null; } }
+  function demoReady(delay) {
+    setTimeout(function () {
+      var el = $('plot'), done = function () { requestAnimationFrame(function () { setTimeout(function () { document.body.dataset.demoReady = '1'; }, 250); }); };
+      if (el && el._fullLayout && typeof Plotly !== 'undefined') { var tries = 0; (function wait() { if (!el.querySelector('.main-svg') && tries++ < 40) { setTimeout(wait, 100); return; } done(); })(); } else done();
+    }, delay || 300);
+  }
+  function runDemo(kind) {
+    state.demo = kind;
+    PK.toast = function () {}; // no lingering toasts in screenshots
+    var t, i;
+    switch (kind) {
+      case 'hplc': loadSampleHPLC(); t = activeTrace(); if (t && t.peaks.length) { for (i = 0; i < t.peaks.length; i++) if (Math.abs(t.peaks[i].apex - 4.8) < 0.1) { state.selPeakId = t.peaks[i].id; break; } renderAll(); } break;
+      case 'calibration': loadSampleCalibration({ open: true }); demoReady(900); return;
+      case 'compare': loadSampleCalibration({ open: false }); state.view = 'compare'; P().settings.stack = 0.12; renderAll(); break;
+      case 'integration-math': loadSampleHPLC(); t = activeTrace(); if (t) { var cl = clustersFor(t).filter(function (c) { return c.length > 1; })[0]; if (cl) state.selPeakId = t.peaks[cl[0]].id; renderAll(); } openMathModal(); break;
+      case 'split': loadSampleHPLC(); t = activeTrace(); if (t) { var c2 = clustersFor(t).filter(function (c) { return c.length > 1; })[0]; if (c2) openClipDialog(t, c2, { reason: 'split' }); } break;
+      case 'about': loadSampleHPLC(); renderAbout(); showModal('about'); break;
+      case 'image': loadSampleImage(); demoReady(1500); return;
+      case 'fplc': loadSampleFPLC(); break;
+      default: state.demo = null; return;
+    }
+    demoReady(400);
+  }
+  app.runDemo = runDemo;
+
   /* ================================================================== global actions, keyboard, drop, paste */
   function toggleTheme() {
     var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -2590,7 +3625,11 @@
     'method': function () { app.openPanel('method'); }, 'runinfo': function () { app.openPanel('runinfo'); }, 'export': function () { app.openPanel('export'); }, 'share': function () { app.openPanel('share'); },
     'undo': function () { app.undo(); }, 'redo': function () { app.redo(); }, 'theme': toggleTheme, 'help': function () { app.openPanel('help'); },
     'detect': detectPeaksCmd, 'export-peaks': function () { downloadPeaks([activeTrace()]); }, 'export-compare': function () { U.downloadText(compareCSV(), fileSafe(P().name) + '_comparison.csv', 'text/csv'); },
-    'fallback': function () { hideModal('import'); openFallback({}); }, 'integrate': function () { setIntegrate(!state.integ); }
+    'fallback': function () { hideModal('import'); openFallback({}); }, 'integrate': function () { setIntegrate(!state.integ); },
+    'about': function () { hideModal('help'); app.openPanel('about'); }, 'calibration': openCalibration, 'math': openMathModal, 'split': splitSelected,
+    'sample-cal': function () { hideModal('calib'); loadSampleCalibration({ open: true }); },
+    'sample-menu': function () { var m = $('sample-menu'), b = $('btn-sample'); if (!m) return; m.hidden = !m.hidden;
+      if (!m.hidden) { var r = b.getBoundingClientRect(); m.style.position = 'fixed'; m.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 270)) + 'px'; m.style.top = (r.bottom + 6) + 'px'; } b.setAttribute('aria-expanded', String(!m.hidden)); if (!m.hidden) { var f = m.querySelector('button'); if (f) f.focus(); } }
   };
   function closeDrawerIfMobile() { var sb = $('sidebar'); if (sb && sb.classList.contains('open')) toggleDrawer(false); }
   function toggleDrawer(open) {
@@ -2604,6 +3643,7 @@
       var fn = ACTIONS[a.getAttribute('data-action')]; if (!fn) return;
       e.preventDefault();
       var menu = $('more-menu'); if (menu && !menu.hidden) { menu.hidden = true; $('btn-more').setAttribute('aria-expanded', 'false'); }
+      var smenu = $('sample-menu'); if (smenu && !smenu.hidden && a.getAttribute('data-action') !== 'sample-menu') { smenu.hidden = true; $('btn-sample').setAttribute('aria-expanded', 'false'); }
       if (a.closest('#modal-import') && a.getAttribute('data-action') !== 'open-files') hideModal('import');
       fn();
     });
@@ -2616,6 +3656,7 @@
     });
     $('btn-more').addEventListener('click', function (e) { e.stopPropagation(); var mm = $('more-menu'); mm.hidden = !mm.hidden; this.setAttribute('aria-expanded', String(!mm.hidden)); if (!mm.hidden) { var f = mm.querySelector('button'); if (f) f.focus(); } });
     document.addEventListener('click', function (e) { var mm = $('more-menu'); if (mm && !mm.hidden && !mm.contains(e.target)) { mm.hidden = true; $('btn-more').setAttribute('aria-expanded', 'false'); } });
+    document.addEventListener('click', function (e) { var sm = $('sample-menu'), sb = $('btn-sample'); if (sm && !sm.hidden && !sm.contains(e.target) && !(sb && sb.contains(e.target))) { sm.hidden = true; sb.setAttribute('aria-expanded', 'false'); } });
     $('btn-drawer').addEventListener('click', function () { toggleDrawer(); });
     $('scrim').addEventListener('click', function () { toggleDrawer(false); });
     $('file-input').addEventListener('change', function (e) { app.handleFiles(e.target.files); });
@@ -2635,7 +3676,9 @@
       if (k === 'Escape') {
         var pop = $('audit-pop');
         if (pop && !pop.hidden) { hideAudit(); return; }
-        var pm = $('plot-menu'); if (pm && !pm.hidden) { pm.hidden = true; return; }
+        var pm = $('plot-menu'); if (pm && !pm.hidden) { pm.hidden = true; $('btn-plotmenu').setAttribute('aria-expanded', 'false'); $('btn-plotmenu').focus(); return; }
+        var smn = $('sample-menu'); if (smn && !smn.hidden) { smn.hidden = true; $('btn-sample').setAttribute('aria-expanded', 'false'); $('btn-sample').focus(); return; }
+        var mmn = $('more-menu'); if (mmn && !mmn.hidden) { mmn.hidden = true; $('btn-more').setAttribute('aria-expanded', 'false'); $('btn-more').focus(); return; }
         if (state.integ && state.integ.start != null) { state.integ.start = null; drawCursor(); toast('Integration start cleared', 'info'); return; }
         if (modalStack.length) { hideModal(modalStack[modalStack.length - 1]); return; }
         if (state.integ) { setIntegrate(false); return; }
@@ -2649,6 +3692,9 @@
         case 'v': case 'V': app.openPanel('paste'); break;
         case 'i': case 'I': openDigitizer({}); break;
         case 'm': case 'M': app.openPanel('method'); break;
+        case 'c': case 'C': openCalibration(); break;
+        case 'k': case 'K': splitSelected(); break;
+        case 'n': case 'N': openMathModal(); break;
         case 'e': case 'E': app.openPanel('export'); break;
         case 's': case 'S': app.openPanel('share'); break;
         case 'd': case 'D': toggleTheme(); break;
@@ -2712,9 +3758,12 @@
   function init() {
     if (state.ready) return; state.ready = true;
     bindTraceList(); bindProc(); bindOverlay(); bindTable(); bindAudit(); bindCompareControls(); bindFallback(); bindMethod(); bindExport(); bindShare(); bindGlobal(); bindPlotTools(); bindCursor();
-    renderHelp(); cdnBanner();
+    bindClipDialog(); bindCalibration(); bindAbout();
+    renderHelp(); cdnBanner(); renderDisclaimers();
     renderAll();
+    var demo = demoParam(), hasShare = (location.hash || '').indexOf('#p=') === 0;
     checkHash();
+    if (demo && !hasShare) setTimeout(function () { runDemo(demo); }, 0);
   }
   app.init = init;
   if (HAS_DOM) {

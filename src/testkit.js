@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Minimal test harness shared by Node runner and in-app Self-test. */
 (function (PK) {
   'use strict';

@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://OWNER.github.io/peakly/schemas/project.v2.schema.json",
+  "title": "Peakly project",
+  "description": "A saved Peakly project (.peakly.json). Older v1 files are migrated on load (see PK.schema.migrate).",
+  "type": "object",
+  "required": [
+    "version",
+    "traces"
+  ],
+  "properties": {
+    "format": {
+      "const": "peakly-project"
+    },
+    "version": {
+      "type": "integer",
+      "const": 2,
+      "description": "Project format version. v1 files (Peakly 1.0) have version 1 or no version and are migrated on load by PK.schema.migrate."
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "const": "peakly-project"
+        },
+        "version": {
+          "const": 2
+        }
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "traces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "x": {
+            "description": "Ascending x values (min, or mL when xUnit is mL). Share links pack arrays as {u:[x0,dx,n]} or {e,d}.",
+            "type": [
+              "array",
+              "object"
+            ]
+          },
+          "y": {
+            "type": [
+              "array",
+              "object"
+            ]
+          },
+          "xUnit": {
+            "type": "string",
+            "enum": [
+              "min",
+              "mL",
+              "CV"
+            ]
+          },
+          "yUnit": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object"
+          },
+          "digitized": {
+            "description": "false, or {dxMin, dy, imageId, printedPeaks?, warnings[]} for image-derived traces.",
+            "type": [
+              "boolean",
+              "object"
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "description": "Parsed metadata; meta.run holds run info; meta.role marks auxiliary channels."
+          },
+          "style": {
+            "type": "object"
+          },
+          "proc": {
+            "type": "object",
+            "description": "{smooth:{on,window,order}, baseline:{on,lambda,lambdaAuto,p,iter}, peaks:{threshold,minDist,minWidth,auto}}"
+          },
+          "peaks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "start",
+                "end"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "apex": {
+                  "type": "number"
+                },
+                "end": {
+                  "type": "number"
+                },
+                "manual": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "clip": {
+                  "description": "Per-peak override; absent = project default (settings.clipDefault). Manual window integrations default to valley.",
+                  "type": "string",
+                  "enum": [
+                    "drop",
+                    "valley",
+                    "baseline",
+                    "skim-tangent",
+                    "skim-exp",
+                    "fit"
+                  ]
+                }
+              }
+            }
+          },
+          "fit": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "description": "Method: gradient [{t,B,flow}], column, flow, dwell volume, wavelength… (CONTRACT.md)."
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "description": "data: URL"
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "clipDefault": {
+          "type": "string",
+          "enum": [
+            "drop",
+            "valley",
+            "baseline",
+            "skim-tangent",
+            "skim-exp",
+            "fit"
+          ],
+          "description": "Peak clipping mode."
+        },
+        "askClip": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask how to split fused peaks."
+        },
+        "normalization": {
+          "type": "string",
+          "enum": [
+            "none",
+            "max",
+            "area"
+          ]
+        },
+        "lineStyles": {
+          "type": "boolean",
+          "description": "Distinguish overlay traces by dash pattern."
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "analytes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "peakMatch"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "peakMatch": {
+                "type": "object",
+                "properties": {
+                  "rt": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "tol": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 0.1
+                  }
+                }
+              },
+              "response": {
+                "type": "string",
+                "enum": [
+                  "area",
+                  "height"
+                ],
+                "default": "area"
+              },
+              "model": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "linear0",
+                  "quadratic"
+                ],
+                "default": "linear",
+                "description": "linear: y = b0 + b1·x; linear0: y = b1·x; quadratic: y = b0 + b1·x + b2·x²."
+              },
+              "weighting": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "1/x",
+                  "1/x2"
+                ],
+                "default": "none"
+              },
+              "levels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "conc": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string",
+                      "description": "Standard trace; the response is read from its matched peak."
+                    },
+                    "response": {
+                      "type": "number",
+                      "description": "Typed-in response (used when traceId is absent)."
+                    },
+                    "include": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "activeTraceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "app": {
+      "type": "string",
+      "description": "Writer application name (\"Peakly\"). Informational."
+    },
+    "peaklyVersion": {
+      "type": "string",
+      "description": "Peakly release that saved the file. Informational."
+    },
+    "saved": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Save timestamp. Informational."
+    }
+  },
+  "x-generated-from": "PK.schema.describe() in src/schema.js (Peakly 1.1.0)"
+}

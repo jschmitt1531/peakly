@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Peakly core: namespace, event bus, utilities. */
 (function (PK) {
   'use strict';

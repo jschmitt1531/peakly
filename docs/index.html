@@ -1,0 +1,290 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peakly: free in-browser chromatogram analysis</title>
+<meta name="description" content="Peakly is a free, open-source, single-file HPLC/FPLC chromatogram analyzer that runs entirely in your browser. Import vendor files, digitize images, integrate peaks with transparent math. No uploads, no accounts.">
+<meta property="og:title" content="Peakly: free in-browser chromatogram analysis">
+<meta property="og:description" content="HPLC/FPLC chromatogram analysis in one HTML file. No uploads, no accounts, transparent math.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="img/app-overview.png">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 28h28' stroke='%23475569' stroke-width='2'/%3E%3Cpath d='M3 27c5 0 6-1 8-12s3-12 5 0 3 12 6 12 6-6 7-6' fill='none' stroke='%232563eb' stroke-width='2.5'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --panel-2: #eef1f6; --text: #0f172a; --muted: #5b6577;
+  --border: #d5dbe5; --accent: #2563eb; --accent-2: #0e7490; --accent-contrast: #ffffff;
+  --warn: #b45309; --ok: #15803d; --shadow: 0 8px 30px rgba(15, 23, 42, .10);
+  --radius: 10px; --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1120; --panel: #111a2e; --panel-2: #18233b; --text: #e5eaf3; --muted: #9aa6bb;
+    --border: #2a3754; --accent: #60a5fa; --accent-2: #22d3ee; --accent-contrast: #0b1120;
+    --warn: #fbbf24; --ok: #4ade80; --shadow: 0 10px 34px rgba(0, 0, 0, .5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1120; --panel: #111a2e; --panel-2: #18233b; --text: #e5eaf3; --muted: #9aa6bb;
+  --border: #2a3754; --accent: #60a5fa; --accent-2: #22d3ee; --accent-contrast: #0b1120;
+  --warn: #fbbf24; --ok: #4ade80; --shadow: 0 10px 34px rgba(0, 0, 0, .5);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font: 0.9em var(--mono); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--panel); padding: 6px 10px; border-radius: 6px; }
+.skip:focus { left: 8px; z-index: 10; }
+
+header.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--border); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; height: 56px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+nav.links { display: flex; gap: 16px; margin-left: auto; font-size: 14px; }
+nav.links a { color: var(--muted); text-decoration: none; }
+nav.links a:hover { color: var(--text); }
+.icon-btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 16px; }
+@media (max-width: 720px) { nav.links { display: none; } .icon-btn { margin-left: auto; } }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; text-decoration: none; font-size: 15px; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+.hero { padding: 56px 0 32px; }
+.hero .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+.hero h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.12; margin: 0 0 16px; letter-spacing: -0.02em; }
+.hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 24px; }
+.hero .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.hero .small { font-size: 13px; color: var(--muted); }
+.shot { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot .ph { aspect-ratio: 16 / 10; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; }
+@media (max-width: 860px) { .hero .grid { grid-template-columns: 1fr; } .hero { padding-top: 32px; } }
+
+.disclaimer { border: 1px solid var(--border); border-left: 4px solid var(--warn); background: var(--panel); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--muted); }
+
+section { padding: 40px 0; }
+section h2 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.01em; }
+section .sub { color: var(--muted); margin: 0 0 24px; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.steps { counter-reset: s; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 0; list-style: none; }
+@media (max-width: 860px) { .steps { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .steps { grid-template-columns: 1fr; } }
+.steps li { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; counter-increment: s; }
+.steps li::before { content: counter(s); display: inline-flex; width: 28px; height: 28px; border-radius: 50%; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-contrast); font-weight: 700; margin-bottom: 8px; }
+.steps b { display: block; }
+.steps span { color: var(--muted); font-size: 15px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+ul.check { padding-left: 0; list-style: none; margin: 0; }
+ul.check li { padding-left: 28px; position: relative; margin: 6px 0; }
+ul.check li::before { content: "✓"; position: absolute; left: 4px; color: var(--ok); font-weight: 700; }
+pre.cite { white-space: pre-wrap; word-break: break-word; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font: 13px/1.5 var(--mono); margin: 0 0 12px; }
+.author { display: flex; gap: 20px; align-items: flex-start; }
+.avatar { flex: none; width: 72px; height: 72px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 24px; color: var(--accent); }
+.doclist { columns: 2; column-gap: 32px; padding-left: 18px; margin: 0; }
+@media (max-width: 560px) { .doclist { columns: 1; } }
+.doclist li { break-inside: avoid; margin: 4px 0; }
+footer { border-top: 1px solid var(--border); padding: 24px 0 40px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Peakly home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 28h28" stroke="currentColor" stroke-opacity=".5" stroke-width="2"/><path d="M3 27c5 0 6-1 8-12s3-12 5 0 3 12 6 12 6-6 7-6" fill="none" stroke="var(--accent)" stroke-width="2.5"/></svg>
+      Peakly
+    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#cite">Cite</a>
+      <a href="#docs">Docs</a>
+      <a href="https://github.com/OWNER/peakly">GitHub</a>
+    </nav>
+    <button class="icon-btn" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="hero">
+    <div class="wrap grid">
+      <div>
+        <h1>Chromatogram analysis in one file, right in your browser.</h1>
+        <p class="lead">Peakly reads HPLC and FPLC data from CSV, vendor exports, Agilent <code>.ch</code> files and even photos of printed chromatograms, then integrates peaks with math you can inspect. Free, open source, and nothing leaves your computer.</p>
+        <div class="cta">
+          <a class="btn primary" href="app/">Open Peakly</a>
+          <a class="btn" href="peakly.html" download="peakly.html">Download single file</a>
+        </div>
+        <p class="small">Version 1.1.0 · MIT license · Works offline once loaded · Chrome, Edge, Firefox, Safari, phones</p>
+      </div>
+      <figure class="shot" style="margin:0">
+        <img src="img/app-overview.png" alt="Peakly showing overlaid chromatograms with a gradient trace, integrated peaks and a peak table" width="1600" height="1000" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'Screenshot: app-overview.png'}))">
+      </figure>
+    </div>
+    <div class="wrap" style="margin-top:24px">
+      <p class="disclaimer"><strong>For research and education use.</strong> Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.</p>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>What it does</h2>
+      <p class="sub">Everything you need to go from a raw export (or a picture of one) to a defensible peak table.</p>
+      <div class="cards">
+        <div class="card"><h3>Reads your files</h3><p>CSV/TSV, Excel, JSON, JCAMP-DX, AnDI/netCDF, mzML, Agilent ChemStation <code>.ch</code>, and text exports from Agilent, Thermo, Shimadzu, Waters, Cytiva UNICORN and Bio-Rad.</p></div>
+        <div class="card"><h3>Digitizes images</h3><p>Turn screenshots, PDFs and phone photos of chromatograms into data, with perspective correction and an honest ± uncertainty on every number.</p></div>
+        <div class="card"><h3>Transparent integration</h3><p>Automatic or click-to-integrate peaks, six ways to split fused peaks, and an audit panel that shows every step of each area.</p></div>
+        <div class="card"><h3>Method context</h3><p>Gradient program with dwell and void time, %B or salt concentration at elution, and USP/Ph. Eur. tailing, plates, resolution and S/N.</p></div>
+        <div class="card"><h3>Calibration</h3><p>Linear, through-origin or quadratic fits with weighting, inverse prediction with confidence intervals, LOD/LOQ and extrapolation flags.</p></div>
+        <div class="card"><h3>Compare and share</h3><p>Overlay runs, match peaks across them, and export PNG/SVG, CSV, PDF, project files or a share link that never touches a server.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="sub">Peakly is a single HTML file. Open it and it runs; there is nothing to install and no server doing the work.</p>
+      <ol class="steps">
+        <li><b>Open</b><span>Use the hosted app or the downloaded file. Pinned libraries load from public CDNs.</span></li>
+        <li><b>Drop data</b><span>Drag in a file or an image. Peakly detects the format; if unsure, you map the columns.</span></li>
+        <li><b>Analyze</b><span>Detect or click peaks, set the method, fit, calibrate. Every number links to its formula.</span></li>
+        <li><b>Export</b><span>Save a PDF report, tables, figures, a project file or a share link.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap two">
+      <div>
+        <h2>Private by design</h2>
+        <p class="sub">Your chromatograms are your business.</p>
+        <ul class="check">
+          <li>No uploads: files are read by your browser, in memory.</li>
+          <li>No accounts, no cookies, no analytics, no telemetry in the app.</li>
+          <li>Share links keep data in the URL <code>#fragment</code>, which browsers never send to a server.</li>
+          <li>The optional Claude vision assist runs only with your own API key, held in memory and never saved.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Open and honest</h2>
+        <p class="sub">Trust comes from being able to check.</p>
+        <ul class="check">
+          <li>MIT-licensed source code, written from published algorithms.</li>
+          <li>Every formula documented, with references.</li>
+          <li>Built-in self-tests you can run from the Help menu.</li>
+          <li>Measured <a href="https://github.com/OWNER/peakly/blob/main/docs/DIGITIZER_ACCURACY.md">digitizer accuracy</a>, limits stated up front.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="cite">
+    <div class="wrap">
+      <h2>Cite Peakly</h2>
+      <p class="sub">If Peakly helped your research or teaching, a citation helps keep it maintained.</p>
+      <pre class="cite">Schmitt, J. (2026). Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer (Version 1.1.0) [Computer software]. https://github.com/OWNER/peakly</pre>
+      <p class="small" style="color:var(--muted)">Machine-readable: <a href="https://github.com/OWNER/peakly/blob/main/CITATION.cff">CITATION.cff</a>. A Zenodo DOI will be added with the first archived release.</p>
+    </div>
+  </section>
+
+  <section id="author">
+    <div class="wrap">
+      <h2>About</h2>
+      <div class="author">
+        <div class="avatar" aria-hidden="true">JS</div>
+        <div>
+          <p style="margin-top:0"><strong>Jennifer Schmitt, Ph.D.</strong> is an analytical sciences leader with a Ph.D. in chemistry and an MBA from the Johns Hopkins Carey Business School. Jennifer Schmitt has spent a career turning chromatograms into decisions, from graduate research in inorganic and bioinorganic chemistry to analytical sciences leadership in the pharmaceutical industry.</p>
+          <p>Peakly exists because getting HPLC data out of vendor software should not require a license, a login, or a workaround.</p>
+          <p><a href="https://www.linkedin.com/in/jschmitt1531/">Jennifer Schmitt on LinkedIn</a> · <a href="https://github.com/OWNER/peakly/blob/main/GOVERNANCE.md">Governance</a> · <a href="https://github.com/OWNER/peakly/blob/main/FUNDING.md">How to support Peakly</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="wrap">
+      <h2>Documentation</h2>
+      <p class="sub">Start with a tutorial, or dig into the math.</p>
+      <ul class="doclist">
+        <li><a href="https://github.com/OWNER/peakly/blob/main/README.md">README and quickstart</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/FAQ.md">FAQ</a></li>
+        <li><a href="https://github.com/OWNER/peakly/tree/main/docs/tutorials">Tutorials</a> (CSV, vendor exports, binary files, FPLC, screenshots, photos, calibration, comparing runs, integration)</li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/CALCULATIONS.md">Calculations</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/INTEGRATION.md">Integration and peak clipping</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/CALIBRATION.md">Calibration curves</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/VALIDATION.md">Validation</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/DIGITIZER_ACCURACY.md">Digitizer accuracy</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/docs/SCHEMA.md">Data schemas</a> (<a href="schemas/project.v2.schema.json">JSON Schemas</a>)</li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/CONTRIBUTING.md">Contributing</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/SECURITY.md">Security and privacy</a></li>
+        <li><a href="https://github.com/OWNER/peakly/blob/main/ROADMAP.md">Roadmap</a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Jennifer Schmitt · <a href="https://github.com/OWNER/peakly/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/OWNER/peakly/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></span>
+    <span>Peakly is independent and not affiliated with any instrument vendor.</span>
+  </div>
+</footer>
+
+<script>
+// Theme toggle: follows the OS by default; the choice is remembered in this browser only.
+(function () {
+  var root = document.documentElement, KEY = 'peakly-site-theme';
+  try { var saved = localStorage.getItem(KEY); if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved); } catch (e) {}
+  document.getElementById('theme').addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script>
+
+<!--
+  ANALYTICS SLOT: WEBSITE ONLY, NEVER IN THE APP.
+  Disabled by default. Cookie-free, aggregate page-view counting for this landing page only, so the
+  project can report usage to funders. The app (app/, peakly.html, index.html) must never contain analytics;
+  see SECURITY.md and the core principles in GOVERNANCE.md.
+
+  To enable, a maintainer sets ANALYTICS below to 'goatcounter' or 'plausible', fills in the site code/domain,
+  and mentions it in docs/FAQ.md ("Does the website count visitors?"). Respect Do Not Track / Global Privacy Control.
+-->
+<script>
+(function () {
+  var ANALYTICS = 'off';                 // 'off' | 'goatcounter' | 'plausible'
+  var GOATCOUNTER_CODE = 'GOATCOUNTER_CODE';   // e.g. 'peakly' for https://peakly.goatcounter.com
+  var PLAUSIBLE_DOMAIN = 'OWNER.github.io';    // the site domain registered with Plausible
+  if (ANALYTICS === 'off') return;
+  if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
+  if (/\/app\/|peakly\.html$/.test(location.pathname)) return; // belt and braces: never on the app
+  var s = document.createElement('script'); s.async = true;
+  if (ANALYTICS === 'goatcounter') { s.src = 'https://gc.zgo.at/count.js'; s.setAttribute('data-goatcounter', 'https://' + GOATCOUNTER_CODE + '.goatcounter.com/count'); }
+  else if (ANALYTICS === 'plausible') { s.src = 'https://plausible.io/js/script.js'; s.setAttribute('data-domain', PLAUSIBLE_DOMAIN); }
+  else return;
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

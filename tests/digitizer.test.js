@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Digitizer tests: pure raster path only (no DOM). */
 (function (PK) {
   'use strict';
@@ -231,5 +232,18 @@
       }).then(function () {
         return D.askClaude('k', url, null, { fetch: function () { return Promise.reject(new TypeError('Failed to fetch')); } }).then(function () { t.ok(false); }, function (e) { t.ok(/CORS/.test(e.message), 'network/CORS message'); });
       });
+  });
+
+  PK.test('digitizer: JPEG blockiness warns on 8x8 block artifacts but not on clean renders', function (t) {
+    var img = D.makeSampleImage({ canvas: false }).image;
+    var jpg = { width: img.width, height: img.height, data: new Uint8ClampedArray(img.data) }, seed = 7;
+    function r() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    for (var by = 0; by < img.height; by += 8) for (var bx = 0; bx < img.width; bx += 8) {
+      var off = (r() - 0.5) * 8;
+      for (var y = by; y < Math.min(by + 8, img.height); y++) for (var x = bx; x < Math.min(bx + 8, img.width); x++) for (var c = 0; c < 3; c++) { var i = (y * img.width + x) * 4 + c; jpg.data[i] = Math.round((jpg.data[i] + off) / 4) * 4; }
+    }
+    var has = function (im) { return D.qualityWarnings(im, { plotWidthPx: 9999 }).some(function (w) { return /JPEG/.test(w); }); };
+    t.eq(has(img), false, 'clean render: no JPEG warning');
+    t.eq(has(jpg), true, 'blocky image: JPEG warning');
   });
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));

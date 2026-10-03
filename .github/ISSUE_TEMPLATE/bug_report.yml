@@ -1,0 +1,75 @@
+name: Bug report
+description: Something is wrong, crashes, or gives an incorrect number.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please **do not attach confidential data**. A small synthetic or public file that reproduces the problem is ideal.
+        Security problems: report privately instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: "I loaded X, clicked Detect peaks, and the area of peak 3 was ... but my CDS reports ..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Peakly
+        2. Load samples/...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Peakly version
+      description: Help → About shows it. Also say whether you used the hosted app or a downloaded file.
+      placeholder: "1.1.0, hosted"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: "Chrome 140 on Windows 11"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - File import / parsing
+        - Peak detection / integration
+        - Calculations (metrics, fitting, calibration)
+        - Image digitizer
+        - Compare / overlay
+        - Export / share / PDF
+        - User interface / accessibility
+        - Other
+  - type: textarea
+    id: numbers
+    attributes:
+      label: Expected vs actual values (for calculation bugs)
+      description: If a number looks wrong, give Peakly's value, the reference value, and where the reference comes from (software and version, or a hand calculation).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or console output
+      description: Messages shown in the app, or from the browser console (F12). Results of Help → Run self-tests if relevant.
+      render: text
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Data
+      options:
+        - label: Any file I attached is mine to share, contains no confidential or personal data, and may be added to Peakly's test suite under CC0 or CC-BY 4.0.
+          required: false

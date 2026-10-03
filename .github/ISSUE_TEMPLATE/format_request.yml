@@ -1,0 +1,57 @@
+name: File format request
+description: Ask Peakly to read a file format (or fix one it misreads). A sample file is essential.
+title: "[Format]: "
+labels: ["format", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Peakly reads formats from **public format descriptions or sample files**; we never copy code from GPL/LGPL/AGPL/EPL projects. Without a sample file we usually cannot add a format.
+        Please remove confidential sample names, operator names and serial numbers before attaching files.
+  - type: input
+    id: vendor
+    attributes:
+      label: Instrument vendor
+      placeholder: "Agilent, Thermo, Shimadzu, Waters, Cytiva, Bio-Rad, ..."
+    validations:
+      required: true
+  - type: input
+    id: software
+    attributes:
+      label: Software and version that wrote the file
+      placeholder: "OpenLab CDS 2.7, Chromeleon 7.3, UNICORN 7.8, ..."
+    validations:
+      required: true
+  - type: input
+    id: extension
+    attributes:
+      label: File extension(s) and how the file was produced
+      description: Raw data file, or an export? If an export, which menu/option?
+      placeholder: ".arw via Export → ASCII"
+    validations:
+      required: true
+  - type: textarea
+    id: contents
+    attributes:
+      label: What the file contains
+      description: Detector(s) and channels (UV wavelength, DAD, fluorescence, conductivity, %B, pressure...), time or volume axis, units.
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample file
+      description: Drag the file here (zip it if GitHub refuses the extension). A short run is best. If possible, also attach a CSV export of the same run, or a screenshot of the chromatogram, so we can check the result.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What Peakly does with it now
+      description: Error message, wrong values, or "not recognized".
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Permission to share
+      description: We need explicit permission to use the file for development and to include it in the public test suite.
+      options:
+        - label: I have the right to share this file, it contains no confidential or personal data, and I agree that it may be included in Peakly's public repository under CC0 or CC-BY 4.0.
+          required: true

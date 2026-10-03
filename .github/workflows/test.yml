@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Unit tests
+        run: node tests/run.js
+
+      - name: Build single-file app
+        run: node build.js
+
+      - name: Numerical validation
+        run: |
+          if [ -f tools/validate.js ]; then
+            node tools/validate.js
+          else
+            echo "tools/validate.js not present; skipping"
+          fi
+
+      - name: Committed index.html matches the build
+        run: |
+          if ! git diff --quiet -- index.html; then
+            echo "::error file=index.html::index.html is stale. Run 'node build.js' and commit the result."
+            git diff --stat -- index.html
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain -- index.html)" ]; then
+            echo "::error file=index.html::index.html is not committed. Run 'node build.js' and commit it."
+            exit 1
+          fi

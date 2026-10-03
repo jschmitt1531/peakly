@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -55,6 +56,7 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
 .small { font-size: 12px; }
 .hidden { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link:focus { position: fixed; left: 8px; top: 8px; width: auto; height: auto; margin: 0; clip: auto; padding: 8px 12px; background: var(--panel); color: var(--text); border: 2px solid var(--accent); border-radius: 6px; z-index: 400; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Controls */
@@ -139,8 +141,30 @@ table.peaks tbody tr:hover, table.peaks tbody tr.hover { background: var(--panel
 table.peaks tbody tr.selected { background: var(--sel); box-shadow: inset 3px 0 0 var(--accent); }
 table.peaks td.mismatch { color: var(--warn); font-weight: 600; }
 table.peaks .unc { color: var(--digitized); font-size: 11px; }
-.cell-i { border: 0; background: none; color: var(--muted); cursor: help; padding: 0 0 0 3px; font-size: 11px; opacity: 0; }
-tr:hover .cell-i, tr.selected .cell-i, .cell-i:focus-visible { opacity: 1; }
+.cell-i { border: 0; background: none; color: var(--muted); cursor: help; padding: 0 0 0 3px; font-size: 11px; opacity: .35; }
+tr:hover .cell-i, tr.selected .cell-i, tr:focus-within .cell-i, .cell-i:focus-visible, .cell-i.vis { opacity: 1; }
+table.peaks tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+table.peaks select.pk-clip { min-height: 24px; padding: 1px 4px; font-size: 12px; max-width: 150px; }
+.clip-dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 6px 0; }
+.clip-dl dt { font-weight: 600; } .clip-dl dd { margin: 0; color: var(--muted); }
+/* split dialog */
+.clip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.clip-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--panel); }
+.clip-card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: var(--sel); }
+.clip-card:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.clip-svg { width: 100%; height: 100px; background: #fff; border: 1px solid var(--border); border-radius: 4px; color: #000; --text: #000; --muted: #555; }
+/* integration math */
+.imath .expr, .math-peak .expr { font-family: var(--mono); background: var(--panel-2); padding: 3px 6px; border-radius: 4px; display: inline-block; margin: 4px 0; font-size: 11.5px; }
+.imath table.steps td, .imath table.steps th { padding: 3px 5px; }
+.peak-sketch { display: block; max-width: 100%; height: auto; background: #fff; border: 1px solid var(--border); border-radius: 4px; margin: 4px 0; color: #000; --text: #000; --muted: #666; --accent: #1f4fd8; --warn: #b45309; }
+.math-peak { border-top: 1px solid var(--border); padding: 8px 0; }
+/* calibration */
+.cal-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; }
+.cal-plot { width: 100%; height: 340px; } .cal-resid { width: 100%; height: 170px; }
+.cal-levels input[type="number"] { min-height: 26px; padding: 2px 6px; }
+.cal-stats th { font-weight: 500; color: var(--muted); }
+.about-author p { margin: 4px 0; }
+.foot-disc { font-style: italic; }
 .table-empty { padding: 18px; color: var(--muted); text-align: center; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
 
@@ -251,7 +275,7 @@ footer.foot .spacer { flex: 1; }
   .sidebar.open { transform: none; }
   .scrim.on { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; background: rgba(2, 6, 23, .4); z-index: 79; }
   .work { grid-template-rows: minmax(560px, 72vh) minmax(220px, auto); overflow-y: auto; }
-  .split, .grid3 { grid-template-columns: 1fr; }
+  .split, .grid3, .cal-grid { grid-template-columns: 1fr; }
   .pk-modal { padding: 0; }
   .pk-modal-card { max-height: 100dvh; height: 100%; border-radius: 0; }
   footer.foot { display: none; }
@@ -261,7 +285,7 @@ footer.foot .spacer { flex: 1; }
 </style>
 </head>
 <body>
-<a class="sr-only" href="#plot">Skip to plot</a>
+<a class="sr-only skip-link" href="#plot">Skip to plot</a>
 <div class="app" id="app">
   <header class="topbar" role="banner">
     <button class="btn ghost icon only-mobile" id="btn-drawer" aria-label="Show traces and processing panel" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
@@ -271,30 +295,41 @@ footer.foot .spacer { flex: 1; }
     </div>
     <nav class="toolbar" role="toolbar" aria-label="Main actions">
       <button class="btn primary" data-action="import" title="Open or import files (O)" aria-label="Open or import files">&#128194;<span class="tb-label">Open</span></button>
-      <button class="btn tb-secondary" data-action="paste" title="Paste data (V)">&#128203;<span class="tb-label">Paste</span></button>
-      <button class="btn tb-secondary" data-action="image" title="Digitize a chromatogram image (I)">&#128247;<span class="tb-label">Image&rarr;data</span></button>
-      <button class="btn tb-secondary" data-action="sample" title="Load the HPLC sample">&#9879;<span class="tb-label">Sample</span></button>
+      <button class="btn tb-secondary" data-action="paste" title="Paste data (V)" aria-label="Paste data">&#128203;<span class="tb-label">Paste</span></button>
+      <button class="btn tb-secondary" data-action="image" title="Digitize a chromatogram image (I)" aria-label="Digitize a chromatogram image">&#128247;<span class="tb-label">Image&rarr;data</span></button>
+      <span class="more-wrap tb-secondary"><button class="btn" id="btn-sample" data-action="sample-menu" aria-haspopup="true" aria-expanded="false" aria-controls="sample-menu" title="Load a sample dataset" aria-label="Load a sample dataset">&#9879;<span class="tb-label">Sample &#9662;</span></button>
+        <div class="menu" id="sample-menu" role="menu" aria-label="Sample datasets" hidden style="left:0;right:auto;min-width:260px">
+          <button class="btn" role="menuitem" data-action="sample">HPLC run + blank</button>
+          <button class="btn" role="menuitem" data-action="sample-cal">Calibration set (5 standards + unknown)</button>
+          <button class="btn" role="menuitem" data-action="sample-fplc">FPLC / IMAC run</button>
+          <button class="btn" role="menuitem" data-action="sample-image">Chromatogram image (digitizer)</button>
+        </div></span>
       <span class="sep tb-secondary"></span>
-      <button class="btn tb-secondary" data-action="method" title="Method and gradient (M)">&#9881;<span class="tb-label">Method</span></button>
-      <button class="btn tb-secondary" data-action="export" title="Export figures, tables, report (E)">&#11015;<span class="tb-label">Export</span></button>
-      <button class="btn tb-secondary" data-action="share" title="Share link (S)">&#128279;<span class="tb-label">Share</span></button>
+      <button class="btn tb-secondary" data-action="method" title="Method and gradient (M)" aria-label="Method and gradient">&#9881;<span class="tb-label">Method</span></button>
+      <button class="btn tb-secondary" data-action="calibration" title="Calibration curve and concentrations (C)" aria-label="Calibration">&#128200;<span class="tb-label">Calibration</span></button>
+      <button class="btn tb-secondary" data-action="export" title="Export figures, tables, report (E)" aria-label="Export">&#11015;<span class="tb-label">Export</span></button>
+      <button class="btn tb-secondary" data-action="share" title="Share link (S)" aria-label="Share link">&#128279;<span class="tb-label">Share</span></button>
     </nav>
     <div class="toolbar-right">
       <button class="btn ghost icon" data-action="undo" id="btn-undo" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled>&#8630;</button>
       <button class="btn ghost icon" data-action="redo" id="btn-redo" title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo" disabled>&#8631;</button>
       <button class="btn ghost icon tb-secondary" data-action="theme" title="Toggle dark/light theme (D)" aria-label="Toggle theme">&#9680;</button>
       <button class="btn ghost icon tb-secondary" data-action="help" title="Help and shortcuts (?)" aria-label="Help">?</button>
+      <button class="btn ghost tb-secondary" data-action="about" title="About Peakly: author, license, citation, privacy" aria-label="About Peakly">About</button>
       <div class="more-wrap only-mobile">
         <button class="btn ghost icon" id="btn-more" aria-haspopup="true" aria-expanded="false" aria-label="More actions">&#8943;</button>
         <div class="menu" id="more-menu" role="menu" hidden>
           <button class="btn" role="menuitem" data-action="paste">&#128203; Paste data</button>
           <button class="btn" role="menuitem" data-action="image">&#128247; Image &rarr; data</button>
-          <button class="btn" role="menuitem" data-action="sample">&#9879; Load sample</button>
+          <button class="btn" role="menuitem" data-action="sample">&#9879; Load HPLC sample</button>
+          <button class="btn" role="menuitem" data-action="sample-cal">&#9879; Load calibration sample</button>
           <button class="btn" role="menuitem" data-action="method">&#9881; Method</button>
+          <button class="btn" role="menuitem" data-action="calibration">&#128200; Calibration</button>
           <button class="btn" role="menuitem" data-action="export">&#11015; Export</button>
           <button class="btn" role="menuitem" data-action="share">&#128279; Share link</button>
           <button class="btn" role="menuitem" data-action="theme">&#9680; Toggle theme</button>
           <button class="btn" role="menuitem" data-action="help">? Help</button>
+          <button class="btn" role="menuitem" data-action="about">&#9432; About</button>
         </div>
       </div>
     </div>
@@ -344,6 +379,8 @@ footer.foot .spacer { flex: 1; }
           <span id="compare-controls" class="row" hidden></span>
           <span class="small muted" id="table-summary"></span>
           <span class="spacer" style="flex:1"></span>
+          <button class="btn sm" data-action="split" title="Choose how the selected fused peaks are split (K)">Split&hellip;</button>
+          <button class="btn sm" data-action="math" title="Show how every peak area was computed (N)">Show integration math</button>
           <button class="btn sm ghost" data-action="runinfo" title="Sample, injection, instrument, operator…">Run info</button>
           <button class="btn sm" data-action="export-peaks" title="Download the peak table as CSV">CSV</button>
         </div>
@@ -354,8 +391,10 @@ footer.foot .spacer { flex: 1; }
   <footer class="foot">
     <span><strong>Peakly</strong> <span id="foot-version"></span></span>
     <span>&#128274; Private by design: no tracking, no cookies, no uploads. Your data stays in this browser tab. The only network request it can make is the optional Claude image assist, and only when you start it with your own API key.</span>
+    <span class="foot-disc" data-disclaimer></span>
     <span class="spacer"></span>
     <a href="#" data-action="help">Help &amp; shortcuts</a>
+    <a href="#" data-action="about">About</a>
   </footer>
 </div>
 
@@ -435,6 +474,8 @@ footer.foot .spacer { flex: 1; }
               <tr><td><kbd>Del</kbd></td><td>Remove selected peak</td><td><kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Previous / next peak</td></tr>
               <tr><td><kbd>G</kbd></td><td>Integrate mode (click start, click end)</td><td><kbd>T</kbd></td><td>Curve-tracing cursor on/off</td></tr>
               <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Cursor follows previous/next trace (plot focused)</td><td><kbd>Shift</kbd>+drag</td><td>Integrate from press to release</td></tr>
+              <tr><td><kbd>C</kbd></td><td>Calibration</td><td><kbd>K</kbd></td><td>Split the selected fused peaks</td></tr>
+              <tr><td><kbd>N</kbd></td><td>Integration math for all peaks</td><td><kbd>Tab</kbd> / <kbd>Enter</kbd></td><td>Move through peak rows / select a row</td></tr>
               <tr><td><kbd>D</kbd></td><td>Toggle theme</td><td><kbd>?</kbd></td><td>This help</td></tr>
               <tr><td><kbd>Ctrl/&#8984;</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Shift</kbd>+<kbd>Ctrl/&#8984;</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
               <tr><td><kbd>Alt/&#8997;</kbd>+click</td><td>Add a peak at the click</td><td><kbd>Esc</kbd></td><td>Close dialog / leave add mode</td></tr>
@@ -463,7 +504,9 @@ footer.foot .spacer { flex: 1; }
           </div>
           <div class="section">
             <h3>About</h3>
-            <p class="small muted">Peakly <span id="help-version"></span> is free software that runs entirely in your browser. It is independent of, and not affiliated with, any vendor or other chromatography project. Algorithms come from the published literature and are implemented from scratch. Digitized data is an estimate: check critical values against the original instrument data.</p>
+            <p class="small muted">Peakly <span id="help-version"></span> is free software (MIT) that runs entirely in your browser. It is independent of, and not affiliated with, any vendor or other chromatography project. Algorithms come from the published literature and are implemented from scratch.</p>
+            <p class="small" data-disclaimer></p>
+            <button class="btn sm" data-action="about">About Peakly: author, license, citation&hellip;</button>
           </div>
         </div>
       </div>
@@ -471,9 +514,34 @@ footer.foot .spacer { flex: 1; }
   </div>
 </div>
 
+<div class="pk-modal" id="modal-clip" role="dialog" aria-modal="true" aria-labelledby="t-clip" hidden>
+  <div class="pk-modal-card wide">
+    <header class="pk-modal-head"><h2 id="t-clip">How should these peaks be split?</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-body" id="clip-root"></div>
+  </div>
+</div>
+<div class="pk-modal" id="modal-math" role="dialog" aria-modal="true" aria-labelledby="t-math" hidden>
+  <div class="pk-modal-card wide">
+    <header class="pk-modal-head"><h2 id="t-math">Integration math</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-body" id="math-root"></div>
+  </div>
+</div>
+<div class="pk-modal" id="modal-calib" role="dialog" aria-modal="true" aria-labelledby="t-calib" hidden>
+  <div class="pk-modal-card wide">
+    <header class="pk-modal-head"><h2 id="t-calib">Calibration curve</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-body" id="cal-root"></div>
+  </div>
+</div>
+<div class="pk-modal" id="modal-about" role="dialog" aria-modal="true" aria-labelledby="t-about" hidden>
+  <div class="pk-modal-card wide">
+    <header class="pk-modal-head"><h2 id="t-about">About Peakly</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-body" id="about-root"></div>
+  </div>
+</div>
+
 <div id="audit-pop" role="dialog" aria-label="Calculation details" hidden></div>
 <div id="drop-overlay" aria-hidden="true">Drop files to import</div>
-<div id="pk-toasts" aria-live="polite"></div>
+<div id="pk-toasts" aria-live="polite" aria-relevant="additions"></div>
 <input type="file" id="file-input" multiple hidden aria-hidden="true">
 <input type="file" id="project-input" accept=".json,application/json" hidden aria-hidden="true">
 <!--PK:SCRIPTS-->

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Peakly analysis: smoothing, baseline, peak detection & integration, figures of merit,
    gradient/method math, normalization, and Levenberg–Marquardt peak fitting.
    Pure functions; x always in minutes; plain or typed arrays accepted, plain arrays returned.
@@ -142,11 +143,14 @@
   };
 
   /* ---------------- noise ---------------- */
-  /** noise(x, y, {range?:[t0,t1]}) → { sigma, p2p, method }.
+  /** noise(x, y, {range?:[t0,t1], quantum?}) → { sigma, p2p, method, quantum? }.
       Default: σ = 1.4826·MAD(Δy)/√2 (robust to peaks and drift); p2p = 6σ.
-      With range (a blank region): linear detrend, σ = residual SD, p2p = measured max−min (EP 2.2.46 style). */
+      With range (a blank region): linear detrend, σ = residual SD, p2p = measured max−min (EP 2.2.46 style).
+      Quantized / stepped data (digitized traces, low-resolution ADCs): when opts.quantum (the y step, e.g. digitized.dy)
+      is given, or ≥ 20 % of first differences are exactly zero, σ is floored at q/√12 (the SD of uniform rounding error),
+      q = opts.quantum or the 10th percentile of the non-zero |Δy|. */
   A.noise = function (x, y, opts) {
-    opts = opts || {}; var n = y.length, i;
+    opts = opts || {}; var n = y.length, i, q = +opts.quantum > 0 ? +opts.quantum : 0;
     if (opts.range && n > 3) {
       var i0 = U.bsearch(x, opts.range[0]), i1 = Math.min(n - 1, U.bsearch(x, opts.range[1]) + 1), m = i1 - i0 + 1;
       if (m >= 4) {
@@ -154,16 +158,30 @@
         for (i = i0; i <= i1; i++) { sx += x[i]; sy += y[i]; sxx += x[i] * x[i]; sxy += x[i] * y[i]; }
         var b1 = (m * sxy - sx * sy) / (m * sxx - sx * sx || 1), b0 = (sy - b1 * sx) / m, ss = 0, mn = Infinity, mx = -Infinity;
         for (i = i0; i <= i1; i++) { var r = y[i] - b0 - b1 * x[i]; ss += r * r; if (r < mn) mn = r; if (r > mx) mx = r; }
-        return { sigma: Math.sqrt(ss / (m - 2)), p2p: mx - mn, method: 'p2p-range', range: [x[i0], x[i1]] };
+        var sg = Math.sqrt(ss / (m - 2)), out = { sigma: sg, p2p: mx - mn, method: 'p2p-range', range: [x[i0], x[i1]] };
+        if (q && sg < q / Math.sqrt(12)) { out.sigma = q / Math.sqrt(12); out.p2p = Math.max(out.p2p, q); out.method = 'p2p-range+quantum'; out.quantum = q; }
+        return out;
       }
     }
-    if (n < 3) return { sigma: 0, p2p: 0, method: 'mad-diff' };
-    var d = new Float64Array(n - 1); for (i = 0; i < n - 1; i++) d[i] = y[i + 1] - y[i];
-    var med = fmedian(d), mad = fmedian(d.map(function (v) { return Math.abs(v - med); })), sigma = 1.4826 * mad / Math.SQRT2;
-    if (!(sigma > 0)) { // quantised/staircase data: fall back to non-robust SD of differences
+    if (n < 3) return { sigma: q ? q / Math.sqrt(12) : 0, p2p: q ? Math.sqrt(3) * q : 0, method: 'mad-diff' };
+    var d = new Float64Array(n - 1), zero = 0, span = 0;
+    for (i = 0; i < n - 1; i++) { d[i] = y[i + 1] - y[i]; span = Math.max(span, Math.abs(y[i])); }
+    var eps = 1e-12 * (span || 1);
+    for (i = 0; i < n - 1; i++) if (Math.abs(d[i]) <= eps) zero++;
+    var stepped = zero >= 0.2 * (n - 1);
+    if (!q && stepped) { // estimate the step from the non-zero differences
+      var nzd = []; for (i = 0; i < n - 1; i++) if (Math.abs(d[i]) > eps) nzd.push(Math.abs(d[i]));
+      if (nzd.length) { var srt = Float64Array.from(nzd).sort(); q = srt[Math.floor(0.1 * (srt.length - 1))]; }
+    }
+    var med = fmedian(d), mad = fmedian(d.map(function (v) { return Math.abs(v - med); })), sigma = 1.4826 * mad / Math.SQRT2, method = 'mad-diff';
+    if (q) {
+      if (!(sigma >= q / Math.sqrt(12))) { sigma = q / Math.sqrt(12); method = 'mad-diff+quantum'; }
+      return { sigma: sigma, p2p: 6 * sigma, method: method, quantum: q };
+    }
+    if (!(sigma > 0)) { // degenerate data: fall back to non-robust SD of differences
       var s2 = 0; for (i = 0; i < d.length; i++) s2 += d[i] * d[i]; sigma = Math.sqrt(s2 / d.length) / Math.SQRT2;
     }
-    return { sigma: sigma, p2p: 6 * sigma, method: 'mad-diff' };
+    return { sigma: sigma, p2p: 6 * sigma, method: method };
   };
 
   /* ---------------- peak detection ---------------- */
@@ -172,7 +190,7 @@
   function sideBound(ys, i, lim, sig) {
     var step = lim < i ? -1 : 1; if (lim === i) return i;
     var mi = argminDir(ys, i + step, lim), mn = ys[mi];
-    var level = mn + Math.max(0.005 * (ys[i] - mn), 2 * sig), rise = Math.max(3 * sig, 0.01 * (ys[i] - mn)), rm = i;
+    var level = mn + Math.max(0.001 * (ys[i] - mn), 2 * sig), rise = Math.max(3 * sig, 0.01 * (ys[i] - mn)), rm = i;
     for (var j = i + step; j !== mi; j += step) {
       if (ys[j] <= level) return j;
       if (ys[j] < ys[rm]) rm = j; else if (ys[j] > ys[rm] + rise) return rm; // signal rises again: valley
@@ -190,7 +208,7 @@
   A.detectPeaks = function (x, y, opts) {
     opts = opts || {};
     var n = y.length, i, j; if (n < 7) return mergeKeep([], opts.keep);
-    var dx = (x[n - 1] - x[0]) / (n - 1), sig = A.noise(x, y).sigma || 0;
+    var dx = (x[n - 1] - x[0]) / (n - 1), nz0 = A.noise(x, y, { quantum: opts.quantum }), sig = nz0.sigma || 0;
     var ymin = Infinity, ymax = -Infinity; for (i = 0; i < n; i++) { if (y[i] < ymin) ymin = y[i]; if (y[i] > ymax) ymax = y[i]; }
     var thr = (opts.threshold == null || opts.threshold === 'auto') ? Math.max(9 * sig, 1e-4 * (ymax - ymin)) : +opts.threshold;
     var minDist = +opts.minDist || 0, minWidth = +opts.minWidth || 0;
@@ -206,7 +224,7 @@
     var found = [];
     cand.forEach(function (c) {
       var v = ys[c], lmin = v, rmin = v, k;
-      for (k = c - 1; k >= 0 && ys[k] <= v; k--) if (ys[k] < lmin) lmin = ys[k];
+      for (k = c - 1; k >= 0 && ys[k] < v; k--) if (ys[k] < lmin) lmin = ys[k]; // ties (quantized data): an equal maximum to the left counts as higher
       for (k = c + 1; k < n && ys[k] <= v; k++) if (ys[k] < rmin) rmin = ys[k];
       var prom = v - Math.max(lmin, rmin); if (!(prom >= thr) || prom <= 0) return;
       var lev = v - prom / 2, l = c, r = c;
@@ -226,7 +244,10 @@
     // 4. shoulders: significant local minima of d²y with no local maximum, whose curvature lobe is separated
     //    from neighbouring apexes (d²y recovers at least half-way toward 0 in between).
     if (opts.shoulders !== false && found.length && n > 2 * w) {
-      var d2 = A.savitzkyGolay(y, Math.min(odd(1.5 * w), n % 2 ? n : n - 1), 3, 2), s2 = robustSD(d2), sh = [];
+      var w2 = Math.min(odd(1.5 * w), n % 2 ? n : n - 1), d2 = A.savitzkyGolay(y, w2, 3, 2), s2 = robustSD(d2), sh = [];
+      // floor: the d²y scatter that white noise of SD σ alone produces (robust SD collapses on stepped/quantized data)
+      var cc = sgCoeffs(w2, 3, 2)[(w2 - 1) / 2], g2 = 0; for (var kk = 0; kk < cc.length; kk++) g2 += cc[kk] * cc[kk];
+      s2 = Math.max(s2, (nz0.quantum ? 1 : 0.5) * sig * Math.sqrt(g2));
       for (i = 2; i < n - 2; i++) {
         if (!(d2[i] < d2[i - 1] && d2[i] <= d2[i + 1] && d2[i] < -6 * s2)) continue;
         var near = false, okSep = true;
@@ -273,8 +294,29 @@
       if (f.shoulder) pk.shoulder = true;
       return pk;
     }).filter(function (p) { return p.end > p.start; });
+    // never emit zero-height / negative-area peaks: a peak is kept if it is positive above its own bound-to-bound line
+    // or above the common line of its group of (nearly) touching peaks — what drop integration uses — so shoulders and
+    // riders on a tail are kept
+    var g0 = 0;
+    for (j = 0; j <= out.length; j++) {
+      if (j < out.length && j > g0 && out[j].start > out[j - 1].end + Math.max(2 * dx, 0.5 * Math.min(out[j].end - out[j].start, out[j - 1].end - out[j - 1].start))) { markGroup(g0, j - 1); g0 = j; }
+      if (j === out.length && out.length) markGroup(g0, j - 1);
+    }
+    function markGroup(a, b) { for (var q = a; q <= b; q++) out[q]._ok = netAbove(x, y, out[q]) > 0 || netAbove(x, y, out[q], out[a].start, out[b].end) > 0; }
+    out = out.filter(function (p) { var ok = p._ok; delete p._ok; return ok; });
     return mergeKeep(out, opts.keep);
   };
+  // Net height and area of y above the straight line joining the bounds; returns min(height, area) sign-wise (≤ 0 → reject).
+  function netAbove(x, y, p, s0, e0) {
+    var s = p.start, e = p.end; s0 = s0 == null ? s : s0; e0 = e0 == null ? e : e0;
+    var y0 = U.interp1(x, y, s0), sl = (U.interp1(x, y, e0) - y0) / ((e0 - s0) || 1), yS = y0 + sl * (s - s0), h = -Infinity, ar = 0, px = s;
+    var pv = U.interp1(x, y, s) - yS;
+    for (var i = U.bsearch(x, s); i < x.length && x[i] <= e; i++) if (x[i] > s && x[i] < e) {
+      var v = y[i] - (yS + sl * (x[i] - s)); if (v > h) h = v; ar += 0.5 * (v + pv) * (x[i] - px); px = x[i]; pv = v;
+    }
+    ar += 0.5 * (pv + U.interp1(x, y, e) - (yS + sl * (e - s))) * (e - px);
+    return h > 0 && ar > 0 ? Math.min(h, ar) : 0;
+  }
   // Preserve user/manual peaks unchanged; drop auto peaks whose [start,end] overlaps any kept peak.
   function mergeKeep(auto, keep) {
     if (!keep || !keep.length) return auto;
@@ -335,16 +377,24 @@
     }
     return null;
   }
-  function metricsOne(x, y, pk, nz, t0) {
-    var s = Math.min(pk.start, pk.end), e = Math.max(pk.start, pk.end), n = x.length, i;
-    var yS = U.interp1(x, y, s), yE = U.interp1(x, y, e), slope = e > s ? (yE - yS) / (e - s) : 0;
-    var X = [s], Y = [0]; // signal above the straight drop-line baseline through the two bound points
-    for (i = U.bsearch(x, s); i < n && x[i] < e; i++) if (x[i] > s) { X.push(x[i]); Y.push(y[i] - (yS + slope * (x[i] - s))); }
-    X.push(e); Y.push(0);
-    var m = X.length, area = 0; for (i = 0; i < m - 1; i++) area += 0.5 * (Y[i] + Y[i + 1]) * (X[i + 1] - X[i]);
-    var f = {}, out = { id: pk.id, start: s, end: e, area: area, formulas: f };
-    f.area = F('A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·(xᵢ₊₁−xᵢ), b = straight line through (t_start, y_start)–(t_end, y_end)',
-      { t_start: s, t_end: e, y_start: yS, y_end: yE, nPoints: m }, area, 'Trapezoid integration above a drop-line baseline. Units: y-unit·min (×60 for y-unit·s).', 'y·min');
+  function metricsOne(x, y, pk, nz, t0, reg) {
+    var s = Math.min(pk.start, pk.end), e = Math.max(pk.start, pk.end), n = x.length, i, X, Y, m, area, f = {}, out;
+    if (reg) { // region from integrate(): signal (or fitted component) above the applied baseline
+      X = reg.X; Y = reg.Y; m = X.length; area = reg.area;
+      out = { id: pk.id, start: s, end: e, area: area, formulas: f, clip: reg.clip, math: reg.math };
+      var mt = reg.math || {};
+      f.area = F(mt.formula || 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ', { clip: reg.clip, t_start: mt.tStart, t_end: mt.tEnd, y_start: mt.yStart, y_end: mt.yEnd,
+        nPoints: mt.n, grossArea: mt.grossArea, baselineArea: mt.baselineArea }, area, (mt.method ? mt.method + '. ' : '') + ((mt.notes || [])[0] || '') + ' Units: y-unit·min (×60 for y-unit·s).', 'y·min');
+    } else {
+      var yS = U.interp1(x, y, s), yE = U.interp1(x, y, e), slope = e > s ? (yE - yS) / (e - s) : 0;
+      X = [s]; Y = [0]; // signal above the straight drop-line baseline through the two bound points
+      for (i = U.bsearch(x, s); i < n && x[i] < e; i++) if (x[i] > s) { X.push(x[i]); Y.push(y[i] - (yS + slope * (x[i] - s))); }
+      X.push(e); Y.push(0);
+      m = X.length; area = 0; for (i = 0; i < m - 1; i++) area += 0.5 * (Y[i] + Y[i + 1]) * (X[i + 1] - X[i]);
+      out = { id: pk.id, start: s, end: e, area: area, formulas: f };
+      f.area = F('A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·(xᵢ₊₁−xᵢ), b = straight line through (t_start, y_start)–(t_end, y_end)',
+        { t_start: s, t_end: e, y_start: yS, y_end: yE, nPoints: m }, area, 'Trapezoid integration above a drop-line baseline. Units: y-unit·min (×60 for y-unit·s).', 'y·min');
+    }
     // apex by 3-point parabolic interpolation (non-uniform spacing aware)
     var k = argmax(Y, 0, m - 1), rt = X[k], H = Y[k], pa = null;
     if (k > 0 && k < m - 1) {
@@ -391,17 +441,41 @@
     out.resolution = null; out.areaPct = null;
     return out;
   }
-  /** peakMetrics(x, y, peaks, {voidTime?, noise?: σ number | {sigma,p2p,method}}) → Metric[] aligned with peaks. */
+  /** peakMetrics(x, y, peaks, {voidTime?, noise?: σ number | {sigma,p2p,method}, integration?, baselines?, clip?, skimRatio?, model?})
+      → Metric[] aligned with peaks.
+      Baseline used for area/height/widths (first that applies):
+        opts.integration — the array returned by integrate() (matched by id, else by index);
+        peaks themselves being integrate() results (objects carrying .math and .segments);
+        opts.baselines — { [peakId]: [[t,y],...] } or an array aligned with peaks: polyline baseline per peak;
+        opts.clip — integrate(x, y, peaks, {clip, skimRatio, model}) is run internally;
+        otherwise the original behaviour: straight line between y(start) and y(end) of each peak. */
   A.peakMetrics = function (x, y, peaks, opts) {
     opts = opts || {}; peaks = peaks || [];
     var nz = opts.noise == null ? A.noise(x, y) : typeof opts.noise === 'number' ? { sigma: opts.noise, p2p: 6 * opts.noise, method: 'user σ' }
       : { sigma: opts.noise.sigma, p2p: opts.noise.p2p != null ? opts.noise.p2p : 6 * opts.noise.sigma, method: opts.noise.method || 'user' };
     var t0 = fin(opts.voidTime) && opts.voidTime > 0 ? opts.voidTime : null;
-    var ms = peaks.map(function (p) { return metricsOne(x, y, p, nz, t0); });
-    var tot = 0; ms.forEach(function (m) { tot += m.area; });
+    var integ = opts.integration || null;
+    if (!integ && peaks.length && peaks.every(function (p) { return p && p.math && p.segments; })) integ = peaks;
+    if (!integ && !opts.baselines && opts.clip) integ = A.integrate(x, y, peaks, { clip: opts.clip, skimRatio: opts.skimRatio, model: opts.model, noise: nz });
+    var byId = {}; if (integ) integ.forEach(function (r) { if (r && r.id != null) byId[r.id] = r; });
+    var ms = peaks.map(function (p, i) {
+      var reg = null;
+      if (integ) { var r = byId[p.id] || integ[i]; if (r && r.segments && r.segments[0]) reg = regionOf(r); }
+      else if (opts.baselines) { var bp = Array.isArray(opts.baselines) ? opts.baselines[i] : opts.baselines[p.id]; if (bp && bp.length) reg = regionFromBaseline(x, y, p, bp); }
+      if (p.math && p.segments && (p.start == null || p.end == null)) p = { id: p.id, start: p.math.tStart, end: p.math.tEnd, apex: p.apex };
+      return metricsOne(x, y, p, nz, t0, reg);
+    });
+    ms.forEach(function (m) { // flag (never silently drop: output stays aligned with the input peaks)
+      m.flags = [];
+      if (!(m.height > 0)) m.flags.push('nonPositiveHeight');
+      if (!(m.area > 0)) m.flags.push('nonPositiveArea');
+      m.valid = !m.flags.length;
+      if (!m.valid) m.warning = 'Peak has ' + (m.height > 0 ? 'a non-positive net area' : 'no height above its baseline') + ': check bounds/baseline; excluded from Area%.';
+    });
+    var tot = 0; ms.forEach(function (m) { if (m.valid) tot += m.area; });
     ms.forEach(function (m) {
-      m.areaPct = tot ? 100 * m.area / tot : null;
-      m.formulas.areaPct = F('Area% = 100·Aᵢ / ΣA', { A_i: m.area, sumA: tot, nPeaks: ms.length }, m.areaPct, 'Relative to the sum of all integrated peaks (no response factors).', '%');
+      m.areaPct = tot && m.valid ? 100 * m.area / tot : null;
+      m.formulas.areaPct = F('Area% = 100·Aᵢ / ΣA', { A_i: m.area, sumA: tot, nPeaks: ms.length }, m.areaPct, 'Relative to the sum of all integrated peaks with positive height and area (no response factors).', '%');
     });
     var order = ms.map(function (m, i) { return i; }).sort(function (a, b) { return ms[a].rt - ms[b].rt; });
     order.forEach(function (idx, j) {
@@ -414,6 +488,471 @@
     });
     return ms;
   };
+
+  /* ---------------- integration modes ("peak clipping") ---------------- */
+  // Definitions follow the usual chromatography-data-system vocabulary (Dyson, "Chromatographic Integration
+  // Methods", RSC). Every result carries an auditable `math` object; see docs/INTEGRATION.md.
+  var CLIP_MODES = ['drop', 'valley', 'baseline', 'skim-tangent', 'skim-exp', 'fit'];
+  var CLIP_LABELS = {
+    drop: 'Perpendicular drop to a common baseline', valley: 'Valley-to-valley', baseline: 'Baseline-to-baseline (common baseline, no penetration)',
+    'skim-tangent': 'Tangent skim', 'skim-exp': 'Exponential skim', fit: 'Deconvolution (peak fit)'
+  };
+  A.CLIP_MODES = CLIP_MODES.slice();
+  A.CLIP_LABELS = CLIP_LABELS;
+
+  function lineFn(t0, y0, t1, y1) { var s = t1 > t0 ? (y1 - y0) / (t1 - t0) : 0; return function (t) { return y0 + s * (t - t0); }; }
+  function polyFn(pts) {
+    var xs = pts.map(function (p) { return +p[0]; }), ys = pts.map(function (p) { return +p[1]; });
+    return function (t) { return xs.length === 1 ? ys[0] : U.interp1(xs, ys, t); };
+  }
+  // integration nodes: exact (possibly off-grid) bounds plus every sample strictly inside
+  function gridNodes(x, s, e, extra) {
+    var X = [s], n = x.length, i;
+    for (i = U.bsearch(x, s); i < n && x[i] < e; i++) if (x[i] > s) X.push(+x[i]);
+    if (e > s) X.push(e);
+    if (extra && extra.length) {
+      extra.forEach(function (t) { if (t > s && t < e) X.push(t); });
+      X.sort(function (a, b) { return a - b; });
+      X = X.filter(function (t, k) { return !k || t > X[k - 1]; });
+    }
+    return X;
+  }
+  function trapz(X, Y) { var a = 0; for (var i = 0; i < X.length - 1; i++) a += 0.5 * (Y[i] + Y[i + 1]) * (X[i + 1] - X[i]); return a; }
+  function f4(v) { return U.fmt ? U.fmt(v, 4) : String(v); }
+  function pt(t, v) { return '(' + f4(t) + ', ' + f4(v) + ')'; }
+  // monotone-chain lower convex hull of (T[i], Y[i]), T ascending → [[t,y],...]
+  function lowerHull(T, Y) {
+    var h = [];
+    for (var i = 0; i < T.length; i++) {
+      while (h.length >= 2) {
+        var a = h[h.length - 2], b = h[h.length - 1];
+        if ((T[b] - T[a]) * (Y[i] - Y[a]) - (Y[b] - Y[a]) * (T[i] - T[a]) <= 0) h.pop(); else break;
+      }
+      h.push(i);
+    }
+    return h.map(function (k) { return [T[k], Y[k]]; });
+  }
+  function makeCtx(x, y, opts) {
+    var n = x.length, w = opts.smooth ? odd(opts.smooth) : Math.min(15, Math.max(5, odd(n / 800)));
+    var ys = n > w + 2 ? A.savitzkyGolay(y, w, 2) : toArr(y);
+    var nz = opts.noise == null ? (n > 3 ? A.noise(x, y) : { sigma: 0 }) : typeof opts.noise === 'number' ? { sigma: opts.noise } : opts.noise;
+    return { x: x, y: y, ys: ys, n: n, sig: nz.sigma || 0, dt: n > 1 ? (x[n - 1] - x[0]) / (n - 1) : 0, opts: opts, smoothW: w };
+  }
+  function yAt(c, t) { return U.interp1(c.x, c.y, t); }
+  function ysAt(c, t) { return U.interp1(c.x, c.ys, t); }
+  function boundsOf(p) { return [Math.min(p.start, p.end), Math.max(p.start, p.end)]; }
+  // max of (smoothed signal − baseline fn) over [s,e] → { h, t }
+  function heightAbove(c, s, e, fn) {
+    var best = -Infinity, at = (s + e) / 2, x = c.x;
+    for (var j = U.bsearch(x, s); j < c.n && x[j] <= e; j++) if (x[j] >= s) { var v = c.ys[j] - fn(x[j]); if (v > best) { best = v; at = x[j]; } }
+    if (best === -Infinity) { best = ysAt(c, at) - fn(at); }
+    return { h: Math.max(0, best), t: at };
+  }
+  // time of the minimum of the smoothed signal within [t0, t1] (t0 if the interval holds no sample)
+  function valleyT(c, t0, t1) {
+    var lo = Math.min(t0, t1), hi = Math.max(t0, t1), best = lo, bv = ysAt(c, lo), x = c.x;
+    for (var j = U.bsearch(x, lo); j < c.n && x[j] <= hi; j++) if (x[j] >= lo && c.ys[j] < bv) { bv = c.ys[j]; best = x[j]; }
+    if (ysAt(c, hi) < bv) best = hi;
+    return best;
+  }
+  function modeOf(p, opts) {
+    var m = opts.force ? opts.clip : (p.clip || (p.manual ? 'valley' : (opts.clip || 'drop')));
+    return CLIP_MODES.indexOf(m) >= 0 ? m : 'drop';
+  }
+
+  function clustersCtx(c, peaks, opts) {
+    var frac = opts.valleyFrac == null ? 0.02 : +opts.valleyFrac, tol = (opts.gapTol == null ? 1.5 : +opts.gapTol) * c.dt;
+    var ord = peaks.map(function (p, i) { return i; }).filter(function (i) { var b = boundsOf(peaks[i]); return fin(b[0]) && fin(b[1]); })
+      .sort(function (a, b) { return boundsOf(peaks[a])[0] - boundsOf(peaks[b])[0] || peaks[a].apex - peaks[b].apex; });
+    var out = [], cur = null, curEnd = -Infinity;
+    ord.forEach(function (i) {
+      var b = boundsOf(peaks[i]);
+      if (cur) {
+        var j = cur[cur.length - 1], a = boundsOf(peaks[j]), fused = false;
+        if (b[0] < curEnd - tol) fused = true; // overlapping bounds
+        else if (b[0] <= curEnd + Math.max(tol, 0.5 * Math.min(a[1] - a[0], b[1] - b[0]))) {
+          // touching (or nearly touching) bounds: fused only if the signal between them stays above the common line
+          var L = lineFn(a[0], yAt(c, a[0]), b[1], yAt(c, b[1])), tv = valleyT(c, curEnd, b[0]);
+          var hv = ysAt(c, tv) - L(tv), ha = heightAbove(c, a[0], a[1], L).h, hb = heightAbove(c, b[0], b[1], L).h;
+          fused = hv > frac * Math.min(ha, hb);
+        }
+        if (fused) { cur.push(i); curEnd = Math.max(curEnd, b[1]); return; }
+      }
+      cur = [i]; out.push(cur); curEnd = b[1];
+    });
+    return out;
+  }
+  /** clusters(x, y, peaks, {valleyFrac=0.02, gapTol=1.5 samples}) → [[peakIdx, ...], ...] in time order (singletons included).
+      Two neighbouring peaks are fused when their bounds overlap, or when they touch (gap ≤ gapTol·Δt) and the signal at
+      the shared bound lies above the straight line from the first start to the second end by more than
+      valleyFrac × the smaller peak height. */
+  A.clusters = function (x, y, peaks, opts) { opts = opts || {}; return clustersCtx(makeCtx(x, y, opts), peaks || [], opts); };
+
+  // ---- skim geometry ----
+  // Tangent from the valley (t_v, y_v) to the parent's tail (dir=+1) or front (dir=−1): the supporting line through the
+  // valley with min (tail) / max (front) slope over the samples between the rider apex and `limit`.
+  function skimTangent(c, v, dir, apexT, limitT) {
+    var yv = ysAt(c, v), x = c.x, lo = Math.min(apexT, limitT), hi = Math.max(apexT, limitT), best = null, bt = limitT, by = ysAt(c, limitT);
+    function consider(t, val) { var m = (val - yv) / (t - v); if (best === null || (dir > 0 ? m < best : m > best)) { best = m; bt = t; by = val; } }
+    for (var j = U.bsearch(x, lo); j < c.n && x[j] <= hi; j++) if (x[j] > lo && x[j] < hi) consider(x[j], c.ys[j]);
+    consider(limitT, ysAt(c, limitT));
+    var m = best, fn = function (t) { return yv + m * (t - v); };
+    return {
+      kind: 'tangent', fn: fn, t0: dir > 0 ? v : bt, t1: dir > 0 ? bt : v, params: { valley: [v, yv], touch: [bt, by], slope: m },
+      steps: [{ label: 'Valley point (t_v, y_v)', expr: 'y_v = ỹ(t_v), ỹ = smoothed signal', value: yv },
+        { label: 'Tangent point t*', expr: dir > 0 ? 't* = argmin_j (ỹ_j − y_v)/(t_j − t_v), t_j after rider apex' : 't* = argmax_j (ỹ_j − y_v)/(t_j − t_v), t_j before rider apex', value: bt },
+        { label: 'Tangent slope m', expr: 'm = (ỹ(t*) − y_v)/(t* − t_v)', value: m }],
+      formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b(t) = y_v + m·(t − t_v) (tangent from the valley to the parent ' + (dir > 0 ? 'tail' : 'front') + ')',
+      describe: 'a straight tangent line from the valley ' + pt(v, yv) + ' to the point where it touches the parent ' + (dir > 0 ? 'tail' : 'front') + ' at ' + pt(bt, by)
+    };
+  }
+  // Exponential skim: ln(ỹ − c) fitted (weights z²) on the parent side of the valley, extrapolated under the rider.
+  function skimExp(c, v, dir, hostApexT, hostH, riderApexT, riderH, limitT, CL) {
+    var x = c.x, j;
+    // rider σ from its far flank (away from the parent): half-height crossing of ỹ above a line through the valley
+    // (reference = the tangent-skim line, which follows the parent tail closely around the rider)
+    var yv = ysAt(c, v), hwT = null, ka = idxNear(x, riderApexT), Lr = skimTangent(c, v, dir, riderApexT, limitT).fn, lvl = (c.ys[ka] - Lr(x[ka])) / 2;
+    for (j = ka; j >= 0 && j < c.n; j += dir) { if ((dir > 0 ? x[j] > limitT : x[j] < limitT)) break; if (c.ys[j] - Lr(x[j]) <= lvl) { hwT = Math.abs(x[j] - riderApexT); break; } }
+    var sr = Math.max(hwT != null ? hwT / 1.1774 : Math.abs(riderApexT - v) / 2.5, 2 * c.dt);
+    // fit window: parent tail/front ending 4σ_r before the rider apex (or at the valley, whichever is nearer the parent),
+    // spanning (expFitSpan=16)·σ_r towards the parent apex
+    var bEnd = dir > 0 ? Math.min(v, riderApexT - 4 * sr) : Math.max(v, riderApexT + 4 * sr), span = (c.opts.expFitSpan || 16) * sr;
+    var a = dir > 0 ? Math.max(hostApexT, bEnd - span) : bEnd, b = dir > 0 ? bEnd : Math.min(hostApexT, bEnd + span);
+    var floor = Math.max(3 * c.sig, 1e-3 * hostH), S0 = 0, S1 = 0, S2 = 0, T0 = 0, T1 = 0, used = 0, ta = Infinity, tb = -Infinity, FU = [], FZ = [];
+    for (j = U.bsearch(x, Math.min(a, b)); j < c.n && x[j] <= Math.max(a, b); j++) {
+      if (x[j] < Math.min(a, b)) continue;
+      var z = c.ys[j] - CL(x[j]); if (!(z > floor && z <= 0.5 * hostH)) continue;
+      var w = z * z, u = x[j] - v, l = Math.log(z);
+      S0 += w; S1 += w * u; S2 += w * u * u; T0 += w * l; T1 += w * u * l; used++; ta = Math.min(ta, x[j]); tb = Math.max(tb, x[j]);
+      FU.push(u); FZ.push(z);
+    }
+    var det = S0 * S2 - S1 * S1; if (used < 4 || !(det > 0)) return null;
+    var beta = (S0 * T1 - S1 * T0) / det, alpha = (T0 - beta * S1) / S0;
+    if (!(beta * dir < 0)) return null; // must decay away from the parent
+    // refine: z ≈ z₀·exp(β u) + c₀ by separable least squares (linear in z₀, c₀; golden-section search on ln τ).
+    // The constant c₀ absorbs a common baseline that ends on the parent's tail instead of at the true baseline.
+    function sepLS(bt) {
+      var s11 = 0, s12 = 0, s22 = FU.length, r1 = 0, r2 = 0, q, e;
+      for (q = 0; q < FU.length; q++) { e = Math.exp(bt * FU[q]); s11 += e * e; s12 += e; r1 += e * FZ[q]; r2 += FZ[q]; }
+      var dd = s11 * s22 - s12 * s12; if (!(dd > 0)) return null;
+      var zz = (r1 * s22 - r2 * s12) / dd, cc = (s11 * r2 - s12 * r1) / dd, rss = 0;
+      for (q = 0; q < FU.length; q++) { e = FZ[q] - zz * Math.exp(bt * FU[q]) - cc; rss += e * e; }
+      return { z0: zz, c0: cc, rss: rss };
+    }
+    var tau0 = -1 / (beta * dir), lo = Math.log(tau0 / 5), hi = Math.log(tau0 * 5), gr = (Math.sqrt(5) - 1) / 2, c0 = 0, z0 = Math.exp(alpha), tau = tau0;
+    var ev = function (lt) { var r = sepLS(-dir / Math.exp(lt)); return r && r.z0 > 0 ? r.rss : Infinity; };
+    if (c.opts.expOffset !== false && used >= 8) {
+      var g1 = hi - gr * (hi - lo), g2 = lo + gr * (hi - lo), f1 = ev(g1), f2 = ev(g2);
+      for (var it = 0; it < 80 && hi - lo > 1e-7; it++) { if (f1 < f2) { hi = g2; g2 = g1; f2 = f1; g1 = hi - gr * (hi - lo); f1 = ev(g1); } else { lo = g1; g1 = g2; f1 = f2; g2 = lo + gr * (hi - lo); f2 = ev(g2); } }
+      var lt = (lo + hi) / 2, best = sepLS(-dir / Math.exp(lt));
+      if (best && best.z0 > 0 && isFinite(ev(lt))) { tau = Math.exp(lt); beta = -dir / tau; z0 = best.z0; c0 = best.c0; }
+    }
+    var fn = function (t) { return CL(t) + z0 * Math.exp(beta * (t - v)) + c0; };
+    var tol = Math.max(0.5 * c.sig, 0.002 * riderH);
+    // rider end: first sample past the apex (away from the parent) where ỹ meets the curve; start: walk from the apex
+    // towards the parent until ỹ meets the curve (not beyond the fit window)
+    function meet(from, to, d) {
+      for (var k = U.bsearch(x, from); k >= 0 && k < c.n; k += d) {
+        if (d > 0 ? x[k] <= from : x[k] >= from) continue;
+        if (d > 0 ? x[k] >= to : x[k] <= to) return to;
+        if (c.ys[k] - fn(x[k]) <= tol) return x[k];
+      }
+      return to;
+    }
+    var te = meet(riderApexT, limitT, dir), ts = meet(riderApexT, bEnd, -dir);
+    return {
+      kind: 'exponential', fn: fn, t0: dir > 0 ? ts : te, t1: dir > 0 ? te : ts,
+      params: { valley: [v, yv], tau: tau, z0: z0, c0: c0, fitRange: [ta, tb], fitPoints: used, start: ts, end: te, riderSigma: sr },
+      steps: [{ label: 'Rider σ estimate', expr: 'σ_r = half-width at half height on the far flank / 1.1774', value: sr },
+        { label: 'Tail fit points', expr: 'parent ' + (dir > 0 ? 'tail' : 'front') + ' samples ending 4σ_r before the rider apex, spanning 16σ_r, with 3σ < ỹ − c ≤ H_parent/2', value: used },
+        { label: 'Fit range start', expr: 't_a', value: ta }, { label: 'Fit range end', expr: 't_b', value: tb },
+        { label: 'Decay constant τ', expr: 'ỹ − c = z₀·exp(∓(t − t_v)/τ) + c₀ by least squares (start: log-linear fit), τ = 1/|β|', value: tau },
+        { label: 'Parent excess at valley', expr: 'z₀ (fitted, not forced through the valley)', value: z0 },
+        { label: 'Offset c₀', expr: 'constant absorbing a common baseline that ends on the parent tail', value: c0 },
+        { label: 'Skim start', expr: 'where ỹ − b ≤ max(σ/2, 0.2 % H_rider) walking from the rider apex towards the parent', value: dir > 0 ? ts : te },
+        { label: 'Skim end', expr: 'where ỹ − b ≤ max(σ/2, 0.2 % H_rider) walking away from the parent', value: dir > 0 ? te : ts }],
+      formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b(t) = c(t) + z₀·exp(' + (dir > 0 ? '−' : '+') + '(t − t_v)/τ) + c₀, c = common baseline',
+      describe: 'an exponential curve (τ = ' + f4(tau) + ' min) fitted to the parent ' + (dir > 0 ? 'tail' : 'front') + ' between ' + f4(ta) + ' and ' + f4(tb) + ' min and extrapolated under the rider'
+    };
+  }
+
+  function buildMath(c, clip, X, Up, Lo, info) {
+    var gross = trapz(X, Up), base = trapz(X, Lo), net = gross - base, m = X.length;
+    if (info.netOverride != null) { net = info.netOverride; gross = base + net; }
+    var steps = [
+      { label: 'Integration start', expr: 't_start', value: X[0] },
+      { label: 'Integration end', expr: 't_end', value: X[m - 1] },
+      { label: 'Number of points', expr: 'n (samples inside + the two exact bounds)', value: m },
+      { label: 'Sampling interval', expr: 'Δt = (t_last − t_first)/(N − 1) of the trace', value: c.dt },
+      { label: 'Baseline at start', expr: 'b(t_start)', value: Lo[0] },
+      { label: 'Baseline at end', expr: 'b(t_end)', value: Lo[m - 1] }
+    ].concat(info.steps || []).concat(info.netOverride != null ? [
+      { label: 'Baseline area', expr: 'B = Σ ½(bᵢ + bᵢ₊₁)·Δtᵢ', value: base },
+      { label: 'Net area (model)', expr: 'A = A_fit·σ·√(2π)', value: net },
+      { label: 'Gross area', expr: 'G = B + A (model-based; G − B = A)', value: gross }
+    ] : [
+      { label: 'Gross area', expr: 'G = Σ ½(yᵢ + yᵢ₊₁)·Δtᵢ' + (info.upperNote ? ' (' + info.upperNote + ')' : ''), value: gross },
+      { label: 'Baseline area', expr: 'B = Σ ½(bᵢ + bᵢ₊₁)·Δtᵢ', value: base },
+      { label: 'Net area', expr: 'A = G − B', value: net }
+    ]);
+    var notes = [(info.lead || 'Area under the curve') + ' between ' + f4(X[0]) + ' and ' + f4(X[m - 1]) + ' min, minus the area under ' + info.describe + '.']
+      .concat(['Trapezoid rule over ' + m + ' points (Δt ≈ ' + f4(c.dt) + ' min): gross ' + f4(gross) + ' − baseline ' + f4(base) + ' = net ' + f4(net) + ' y-unit·min (×60 for y-unit·s).'])
+      .concat(info.notes || []);
+    return {
+      method: CLIP_LABELS[clip] + (info.methodSuffix || ''), clip: clip, formula: info.formula, steps: steps, n: m, dt: c.dt,
+      tStart: X[0], tEnd: X[m - 1], yStart: Lo[0], yEnd: Lo[m - 1], signalStart: Up[0], signalEnd: Up[m - 1],
+      grossArea: gross, baselineArea: base, netArea: net, notes: notes
+    };
+  }
+  function sampleCurve(X, fn) { return X.map(function (t) { return [t, fn(t)]; }); }
+
+  // Integrate one cluster (indices into peaks) and write results into res[].
+  function integrateCluster(c, peaks, idxs, ci, res) {
+    var o = c.opts, R = o.skimRatio == null ? 10 : +o.skimRatio, x = c.x;
+    var P = idxs.slice().sort(function (a, b) { return (peaks[a].apex != null ? peaks[a].apex : boundsOf(peaks[a])[0]) - (peaks[b].apex != null ? peaks[b].apex : boundsOf(peaks[b])[0]); });
+    var K = P.length, S = [], E = [], k, j;
+    P.forEach(function (i, q) { var b = boundsOf(peaks[i]); S[q] = b[0]; E[q] = b[1]; });
+    var joinNotes = P.map(function () { return []; });
+    for (k = 0; k < K - 1; k++) { // gap between neighbouring automatic peaks inside a cluster: join both bounds at the valley
+      if (E[k] < S[k + 1] && !peaks[P[k]].manual && !peaks[P[k + 1]].manual) {
+        var tj = valleyT(c, E[k], S[k + 1]);
+        joinNotes[k].push('End bound moved from ' + f4(E[k]) + ' to the valley at ' + f4(tj) + ' min to meet the next peak of the cluster.');
+        joinNotes[k + 1].push('Start bound moved from ' + f4(S[k + 1]) + ' to the valley at ' + f4(tj) + ' min to meet the previous peak of the cluster.');
+        E[k] = tj; S[k + 1] = tj;
+      }
+    }
+    var cs = Math.min.apply(null, S), ce = Math.max.apply(null, E), ycs = yAt(c, cs), yce = yAt(c, ce), CL = lineFn(cs, ycs, ce, yce);
+    var H = [], AP = [], Hown = [];
+    for (k = 0; k < K; k++) {
+      var ha = heightAbove(c, S[k], E[k], CL), ho = heightAbove(c, S[k], E[k], lineFn(S[k], ysAt(c, S[k]), E[k], ysAt(c, E[k]))), pa = peaks[P[k]].apex;
+      H[k] = ha.h; Hown[k] = ho.h;
+      // apex: the peak's own apex if inside its bounds, else the maximum above its own valley line (on a sloping tail the
+      // maximum above the common line can sit at the rider's start)
+      AP[k] = fin(pa) && pa > S[k] && pa < E[k] ? +pa : ho.t;
+    }
+    var modes = P.map(function (i) { return modeOf(peaks[i], o); }), notes = joinNotes, applied = modes.slice();
+    var clDesc = 'the common cluster baseline from ' + pt(cs, ycs) + ' to ' + pt(ce, yce);
+
+    // 1. riders (Dyson criterion: skim only if H_parent / H_rider ≥ skimRatio)
+    var host = []; for (k = 0; k < K; k++) host.push(-1);
+    for (k = 0; k < K; k++) {
+      if (modes[k] !== 'skim-tangent' && modes[k] !== 'skim-exp') continue;
+      var best = -1, bestD = Infinity, hr = Math.max(Hown[k], 1e-300), tallest = -1;
+      for (j = 0; j < K; j++) {
+        if (j === k) continue; if (tallest < 0 || H[j] > H[tallest]) tallest = j;
+        if (H[j] >= R * hr) { var d = Math.abs(j - k); if (d < bestD || (d === bestD && H[j] > H[best])) { best = j; bestD = d; } }
+      }
+      if (best >= 0) host[k] = best;
+      else {
+        applied[k] = 'drop';
+        notes[k].push(K === 1 ? 'Skim requested but there is no neighbouring parent peak in this cluster; perpendicular drop used.'
+          : 'Skim not applied: parent/rider height ratio ' + f4(H[tallest] / hr) + ' < skimRatio ' + R + ' (Dyson criterion); perpendicular drop used instead.');
+      }
+    }
+    for (k = 0; k < K; k++) { var guard = 0; while (host[k] >= 0 && host[host[k]] >= 0 && guard++ < K) host[k] = host[host[k]]; }
+    for (k = 0; k < K; k++) if (host[k] >= 0 && host[host[k]] >= 0) { host[k] = -1; applied[k] = 'drop'; }
+
+    // 2. skim geometry for each rider
+    var skim = [], hostOf = {};
+    for (k = 0; k < K; k++) {
+      if (host[k] < 0) continue;
+      var h = host[k], dir = k > h ? 1 : -1, v = dir > 0 ? S[k] : E[k], limit;
+      if (dir > 0) limit = (k + 1 < K && host[k + 1] === h) ? S[k + 1] : E[k];
+      else limit = (k - 1 >= 0 && host[k - 1] === h) ? E[k - 1] : S[k];
+      var sk = null;
+      if (modes[k] === 'skim-exp') {
+        sk = skimExp(c, v, dir, AP[h], H[h], AP[k], Hown[k], limit, CL);
+        if (!sk) notes[k].push('Exponential fit of the parent ' + (dir > 0 ? 'tail' : 'front') + ' failed (too few points or no decay); tangent skim used instead.');
+      }
+      if (!sk) { sk = skimTangent(c, v, dir, AP[k], limit); applied[k] = 'skim-tangent'; }
+      sk.dir = dir; sk.host = h; skim[k] = sk; (hostOf[h] = hostOf[h] || []).push(k);
+      notes[k].push('Rider on the ' + (dir > 0 ? 'tail' : 'front') + ' of ' + (peaks[P[h]].id || 'peak ' + P[h]) + ': parent height ' + f4(H[h]) + ' / rider height ' + f4(Hown[k]) + ' = ' + f4(H[h] / Math.max(Hown[k], 1e-300)) + ' ≥ skimRatio ' + R + '.');
+    }
+    function skimLower(sk) { return function (t) { return Math.max(sk.fn(t), CL(t)); }; }
+
+    // 3. deconvolution for fit-mode peaks (joint fit of the whole cluster above the common line)
+    var fit = null;
+    if (applied.some(function (m, q) { return m === 'fit' && host[q] < 0 && !hostOf[q]; })) {
+      try {
+        var yc = new Array(c.n); for (j = 0; j < c.n; j++) yc[j] = c.y[j] - CL(x[j]);
+        fit = A.fitPeaks(x, yc, P.map(function (i, q) { return { id: peaks[i].id, start: S[q], end: E[q], apex: AP[q] }; }), { model: o.model || 'gaussian', maxIter: o.maxIter || 200 });
+      } catch (err) {
+        fit = null;
+        for (k = 0; k < K; k++) if (applied[k] === 'fit') { applied[k] = 'drop'; notes[k].push('Peak fit failed (' + err.message + '); perpendicular drop used instead.'); }
+      }
+    }
+
+    // hull for baseline-to-baseline
+    var hull = null;
+    if (applied.indexOf('baseline') >= 0) {
+      var HX = gridNodes(x, cs, ce), HY = HX.map(function (t) { return yAt(c, t); }); hull = lowerHull(HX, HY);
+    }
+
+    // 4. per-peak results
+    for (k = 0; k < K; k++) {
+      var i = P[k], p = peaks[i], mode = applied[k], X, Up, Lo, info, bl, extraRes = {};
+      var sigAt = function (t) { return yAt(c, t); };
+      if (hostOf[k]) { // parent of skimmed rider(s): common baseline over its domain with rider regions removed
+        var rs = hostOf[k], d0 = S[k], d1 = E[k], cuts = [];
+        rs.forEach(function (q) { d0 = Math.min(d0, S[q], skim[q].t0); d1 = Math.max(d1, E[q], skim[q].t1); cuts.push(skim[q].t0, skim[q].t1); });
+        // upper boundary = signal, except inside rider regions where it is the skim curve; at a region boundary the
+        // node is duplicated (left value, right value) so that parent + riders add up exactly to the drop total
+        var X0 = gridNodes(x, d0, d1, cuts); X = []; Up = [];
+        var side = function (t, left) {
+          for (var r = 0; r < rs.length; r++) { var s2 = skim[rs[r]]; if (left ? (t > s2.t0 && t <= s2.t1) : (t >= s2.t0 && t < s2.t1)) return skimLower(s2)(t); }
+          return sigAt(t);
+        };
+        X0.forEach(function (t, q) {
+          var lv = q ? side(t, true) : side(t, false), rv = q < X0.length - 1 ? side(t, false) : lv;
+          X.push(t); Up.push(lv); if (rv !== lv) { X.push(t); Up.push(rv); }
+        });
+        Lo = X.map(CL);
+        var riderIds = rs.map(function (q) { return peaks[P[q]].id; });
+        if (['drop', 'skim-tangent', 'skim-exp'].indexOf(modes[k]) < 0) notes[k].push('Requested "' + modes[k] + '" overridden: a parent of skimmed riders is integrated above the common baseline.');
+        mode = modes[k] === 'skim-exp' || modes[k] === 'skim-tangent' ? modes[k] : 'drop';
+        info = {
+          formula: 'A = Σ ½[(uᵢ−bᵢ)+(uᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b = common cluster baseline, u = signal except under riders where u = skim curve',
+          describe: clDesc + ', excluding the rider area' + (rs.length > 1 ? 's' : '') + ' above the skim curve' + (rs.length > 1 ? 's' : '') + ' (' + riderIds.join(', ') + ')',
+          upperNote: 'skim curve replaces the signal under riders', methodSuffix: ' — parent of skimmed rider(s)',
+          steps: rs.map(function (q) { return { label: 'Rider ' + peaks[P[q]].id + ' skim region', expr: 't from ' + f4(skim[q].t0) + ' to ' + f4(skim[q].t1), value: skim[q].t1 - skim[q].t0 }; })
+        };
+        bl = { kind: 'line', points: [[d0, CL(d0)], [d1, CL(d1)]] };
+        extraRes.riders = riderIds;
+      } else if (host[k] >= 0) { // rider
+        var sk2 = skim[k], low = skimLower(sk2);
+        X = gridNodes(x, sk2.t0, sk2.t1); Up = X.map(sigAt); Lo = X.map(low);
+        info = { formula: sk2.formula, describe: sk2.describe, steps: [{ label: 'Parent height (above common baseline)', expr: 'H_parent', value: H[sk2.host] },
+          { label: 'Rider height (above own valley line)', expr: 'H_rider', value: Hown[k] }, { label: 'Height ratio', expr: 'H_parent / H_rider ≥ skimRatio', value: H[sk2.host] / Math.max(Hown[k], 1e-300) }].concat(sk2.steps),
+          lead: 'Rider area: area under the curve' };
+        bl = { kind: sk2.kind, points: sampleCurve(X, low), params: sk2.params };
+        extraRes.host = peaks[P[sk2.host]].id;
+      } else if (mode === 'fit' && fit) {
+        var comp = fit.components[k], pr = comp.params, model = comp.model;
+        X = gridNodes(x, cs, ce); Lo = X.map(CL);
+        var cf = model === 'emg' ? function (t) { return A.emg(t, pr.A, pr.mu, pr.sigma, pr.tau); } : function (t) { return A.gaussian(t, pr.A, pr.mu, pr.sigma); };
+        Up = X.map(function (t) { return CL(t) + cf(t); });
+        var inWin = trapz(X, X.map(cf));
+        info = {
+          formula: 'A = A_fit·σ·√(2π)  (' + (model === 'emg' ? 'EMG' : 'Gaussian') + ' component fitted jointly to the cluster above the common baseline)',
+          describe: clDesc + '; the peak is the fitted ' + (model === 'emg' ? 'EMG' : 'Gaussian') + ' component', lead: 'Model area: area under the fitted component',
+          netOverride: comp.area,
+          steps: [{ label: 'Model', expr: model, value: K + ' component(s)' }, { label: 'Amplitude A', expr: 'A', value: pr.A }, { label: 'Centre μ', expr: 'μ', value: pr.mu },
+            { label: 'Width σ', expr: 'σ', value: pr.sigma }].concat(model === 'emg' ? [{ label: 'Tail τ', expr: 'τ', value: pr.tau }] : []).concat([
+            { label: 'Area SE', expr: 'delta method from s²(JᵀJ)⁻¹', value: comp.areaSE }, { label: 'Fit R²', expr: '1 − RSS/TSS', value: fit.r2 },
+            { label: 'Component area inside window', expr: 'Σ trapezoid(component) over the cluster window', value: inWin }]),
+          notes: ['Reported area is the analytic component area (includes tails beyond the window); fit converged: ' + fit.converged + ', R² = ' + f4(fit.r2) + '.']
+        };
+        bl = { kind: 'line', points: [[cs, ycs], [ce, yce]] };
+        extraRes.fit = { model: model, params: pr, areaSE: comp.areaSE, r2: fit.r2, converged: fit.converged, rt: comp.rt };
+      } else {
+        var s0 = S[k], e0 = E[k];
+        X = gridNodes(x, s0, e0); Up = X.map(sigAt);
+        if (mode === 'valley') {
+          var Lv = lineFn(s0, yAt(c, s0), e0, yAt(c, e0)); Lo = X.map(Lv);
+          info = { formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b(t) = y(t_s) + (y(t_e) − y(t_s))·(t − t_s)/(t_e − t_s)',
+            describe: 'a straight baseline from ' + pt(s0, Lo[0]) + ' to ' + pt(e0, Lo[Lo.length - 1]) };
+          bl = { kind: 'line', points: [[s0, Lo[0]], [e0, Lo[Lo.length - 1]]] };
+        } else if (mode === 'baseline') {
+          var hf = polyFn(hull); Lo = X.map(hf);
+          var verts = [[s0, hf(s0)]].concat(hull.filter(function (q) { return q[0] > s0 && q[0] < e0; })).concat([[e0, hf(e0)]]);
+          info = { formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b = lower convex hull of the signal over the cluster [T_s, T_e] (never above the signal)',
+            describe: 'the baseline-to-baseline line (lower convex hull of the signal from ' + pt(cs, ycs) + ' to ' + pt(ce, yce) + ', ' + hull.length + ' vertices), with vertical drops at ' + f4(s0) + ' and ' + f4(e0) + ' min',
+            steps: [{ label: 'Hull vertices', expr: 'points where the baseline touches the signal', value: hull.length }] };
+          bl = { kind: 'polyline', points: verts };
+        } else { // drop
+          Lo = X.map(CL);
+          info = { formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ,  b(t) = y(T_s) + (y(T_e) − y(T_s))·(t − T_s)/(T_e − T_s), T_s/T_e = cluster start/end',
+            describe: K > 1 ? clDesc + ' with vertical drop lines at ' + f4(s0) + ' and ' + f4(e0) + ' min' : 'a straight baseline from ' + pt(s0, Lo[0]) + ' to ' + pt(e0, Lo[Lo.length - 1]),
+            steps: K > 1 ? [{ label: 'Cluster start T_s', expr: 'T_s', value: cs }, { label: 'Cluster end T_e', expr: 'T_e', value: ce }] : [] };
+          bl = { kind: 'line', points: [[s0, Lo[0]], [e0, Lo[Lo.length - 1]]] };
+          var below = 0; for (j = 0; j < X.length; j++) if (Up[j] < Lo[j] - 3 * c.sig) below++;
+          if (below > 2) notes[k].push('The signal dips below the common baseline at ' + below + ' points (baseline penetration); consider "baseline" or "valley".');
+        }
+        if (modes[k] === 'fit' && !fit) mode = applied[k];
+      }
+      info.notes = (info.notes || []).concat(notes[k]);
+      var math = buildMath(c, mode, X, Up, Lo, info);
+      var r0 = { id: p.id, index: i, cluster: ci, clusterSize: K, clip: mode, requested: modes[k], start: S[k], end: E[k], apex: AP[k], area: math.netArea,
+        baseline: bl, segments: [{ x: X, upper: Up, lower: Lo }], math: math };
+      for (var key in extraRes) r0[key] = extraRes[key];
+      r0.flags = []; if (!(r0.area > 0)) { r0.flags.push('nonPositiveArea'); math.notes.push('Net area is not positive: the baseline lies above the signal here; check the bounds or choose another clip mode.'); }
+      r0.valid = !r0.flags.length;
+      res[i] = r0;
+    }
+  }
+
+  /** integrate(x, y, peaks, {clip='drop', skimRatio=10, model='gaussian', valleyFrac, smooth, noise, force}) → result[] aligned with peaks:
+      { id, index, cluster, clusterSize, clip (applied), requested, start, end, apex, area, host?, riders?, fit?,
+        baseline:{ kind:'line'|'polyline'|'tangent'|'exponential', points:[[t,y],...], params? },
+        segments:[{ x[], upper[], lower[] }]   // shade between upper and lower
+        math:{ method, clip, formula, steps:[{label, expr, value}], n, dt, tStart, tEnd, yStart, yEnd, signalStart, signalEnd,
+               grossArea, baselineArea, netArea, notes[] } }
+      Effective mode per peak: opts.force ? opts.clip : peak.clip || (peak.manual ? 'valley' : opts.clip || 'drop'). */
+  A.integrate = function (x, y, peaks, opts) {
+    opts = opts || {}; peaks = peaks || [];
+    var c = makeCtx(x, y, opts), cl = opts.clusters || clustersCtx(c, peaks, opts), res = new Array(peaks.length);
+    cl.forEach(function (idxs, ci) { integrateCluster(c, peaks, idxs, ci, res); });
+    for (var i = 0; i < res.length; i++) if (!res[i]) res[i] = { id: peaks[i] && peaks[i].id, index: i, clip: null, area: null, baseline: null, segments: [], math: null, error: 'invalid bounds' };
+    return res;
+  };
+
+  /** clipOptions(x, y, peaks, clusterIdx, opts) → preview of every clip mode for one cluster.
+      clusterIdx: index into clusters(x, y, peaks) or an explicit array of peak indices.
+      → { indices[], ids[], recommended, reason, options:[{ clip, label, applicable, note, total,
+           peaks:[{ id, clip (as applied), area, baseline, segments, notes[] }] }] } */
+  A.clipOptions = function (x, y, peaks, clusterIdx, opts) {
+    opts = opts || {}; peaks = peaks || [];
+    var c = makeCtx(x, y, opts), idxs = Array.isArray(clusterIdx) ? clusterIdx.slice() : (clustersCtx(c, peaks, opts)[clusterIdx | 0] || []);
+    var sub = idxs.map(function (i) { return peaks[i]; });
+    var options = CLIP_MODES.map(function (mode) {
+      var o2 = {}; for (var key in opts) o2[key] = opts[key]; o2.clip = mode; o2.force = true; o2.clusters = [sub.map(function (p, q) { return q; })];
+      var r = A.integrate(x, y, sub, o2), tot = 0, applicable = true, note = '';
+      r.forEach(function (q) { tot += q.area || 0; });
+      if (mode.indexOf('skim') === 0) {
+        applicable = r.some(function (q) { return q.host != null; });
+        note = applicable ? 'Rider(s): ' + r.filter(function (q) { return q.host != null; }).map(function (q) { return q.id; }).join(', ') : (sub.length < 2 ? 'Needs at least two fused peaks.' : 'No peak meets the skim criterion (parent/rider height ≥ ' + (opts.skimRatio || 10) + ').');
+      } else if (mode === 'fit') { applicable = r.every(function (q) { return q.clip === 'fit'; }); note = applicable ? 'R² = ' + f4(r[0].fit.r2) : 'Fit failed; falls back to drop.'; }
+      else if (sub.length < 2 && mode !== 'valley') note = 'Single peak: identical to valley-to-valley.';
+      return { clip: mode, label: CLIP_LABELS[mode], applicable: applicable, note: note, total: tot,
+        peaks: r.map(function (q) { return { id: q.id, clip: q.clip, area: q.area, baseline: q.baseline, segments: q.segments, notes: q.math ? q.math.notes : [], host: q.host, math: q.math }; }) };
+    });
+    // recommendation
+    var rec = 'valley', reason = 'Single, isolated peak: all modes agree.';
+    if (sub.length > 1) {
+      var sk = options[CLIP_MODES.indexOf('skim-exp')];
+      if (sk.applicable) {
+        var tailRider = sk.peaks.some(function (q) { return q.host != null && q.clip === 'skim-exp'; });
+        rec = tailRider ? 'skim-exp' : 'skim-tangent';
+        reason = 'A small peak rides on a much larger one (height ratio ≥ ' + (opts.skimRatio || 10) + '): skimming assigns the parent\'s ' + (tailRider ? 'tail' : 'front') + ' to the parent.';
+      } else {
+        var cs = Infinity, ce = -Infinity; sub.forEach(function (p) { var b = boundsOf(p); cs = Math.min(cs, b[0]); ce = Math.max(ce, b[1]); });
+        var CL = lineFn(cs, yAt(c, cs), ce, yAt(c, ce)), worst = 0;
+        var srt = sub.slice().sort(function (a, b) { return boundsOf(a)[0] - boundsOf(b)[0]; });
+        for (var q = 0; q < srt.length - 1; q++) {
+          var tv = (boundsOf(srt[q])[1] + boundsOf(srt[q + 1])[0]) / 2, hv = ysAt(c, tv) - CL(tv);
+          var hm = Math.min(heightAbove(c, boundsOf(srt[q])[0], boundsOf(srt[q])[1], CL).h, heightAbove(c, boundsOf(srt[q + 1])[0], boundsOf(srt[q + 1])[1], CL).h);
+          if (hm > 0) worst = Math.max(worst, hv / hm);
+        }
+        var fo = options[CLIP_MODES.indexOf('fit')];
+        if (worst > 0.5 && fo.applicable && fo.peaks.every(function (p) { return p.area > 0; })) { rec = 'fit'; reason = 'Deep overlap (valley at ' + Math.round(100 * worst) + '% of the smaller peak): perpendicular drop mis-assigns area; deconvolution is less biased if the peak shape model fits.'; }
+        else { rec = 'drop'; reason = 'Partially resolved peaks (valley at ' + Math.round(100 * worst) + '% of the smaller peak): perpendicular drop to a common baseline is the standard choice.'; }
+      }
+    }
+    return { indices: idxs, ids: sub.map(function (p) { return p.id; }), recommended: rec, reason: reason, options: options };
+  };
+
+  // peakMetrics helpers
+  function regionOf(r) {
+    var s = r.segments[0];
+    return { X: s.x, Y: s.upper.map(function (u, i) { return u - s.lower[i]; }), area: r.area, math: r.math, clip: r.clip };
+  }
+  function regionFromBaseline(x, y, p, pts) {
+    var b = boundsOf(p), X = gridNodes(x, b[0], b[1]), fn = polyFn(pts), Up = X.map(function (t) { return U.interp1(x, y, t); }), Lo = X.map(fn);
+    var c = { dt: x.length > 1 ? (x[x.length - 1] - x[0]) / (x.length - 1) : 0 };
+    var math = buildMath(c, 'valley', X, Up, Lo, { formula: 'A = Σ ½[(yᵢ−bᵢ)+(yᵢ₊₁−bᵢ₊₁)]·Δtᵢ, b = user-supplied baseline polyline', describe: 'the supplied baseline polyline (' + pts.length + ' points)' });
+    math.method = 'User-supplied baseline';
+    return { X: X, Y: Up.map(function (u, i) { return u - Lo[i]; }), area: math.netArea, math: math, clip: 'custom' };
+  }
 
   /* ---------------- gradient / method ---------------- */
   function rowsOf(method) {
@@ -677,6 +1216,165 @@
     var res = { components: components, curve: curve, rss: R.rss, r2: tss > 0 ? 1 - R.rss / tss : null, dof: dof, converged: converged && it <= maxIter, cov: cov, iterations: it, paramNames: names, window: [xs[0], xs[m - 1]], model: model };
     if (useBl) res.baselineParams = { b0: p[N * np], b1: p[N * np + 1], xc: xc };
     return res;
+  };
+
+  /* ---------------- Student t distribution ---------------- */
+  // ln Γ(z) by the Lanczos approximation (g = 7, 9 terms; ~1e-15 relative for z > 0.5).
+  var LZ = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+    12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  function lgamma(z) {
+    if (z < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * z))) - lgamma(1 - z);
+    z -= 1; var a = LZ[0], t = z + 7.5;
+    for (var i = 1; i < 9; i++) a += LZ[i] / (z + i);
+    return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+  // Regularized incomplete beta I_x(a,b): continued fraction (modified Lentz) on the faster-converging side.
+  function betacf(a, b, x) {
+    var tiny = 1e-300, qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap, m, m2, aa, del, h;
+    if (Math.abs(d) < tiny) d = tiny; d = 1 / d; h = d;
+    for (m = 1; m <= 300; m++) {
+      m2 = 2 * m; aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < tiny) d = tiny; c = 1 + aa / c; if (Math.abs(c) < tiny) c = tiny; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < tiny) d = tiny; c = 1 + aa / c; if (Math.abs(c) < tiny) c = tiny; d = 1 / d; del = d * c; h *= del;
+      if (Math.abs(del - 1) < 1e-15) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    var lb = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? lb * betacf(a, b, x) / a : 1 - lb * betacf(b, a, 1 - x) / b;
+  }
+  /** tCdf(t, df) → P(T ≤ t) for Student's t with df degrees of freedom. */
+  A.tCdf = function (t, df) { var p = 0.5 * ibeta(df / (df + t * t), df / 2, 0.5); return t >= 0 ? 1 - p : p; };
+  /** tQuantile(p, df) → t such that P(T ≤ t) = p (bisection on tCdf; |error| < 1e-10). */
+  A.tQuantile = function (p, df) {
+    if (!(p > 0 && p < 1) || !(df > 0)) return NaN;
+    if (p === 0.5) return 0; if (p < 0.5) return -A.tQuantile(1 - p, df);
+    var lo = 0, hi = 1; while (A.tCdf(hi, df) < p && hi < 1e8) hi *= 2;
+    for (var i = 0; i < 200 && hi - lo > 1e-12 * Math.max(1, hi); i++) { var mid = (lo + hi) / 2; if (A.tCdf(mid, df) < p) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  };
+
+  /* ---------------- calibration curve ---------------- */
+  var CAL_MODELS = { linear: 'y = b₀ + b₁·x', linear0: 'y = b₁·x', quadratic: 'y = b₀ + b₁·x + b₂·x²' };
+  /** calibrationFit(points [{x: conc, y: response, w?, include?}], {model:'linear'|'linear0'|'quadratic', weighting:'none'|'1/x'|'1/x2', alpha=0.05})
+      Weighted least squares. Weights wᵢ = (pt.w ?? 1)·{1, 1/xᵢ, 1/xᵢ²}, normalised to Σw = n so s_y/x stays in response units.
+      → { model, weighting, n, p, dof, coef[], se[], cov[][], names[], r2, adjR2, syx, tCrit, xRange, xMean, yMean, Sxx,
+          points:[{x,y,w,fitted,residual,stdResidual}], residuals[], slope, lod, loq, lodIntercept, notes[], formulas{},
+          predict(x), predictBand(x,{m}), inverse(y,{m}) } */
+  A.calibrationFit = function (points, opts) {
+    opts = opts || {};
+    var model = CAL_MODELS[opts.model] ? opts.model : 'linear', wt = opts.weighting === '1/x' || opts.weighting === '1/x2' ? opts.weighting : 'none';
+    var alpha = opts.alpha > 0 && opts.alpha < 1 ? opts.alpha : 0.05, notes = [];
+    var pts = (points || []).filter(function (q) { return q && q.include !== false && fin(+q.x) && fin(+q.y); })
+      .map(function (q) { return { x: +q.x, y: +q.y, w0: fin(+q.w) && +q.w > 0 ? +q.w : 1 }; });
+    var p = model === 'linear0' ? 1 : model === 'linear' ? 2 : 3, n = pts.length, i, j, k;
+    if (n < p + 1) throw new Error('calibrationFit: need at least ' + (p + 1) + ' points for a ' + model + ' model (have ' + n + ')');
+    var xPos = Infinity; pts.forEach(function (q) { if (q.x > 0 && q.x < xPos) xPos = q.x; });
+    function wFn(xv) { // relative weight model (before normalisation)
+      if (wt === 'none') return 1;
+      var xe = xv > 0 ? xv : xPos; if (!fin(xe)) return 1;
+      return wt === '1/x' ? 1 / xe : 1 / (xe * xe);
+    }
+    if (wt !== 'none' && pts.some(function (q) { return !(q.x > 0); })) notes.push('Weighting ' + wt + ' is undefined at x ≤ 0; those points use the weight of the lowest positive level (' + xPos + ').');
+    var raw = pts.map(function (q) { return q.w0 * wFn(q.x); }), sw = raw.reduce(function (s, v) { return s + v; }, 0), cn = n / sw;
+    pts.forEach(function (q, ii) { q.w = raw[ii] * cn; });
+    function row(xv) { return model === 'linear0' ? [xv] : model === 'linear' ? [1, xv] : [1, xv, xv * xv]; }
+    var M = [], r = []; for (i = 0; i < p; i++) { M.push(new Array(p).fill(0)); r.push(0); }
+    pts.forEach(function (q) { var f = row(q.x); for (i = 0; i < p; i++) { r[i] += q.w * f[i] * q.y; for (j = 0; j < p; j++) M[i][j] += q.w * f[i] * f[j]; } });
+    var Mi = invert(M); if (!Mi) throw new Error('calibrationFit: singular design (need distinct concentration levels)');
+    var b = Mi.map(function (rw) { var s = 0; for (k = 0; k < p; k++) s += rw[k] * r[k]; return s; });
+    function predict(xv) { var f = row(+xv), s = 0; for (var q = 0; q < p; q++) s += b[q] * f[q]; return s; }
+    var sse = 0, swy = 0, sww = 0, swx = 0;
+    pts.forEach(function (q) { q.fitted = predict(q.x); q.residual = q.y - q.fitted; sse += q.w * q.residual * q.residual; swy += q.w * q.y; swx += q.w * q.x; sww += q.w; });
+    var dof = n - p, s2 = sse / dof, syx = Math.sqrt(s2), yMean = swy / sww, xMean = swx / sww, sst = 0, Sxx = 0;
+    pts.forEach(function (q) { sst += model === 'linear0' ? q.w * q.y * q.y : q.w * (q.y - yMean) * (q.y - yMean); Sxx += q.w * (q.x - xMean) * (q.x - xMean); q.stdResidual = syx > 0 ? q.residual * Math.sqrt(q.w) / syx : 0; });
+    var cov = Mi.map(function (rw) { return rw.map(function (v) { return v * s2; }); }), se = cov.map(function (rw, q) { return Math.sqrt(Math.max(0, rw[q])); });
+    var r2 = sst > 0 ? 1 - sse / sst : 1, k0 = model === 'linear0' ? 0 : 1, adjR2 = dof > 0 ? 1 - (1 - r2) * (n - k0) / dof : null;
+    var tCrit = A.tQuantile(1 - alpha / 2, dof), xs = pts.map(function (q) { return q.x; }), xmin = Math.min.apply(null, xs), xmax = Math.max.apply(null, xs);
+    var names = model === 'linear0' ? ['b1'] : model === 'linear' ? ['b0', 'b1'] : ['b0', 'b1', 'b2'];
+    var b0 = model === 'linear0' ? 0 : b[0], b1 = model === 'linear0' ? b[0] : b[1], b2 = model === 'quadratic' ? b[2] : 0;
+    var xLow = fin(xPos) ? xPos : xmin, slope = model === 'quadratic' ? b1 + 2 * b2 * xLow : b1;
+    var lod = slope !== 0 ? 3.3 * syx / Math.abs(slope) : null, loq = slope !== 0 ? 10 * syx / Math.abs(slope) : null;
+    var lodIntercept = model === 'linear0' || slope === 0 ? null : 3.3 * se[0] / Math.abs(slope);
+    if (wt !== 'none') notes.push('Weighted fit: s_y/x is the residual SD at unit (average) weight; the SD at the low end of the range is smaller, so LOD/LOQ from s_y/x are conservative there.');
+    if (model === 'quadratic') notes.push('Quadratic model: slope for LOD/LOQ is the tangent slope at the lowest positive level (' + f4(xLow) + ').');
+    if (n < 5) notes.push('Fewer than 5 calibration levels: ICH Q2 recommends a minimum of 5 for linearity.');
+    pts.forEach(function (q) { if (Math.abs(q.stdResidual) > 3) notes.push('Point x = ' + q.x + ' has a standardised residual of ' + f4(q.stdResidual) + ' (|e/s| > 3): check for an outlier.'); });
+
+    function relW(xv) { return wFn(xv) * cn; }
+    function gradAt(xv) { return row(xv); }
+    function varMean(xv) { var g = gradAt(xv), s = 0; for (var a = 0; a < p; a++) for (var c = 0; c < p; c++) s += g[a] * cov[a][c] * g[c]; return Math.max(0, s); }
+    function dfdx(xv) { return b1 + 2 * b2 * xv; }
+    /** confidence (mean) and prediction band at x */
+    function predictBand(xv, o) {
+      o = o || {}; var m = o.m > 0 ? o.m : 1, yv = predict(xv), vm = varMean(xv), vp = vm + s2 / (m * relW(xv));
+      return { x: xv, y: yv, seMean: Math.sqrt(vm), sePred: Math.sqrt(vp), loMean: yv - tCrit * Math.sqrt(vm), hiMean: yv + tCrit * Math.sqrt(vm), lo: yv - tCrit * Math.sqrt(vp), hi: yv + tCrit * Math.sqrt(vp) };
+    }
+    function solveX(y0) {
+      if (model !== 'quadratic' || Math.abs(b2) < 1e-15 * Math.max(1, Math.abs(b1))) return b1 !== 0 ? (y0 - b0) / b1 : null;
+      var disc = b1 * b1 - 4 * b2 * (b0 - y0); if (disc < 0) return null;
+      var sq = Math.sqrt(disc), qq = -0.5 * (b1 + (b1 >= 0 ? sq : -sq)), r1 = qq / b2, r2_ = qq !== 0 ? (b0 - y0) / qq : r1;
+      var trend = predict(xmax) - predict(xmin), mid = (xmin + xmax) / 2;
+      var cands = [r1, r2_].filter(fin).sort(function (u, w) {
+        var ou = dfdx(u) * trend > 0 ? 0 : 1, ow = dfdx(w) * trend > 0 ? 0 : 1; // prefer the root on the monotonic branch
+        return ou - ow || Math.abs(u - mid) - Math.abs(w - mid);
+      });
+      return cands.length ? cands[0] : null;
+    }
+    /** inverse(y0, {m=1}) → concentration for a response that is the mean of m replicate injections */
+    function inverse(y0, o) {
+      o = o || {}; var m = o.m > 0 ? o.m : 1, x0 = solveX(+y0), out = { y: +y0, m: m, x: x0, se: null, lo: null, hi: null, tCrit: tCrit, dof: dof, level: 1 - alpha, flags: [], notes: [] };
+      if (x0 == null || !fin(x0)) { out.flags.push('noSolution'); out.notes.push('The response is outside the range the model can reach (no real root).'); return out; }
+      var d = dfdx(x0), w0 = relW(x0), vy = s2 / (m * w0), vf = varMean(x0), v = (vy + vf) / (d * d);
+      out.se = Math.sqrt(v); out.lo = x0 - tCrit * out.se; out.hi = x0 + tCrit * out.se; out.slopeAtX = d; out.weightAtX = w0;
+      if (x0 < xmin || x0 > xmax) { out.flags.push('extrapolated'); out.notes.push('Outside the calibrated range [' + f4(xmin) + ', ' + f4(xmax) + ']: extrapolated.'); }
+      if (lod != null && x0 < lod) { out.flags.push('belowLOD'); out.notes.push('Below the LOD (' + f4(lod) + '): report as "not detected" / < LOD.'); }
+      else if (loq != null && x0 < loq) { out.flags.push('belowLOQ'); out.notes.push('Below the LOQ (' + f4(loq) + '): detected but not quantifiable with the stated precision.'); }
+      out.formula = F('x̂₀ = solve f(x₀) = ȳ₀;  s(x̂₀)² = [s²/(m·w(x₀)) + gᵀ·Cov(b)·g] / f′(x₀)²,  g = ∂f/∂b at x₀;  x̂₀ ± t(' + (1 - alpha / 2) + ', ' + dof + ')·s(x̂₀)',
+        { y0: +y0, m: m, s: syx, w_x0: w0, varFitAtX0: vf, fprime: d, t: tCrit }, x0,
+        'Delta-method inverse prediction. For an unweighted straight line this equals the classic s_x0 = (s_y/x/b)·√(1/m + 1/n + (ȳ₀ − ȳ)²/(b²·Σ(xᵢ − x̄)²)).');
+      return out;
+    }
+    var formulas = {
+      model: F(CAL_MODELS[model], { names: names, coef: b }, b, 'Weighted least squares: b = (XᵀWX)⁻¹XᵀWy.'),
+      weighting: F(wt === 'none' ? 'wᵢ = 1' : wt === '1/x' ? 'wᵢ ∝ 1/xᵢ' : 'wᵢ ∝ 1/xᵢ²', { normalisation: 'Σw = n' }, wt, 'Weights are normalised to sum to n so that s_y/x is in response units.'),
+      se: F('SE(b) = √diag(s²·(XᵀWX)⁻¹)', { s2: s2 }, se, 'Standard errors of the coefficients.'),
+      syx: F('s_y/x = √(Σ wᵢ(yᵢ − ŷᵢ)² / (n − p))', { SSE: sse, n: n, p: p }, syx, 'Residual standard deviation (standard error of the estimate).'),
+      r2: F(model === 'linear0' ? 'R² = 1 − Σw(y − ŷ)² / Σw·y² (uncentred, through-origin)' : 'R² = 1 − Σw(y − ŷ)² / Σw(y − ȳ_w)²', { SSE: sse, SST: sst }, r2, 'R² alone does not demonstrate linearity; inspect the residual plot.'),
+      adjR2: F('R²_adj = 1 − (1 − R²)(n − ' + k0 + ')/(n − p)', { n: n, p: p }, adjR2, ''),
+      lod: F('LOD = 3.3·s_y/x / slope', { syx: syx, slope: slope }, lod, 'ICH Q2 approach based on the residual SD of the calibration line; assumes homoscedastic, normally distributed errors near the limit. Verify experimentally with spiked samples.'),
+      loq: F('LOQ = 10·s_y/x / slope', { syx: syx, slope: slope }, loq, 'ICH Q2 approach; as for LOD.'),
+      inverse: F('x̂₀ = f⁻¹(ȳ₀), s(x̂₀) by delta method, interval x̂₀ ± t·s(x̂₀)', { tCrit: tCrit, dof: dof }, null, 'See inverse(y).formula for the values used for a specific response.')
+    };
+    return {
+      model: model, weighting: wt, n: n, p: p, dof: dof, coef: b, se: se, cov: cov, names: names, r2: r2, adjR2: adjR2, syx: syx, s2: s2, tCrit: tCrit, alpha: alpha,
+      xRange: [xmin, xmax], xMean: xMean, yMean: yMean, Sxx: Sxx, slope: slope, intercept: b0, lod: lod, loq: loq, lodIntercept: lodIntercept,
+      points: pts.map(function (q) { return { x: q.x, y: q.y, w: q.w, fitted: q.fitted, residual: q.residual, stdResidual: q.stdResidual }; }),
+      residuals: pts.map(function (q) { return q.residual; }), notes: notes, formulas: formulas, equation: CAL_MODELS[model],
+      predict: predict, predictBand: predictBand, inverse: inverse
+    };
+  };
+  /** quantify(cal, response, {m, responses?}) → inverse(response) plus { conc, unit, fit }.
+      cal: a calibrationFit() result, or an analyte { model, weighting, unit?, levels:[{ conc, response?, traceId?, include }] }
+      (levels without a numeric response are looked up in opts.responses[traceId], else skipped). */
+  A.quantify = function (cal, response, opts) {
+    opts = opts || {}; var fit = cal, unit = null, skipped = 0;
+    if (!cal || typeof cal.inverse !== 'function') {
+      var lv = (cal && cal.levels) || [];
+      var pts = lv.filter(function (l) { return l && l.include !== false; }).map(function (l) {
+        var r = fin(+l.response) && l.response !== '' && l.response != null ? +l.response : (opts.responses && l.traceId != null ? +opts.responses[l.traceId] : NaN);
+        if (!fin(r)) skipped++; if (!unit && l.unit) unit = l.unit;
+        return { x: +l.conc, y: r };
+      });
+      fit = A.calibrationFit(pts, { model: cal && cal.model, weighting: cal && cal.weighting });
+      unit = (cal && cal.unit) || unit;
+    }
+    var out = fit.inverse(response, opts); out.conc = out.x; out.unit = unit; out.fit = fit;
+    if (skipped) out.notes.push(skipped + ' calibration level(s) had no response and were skipped.');
+    return out;
   };
 
   /* ---------------- synthetic data & sample methods ---------------- */

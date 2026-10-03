@@ -19,7 +19,7 @@ Every src file is a plain script (NO import/export, NO modules), wrapped like:
 ```
 - Pure math/parsing must not touch `document`/`window` at load time, so Node tests can load it.
 - DOM code only inside functions called at runtime (guard with `typeof document !== 'undefined'`).
-- Load order: core.js, testkit.js, parsers.js, analysis.js, digitizer.js, app.js.
+- Load order: config.js, core.js, services.js, testkit.js, schema.js, parsers/registry.js, parsers/*.js (sorted, skipping _*), analysis.js, digitizer.js, app.js.
 - Never use backticks containing `</script>` (file gets inlined into a <script> tag). Write `<\/script>` if needed.
 
 ## CDN globals available in browser (may be absent in Node — guard)
@@ -202,3 +202,45 @@ Keep module CSS in a JS string injected once via `PK.injectCSS(id, cssText)` (pr
 - Overlays default on shared axes with legend; mix of file/paste/image traces.
 - Run info: trace.meta.run {sampleName, sampleId, injVol_uL, conc, instrument, column, methodName, operator, date,
   detector, notes}; plot caption + PDF header from method + run info; project.name as plot title.
+
+## Round 4 (v1.1): sustainability, clipping, calibration — READ before coding
+Author: Jennifer Schmitt, Ph.D. (LinkedIn https://www.linkedin.com/in/jschmitt1531/). License MIT. Use they/them or the name, no gendered pronouns.
+Disclaimer (must appear in About, README, PDF footer): "For research and education use. Not validated for regulated
+(GMP/GLP) workflows. Digitized data is approximate."
+
+### src/config.js (integrator writes) → PK.config
+{ appName, version:'1.1.0', author:{ name, credentials, headline, bio[], linkedin }, repoUrl, discussionsUrl, citation:{...},
+  services:{ cloudSave:false, teamSharing:false, accounts:false } }
+
+### src/services.js (integrator writes) → PK.services
+register({id, name, capabilities:['save','load','share','auth'], enabled:false, ...hooks}); list(); get(id); isEnabled(id).
+Core never requires a service; UI only shows service buttons for enabled services (none by default).
+
+### src/schema.js (Agent B owns) → PK.schema
+PROJECT_VERSION = 2; migrate(obj) → upgraded project (v1 → v2 adds trace.peaks[].clip, project.calibration, project.schema);
+validateProject(obj) → {ok, errors[]}; peakTableRows(project) / traceRows(project) → documented plain objects used for CSV/JSON export.
+Documented in docs/SCHEMA.md + docs/schemas/*.json (Agent D writes docs from Agent B's code).
+
+### Peak clipping (Agent A math in analysis.js; Agent B UI)
+Peak.clip ∈ 'drop' (perpendicular drop to a common baseline across the cluster) | 'valley' (valley-to-valley, each peak's own baseline
+between its bounds — the current behaviour) | 'baseline' (single straight baseline from cluster start to cluster end, drops at valleys)
+| 'skim-tangent' (rider peak skimmed with a tangent line off the parent's tail/front) | 'skim-exp' (exponential skim fitted to the parent
+tail) | 'fit' (Gaussian/EMG deconvolution split, uses fitPeaks; area = component area).
+- `PK.analysis.clusters(x, y, peaks)` → [[peakIdx...]] groups of fused peaks (bounds touching / valley above baseline by > X% of the smaller height).
+- `PK.analysis.integrate(x, y, peaks, {clip default, skimRatio:10 (Dyson rule: skim when parent/child height ≥ ratio), model})`
+  → per peak { id, clip (as applied), area, baseline:{kind, points:[[t,y]...] or fn samples for skim curve}, segments for shading,
+  math:{ method, formula, steps:[{label, expr, value}], n, dt, tStart, tEnd, yStart, yEnd, baselineArea, grossArea, netArea } }.
+  peakMetrics must use these baselines (heights relative to the applied baseline).
+- `PK.analysis.clipOptions(x, y, peaks, clusterIdx)` → preview of every applicable clip mode for one cluster (areas per peak + baseline
+  polylines) — used by the UI "How should these peaks be split?" dialog.
+- Default for auto-integration: project.settings.clipDefault (default 'drop'); per-peak override peak.clip; manual window integrations
+  default 'valley' (straight line between the clicked points).
+
+### Calibration curve (Agent A math; Agent B UI) → project.calibration
+{ analytes:[{ id, name, peakMatch:{ rt, tol } , response:'area'|'height', model:'linear'|'linear0'|'quadratic', weighting:'none'|'1/x'|'1/x2',
+  levels:[{ conc, unit, traceId?|response?, include:true }] }], unit }
+- `PK.analysis.calibrationFit(points [{x:conc, y:response, w?}], {model, weighting})` → { coef[], se[], cov, r2, adjR2, syx, n, dof,
+  residuals[], predict(x), inverse(y) → {x, se, lo, hi} (inverse prediction with SE via delta method / standard inverse-regression
+  formula, 95% t-interval), lod: 3.3·syx/slope, loq: 10·syx/slope, formulas:{...auditable} }.
+- Unknowns: concentration = inverse(response) shown in peak table column "Conc." with ± and an ⓘ audit; flag extrapolation outside
+  the calibrated range; flag when response is below LOQ.

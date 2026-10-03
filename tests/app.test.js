@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* App shell pure-helper tests: share codec, project sanitizing, cross-trace peak matching, manual table parser. */
 (function (PK) {
   'use strict';
@@ -126,5 +127,59 @@
     t.eq(s, '5→95% B in 20 min', 'RP summary');
     var s2 = PK.app.gradientSummary({ gradient: [{ t: 0, B: 40 }, { t: 10, B: 40 }], gradientType: 'isocratic' });
     t.eq(s2, 'isocratic 40% B', 'isocratic summary');
+  });
+
+  PK.test('app: v1 project migrates on load; share link keeps clip, calibration and schema', function (t) {
+    if (!ensureApp()) { t.ok(true, 'skipped'); return; }
+    var A = PK.app, raw = sampleProject(); raw.version = 1;
+    var p = A.sanitizeProject(raw);
+    t.eq(p.version, 2, 'upgraded to v2');
+    t.ok(A.lastMigration && A.lastMigration.from === 1, 'migration reported');
+    t.eq(p.traces[0].peaks[0].clip, 'valley', 'v1 peak keeps valley');
+    t.eq(p.settings.clipDefault, 'drop', 'default clip');
+    p.calibration = { unit: 'mM', analytes: [{ id: 'a1', name: 'X', peakMatch: { rt: 2.5, tol: 0.1 }, levels: [{ conc: 1, traceId: p.traces[0].id }] }] };
+    p.traces[0].peaks[0].clip = 'skim-exp';
+    var lz = (typeof LZString !== 'undefined') ? LZString : ID_LZ, q = A.decodeShare('#p=' + A.encodeShare(p, lz), lz);
+    t.eq(q.version, 2, 'share link is v2');
+    t.eq(q.traces[0].peaks[0].clip, 'skim-exp', 'clip survives share link');
+    t.eq(q.calibration.analytes[0].name, 'X', 'calibration survives share link');
+    t.eq(q.calibration.unit, 'mM', 'calibration unit');
+    t.throws(function () { A.sanitizeProject({ version: 7, traces: [] }); }, 'newer format rejected');
+  });
+
+  PK.test('app: matchAnalyte picks the nearest peak within tolerance per trace', function (t) {
+    if (!ensureApp() || !PK.app.matchAnalyte) { t.ok(true, 'skipped'); return; }
+    var list = [{ traceId: 'S1', peaks: [{ id: 'a', rt: 4.79, area: 10 }, { id: 'b', rt: 7.3, area: 5 }] },
+      { traceId: 'S2', peaks: [{ id: 'c', rt: 4.70, area: 20 }, { id: 'd', rt: 4.83, area: 21 }] },
+      { traceId: 'S3', peaks: [{ id: 'e', rt: 5.2, area: 30 }] }];
+    var m = PK.app.matchAnalyte({ peakMatch: { rt: 4.81, tol: 0.1 } }, list);
+    t.eq(m.S1 && m.S1.id, 'a', 'S1 matched'); t.eq(m.S2 && m.S2.id, 'd', 'S2: nearest of two candidates'); t.ok(!m.S3, 'S3 outside tolerance');
+    t.eq(Object.keys(PK.app.matchAnalyte({ peakMatch: { rt: null, tol: 0.1 } }, list)).length, 0, 'no RT → no matches');
+    var pts = PK.app.calibrationPoints({ response: 'area', peakMatch: { rt: 4.81, tol: 0.1 }, levels: [{ conc: 5, traceId: 'S1' }, { conc: 10, traceId: 'S3' }, { conc: 20, response: 44 }, { conc: 30, traceId: 'S2', include: false }] }, m);
+    t.eq(pts.length, 4, 'one point per level'); t.eq(pts[0].y, 10, 'response from matched peak'); t.ok(!pts[1].include && /no peak/.test(pts[1].missing), 'missing peak flagged');
+    t.eq(pts[2].y, 44, 'typed response'); t.ok(pts[2].include, 'typed included'); t.ok(!pts[3].include && pts[3].excluded, 'excluded level');
+    var fl = PK.app.concFlags(1, 3, { lod: 0.5, loq: 2 }, [{ include: true, x: 5, y: 10 }, { include: true, x: 50, y: 100 }]);
+    t.ok(fl.indexOf('extrapolated') >= 0 && fl.indexOf('below_LOQ') >= 0, 'extrapolated + below LOQ');
+    t.eq(PK.app.concFlags(20, 40, { lod: 0.5, loq: 2 }, [{ include: true, x: 5, y: 10 }, { include: true, x: 50, y: 100 }]).length, 0, 'in range → no flags');
+    t.near(PK.app.t975(3), 3.182, 2e-3, 't(0.975, 3)'); t.near(PK.app.t975(60), 2.000, 2e-3, 't(0.975, 60)');
+  });
+
+  PK.test('app: clip helpers (clipOf, recommendClip, local clusters/integration)', function (t) {
+    if (!ensureApp() || !PK.app.recommendClip) { t.ok(true, 'skipped'); return; }
+    var A = PK.app;
+    t.eq(A.clipOf({ clip: 'fit' }, { clipDefault: 'drop' }), 'fit', 'own clip'); t.eq(A.clipOf({ manual: true }, { clipDefault: 'drop' }), 'valley', 'manual → valley');
+    t.eq(A.clipOf({}, { clipDefault: 'baseline' }), 'baseline', 'project default');
+    t.eq(A.recommendClip({ heights: [100, 5], resolutions: [1.0] }).clip, 'skim-tangent', 'Dyson → skim');
+    t.eq(A.recommendClip({ heights: [50, 40], resolutions: [0.6] }).clip, 'fit', 'heavy overlap → fit');
+    t.eq(A.recommendClip({ heights: [50, 40], resolutions: [1.1] }).clip, 'drop', 'Rs < 1.5 similar heights → drop');
+    var x = [], y = []; for (var i = 0; i <= 400; i++) { var v = i * 0.01; x.push(v); y.push(1 + 0.5 * v + 50 * Math.exp(-Math.pow((v - 1.5) / 0.1, 2) / 2) + 40 * Math.exp(-Math.pow((v - 1.9) / 0.1, 2) / 2)); }
+    var pk = [{ id: 'a', start: 1.1, apex: 1.5, end: 1.72 }, { id: 'b', start: 1.72, apex: 1.9, end: 2.3 }, { id: 'c', start: 3.0, apex: 3.2, end: 3.4 }];
+    var cl = A.localClusters(x, pk); t.eq(JSON.stringify(cl), '[[0,1],[2]]', 'touching peaks fused');
+    var drop = A.localIntegrate(x, y, pk, 'drop'), val = A.localIntegrate(x, y, pk, 'valley');
+    t.ok(drop[0].area > val[0].area, 'common baseline gives the first peak more area than its own valley line');
+    t.near(drop[0].math.grossArea - drop[0].math.baselineArea, drop[0].area, 1e-9, 'net = gross − baseline');
+    t.eq(drop[0].baseline.kind, 'common line', 'baseline kind'); t.eq(drop[2].baseline.kind, 'line', 'isolated peak: own line');
+    var sk = A.localIntegrate(x, y, [{ id: 'a', start: 1.1, apex: 1.5, end: 1.72, clip: 'skim-exp' }], 'drop');
+    t.eq(sk[0].clip, 'drop', 'skim unavailable locally → drop'); t.ok(sk[0].math.notes.length === 1, 'fallback explained');
   });
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));

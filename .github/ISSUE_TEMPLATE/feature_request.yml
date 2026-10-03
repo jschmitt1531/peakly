@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a new feature or an improvement.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Not sure yet? Start a thread in Discussions first. Peakly's [core principles](https://github.com/OWNER/peakly/blob/main/GOVERNANCE.md#core-principles-not-up-for-a-vote) (free, private, transparent math, single file) apply to every feature.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the task you are trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work? For calculations, include the formula and a reference (standard, paper or textbook).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and workarounds
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who would use this?
+      multiple: true
+      options:
+        - Research lab
+        - Teaching / students
+        - Industry (non-regulated R&D)
+        - Core facility
+        - Other
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I could help implement, test or document this.

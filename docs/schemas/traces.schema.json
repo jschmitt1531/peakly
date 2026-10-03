@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://OWNER.github.io/peakly/schemas/traces.schema.json",
+  "title": "Peakly trace data",
+  "description": "Trace exports, schema version 2. Three shapes: (1) the traces JSON export (object with a \"traces\" array of full x/y arrays); (2) the trace summary table (array of traceRow, also written as CSV); (3) the long-format data table (array of dataRow, also written as CSV with columns trace_id, trace_name, x, y, y_processed, digitized).",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/tracesExport"
+    },
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/traceRow"
+      }
+    },
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataRow"
+      }
+    }
+  ],
+  "$defs": {
+    "tracesExport": {
+      "type": "object",
+      "required": [
+        "traces"
+      ],
+      "properties": {
+        "app": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "description": "Peakly release that wrote the file."
+        },
+        "exported": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            }
+          }
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "x",
+              "y"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "xUnit": {
+                "type": "string",
+                "description": "min, or mL for FPLC volume axes."
+              },
+              "yUnit": {
+                "type": "string"
+              },
+              "source": {
+                "type": "object"
+              },
+              "digitized": {
+                "description": "false, or {dxMin, dy, note} for image-derived traces (values are estimates).",
+                "type": [
+                  "boolean",
+                  "object"
+                ]
+              },
+              "run": {
+                "type": "object",
+                "description": "Run info (sampleName, sampleId, injVol_uL, instrument, column, methodName, operator, date, detector, notes)."
+              },
+              "x": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "y": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "yProcessed": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "peaks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "start": {
+                      "type": "number"
+                    },
+                    "apex": {
+                      "type": "number"
+                    },
+                    "end": {
+                      "type": "number"
+                    },
+                    "manual": {
+                      "type": "boolean"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "clip": {
+                      "type": "string",
+                      "enum": [
+                        "drop",
+                        "valley",
+                        "baseline",
+                        "skim-tangent",
+                        "skim-exp",
+                        "fit"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "traceRow": {
+      "title": "trace-row",
+      "description": "One row of a Peakly trace summary export.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "trace_id",
+        "name",
+        "role",
+        "x_unit",
+        "y_unit",
+        "n_points",
+        "x_min",
+        "x_max",
+        "source_kind",
+        "source_format",
+        "source_filename",
+        "digitized",
+        "dx_unc",
+        "dy_unc",
+        "n_peaks",
+        "sample_name",
+        "sample_id",
+        "inj_vol",
+        "instrument",
+        "detector",
+        "processing",
+        "calibration_level"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "description": "Peakly export schema version."
+        },
+        "trace_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Stable trace id."
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Trace name."
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "signal, or an auxiliary channel role (gradient, conductivity, pH, …)."
+        },
+        "x_unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "x unit (min or mL)."
+        },
+        "y_unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "y unit."
+        },
+        "n_points": {
+          "type": "integer",
+          "description": "Number of data points."
+        },
+        "x_min": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "First x value. Unit: {x}."
+        },
+        "x_max": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Last x value. Unit: {x}."
+        },
+        "source_kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "file | image | paste | sample | derived."
+        },
+        "source_format": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Detected file format."
+        },
+        "source_filename": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Original file name."
+        },
+        "digitized": {
+          "type": "boolean",
+          "description": "true if digitized from an image."
+        },
+        "dx_unc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "± x uncertainty per pixel (digitized only). Unit: {x}."
+        },
+        "dy_unc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "± y uncertainty per pixel (digitized only). Unit: {y}."
+        },
+        "n_peaks": {
+          "type": "integer",
+          "description": "Number of integrated peaks."
+        },
+        "sample_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Run info: sample name."
+        },
+        "sample_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Run info: sample id."
+        },
+        "inj_vol": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Run info: injection volume. Unit: µL."
+        },
+        "instrument": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Run info: instrument."
+        },
+        "detector": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Run info: detector / wavelength."
+        },
+        "processing": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Smoothing / baseline / detection settings summary."
+        },
+        "calibration_level": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Analyte:concentration pairs if this trace is a calibration standard."
+        }
+      },
+      "x-peakly-schema-version": 2,
+      "x-unit-templates": {
+        "{x}": "trace x unit (min or mL)",
+        "{y}": "trace y unit",
+        "{elu}": "%B or salt/imidazole unit",
+        "{conc}": "calibration concentration unit",
+        "{resp}": "response unit (y·x for area, y for height)"
+      }
+    },
+    "dataRow": {
+      "title": "data-row",
+      "description": "One point of the long-format trace data export.",
+      "type": "object",
+      "required": [
+        "trace_id",
+        "trace_name",
+        "x",
+        "y",
+        "y_processed",
+        "digitized"
+      ],
+      "properties": {
+        "trace_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Stable trace id."
+        },
+        "trace_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Trace name."
+        },
+        "x": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Time or volume. Unit: {x}."
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Raw signal as imported. Unit: {y}."
+        },
+        "y_processed": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Smoothed and baseline-corrected signal used for integration. Unit: {y}."
+        },
+        "digitized": {
+          "type": "boolean",
+          "description": "true if digitized from an image."
+        }
+      },
+      "x-peakly-schema-version": 2,
+      "x-unit-templates": {
+        "{x}": "trace x unit (min or mL)",
+        "{y}": "trace y unit",
+        "{elu}": "%B or salt/imidazole unit",
+        "{conc}": "calibration concentration unit",
+        "{resp}": "response unit (y·x for area, y for height)"
+      }
+    }
+  },
+  "x-peakly-schema-version": 2,
+  "x-generated-from": "PK.schema.describe() in src/schema.js (Peakly 1.1.0) plus the traces JSON export in src/app.js"
+}

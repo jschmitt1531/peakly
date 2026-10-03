@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://OWNER.github.io/peakly/schemas/peaks.schema.json",
+  "title": "Peakly peak table",
+  "description": "Peak table export, schema version 2. A JSON export is an array of peak rows (or an object with a \"peaks\" array); the CSV export has one column per property, in the order listed in PK.schema.PEAK_COLUMNS, preceded by \"# \" comment lines including a \"# units:\" line. Unknown values are null in JSON and empty in CSV.",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/peakRow"
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "peaks"
+      ],
+      "properties": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            }
+          }
+        },
+        "peaks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/peakRow"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "peakRow": {
+      "title": "peak-row",
+      "description": "One row of a Peakly peak table export (CSV columns / JSON objects).",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "trace_id",
+        "trace_name",
+        "peak_no",
+        "peak_id",
+        "name",
+        "rt",
+        "rt_unc",
+        "start",
+        "end",
+        "height",
+        "area",
+        "area_pct",
+        "fwhm",
+        "tailing",
+        "asymmetry",
+        "plates",
+        "plates_usp",
+        "resolution",
+        "sn",
+        "k_prime",
+        "elution",
+        "clip",
+        "baseline_kind",
+        "baseline_area",
+        "gross_area",
+        "fit_area",
+        "fit_area_se",
+        "analyte",
+        "conc",
+        "conc_lo",
+        "conc_hi",
+        "conc_flags",
+        "x_unit",
+        "y_unit",
+        "digitized",
+        "manual"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "description": "Peakly export schema version (integer)."
+        },
+        "trace_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Stable trace id inside the project."
+        },
+        "trace_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Trace display name."
+        },
+        "peak_no": {
+          "type": "integer",
+          "description": "1-based peak number in retention order."
+        },
+        "peak_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Stable peak id inside the project."
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "User peak label (empty if unnamed)."
+        },
+        "rt": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Retention time (or volume) at the apex, parabolic interpolation. Unit: {x}."
+        },
+        "rt_unc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "± uncertainty from image pixel size (digitized traces only). Unit: {x}."
+        },
+        "start": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Integration start. Unit: {x}."
+        },
+        "end": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Integration end. Unit: {x}."
+        },
+        "height": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Apex height above the applied baseline. Unit: {y}."
+        },
+        "area": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Net peak area above the applied baseline (multiply by 60 for {y}·s when x is min). Unit: {y}·{x}."
+        },
+        "area_pct": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Area as % of the sum of all peak areas in the trace. Unit: %."
+        },
+        "fwhm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Width at half height. Unit: {x}."
+        },
+        "tailing": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "USP tailing factor T = W0.05/(2f)."
+        },
+        "asymmetry": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Asymmetry factor at 10 % height."
+        },
+        "plates": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Plate number N = 5.54 (tR/W½)²."
+        },
+        "plates_usp": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Plate number by the USP tangent method N = 16 (tR/W)²."
+        },
+        "resolution": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Resolution vs the preceding peak, half-height formula."
+        },
+        "sn": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Signal-to-noise S/N = 2H/h."
+        },
+        "k_prime": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Retention factor k = (tR − t0)/t0 (needs a void time)."
+        },
+        "elution": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "%B (or salt/imidazole concentration) at elution. Unit: {elu}."
+        },
+        "clip": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Peak clipping applied: drop | valley | baseline | skim-tangent | skim-exp | fit.",
+          "enum": [
+            "drop",
+            "valley",
+            "baseline",
+            "skim-tangent",
+            "skim-exp",
+            "fit",
+            null
+          ]
+        },
+        "baseline_kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Shape of the applied baseline (line, common line, tangent, exponential, fit)."
+        },
+        "baseline_area": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Area under the applied baseline between start and end. Unit: {y}·{x}."
+        },
+        "gross_area": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Area under the signal between start and end (net = gross − baseline). Unit: {y}·{x}."
+        },
+        "fit_area": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Fitted component area (Gaussian/EMG deconvolution), if a fit was run. Unit: {y}·{x}."
+        },
+        "fit_area_se": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Standard error of the fitted area. Unit: {y}·{x}."
+        },
+        "analyte": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Calibration analyte matched to this peak (by RT ± tolerance)."
+        },
+        "conc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Concentration from the calibration curve (inverse prediction). Unit: {conc}."
+        },
+        "conc_lo": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Lower 95 % limit of the concentration. Unit: {conc}."
+        },
+        "conc_hi": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Upper 95 % limit of the concentration. Unit: {conc}."
+        },
+        "conc_flags": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Semicolon list: extrapolated, below_LOQ, below_LOD, standard."
+        },
+        "x_unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "x unit of the trace (min or mL)."
+        },
+        "y_unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "y unit of the trace (e.g. mAU)."
+        },
+        "digitized": {
+          "type": "boolean",
+          "description": "true if the trace was digitized from an image (values are estimates)."
+        },
+        "manual": {
+          "type": "boolean",
+          "description": "true if the peak bounds were set or edited by hand."
+        }
+      },
+      "x-peakly-schema-version": 2,
+      "x-unit-templates": {
+        "{x}": "trace x unit (min or mL)",
+        "{y}": "trace y unit",
+        "{elu}": "%B or salt/imidazole unit",
+        "{conc}": "calibration concentration unit",
+        "{resp}": "response unit (y·x for area, y for height)"
+      }
+    }
+  },
+  "x-peakly-schema-version": 2,
+  "x-generated-from": "PK.schema.describe().peakRow in src/schema.js (Peakly 1.1.0)"
+}

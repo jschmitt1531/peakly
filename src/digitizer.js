@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* Peakly digitizer: image -> chromatogram.
  * Pure raster functions (Node-testable with ImageData-like {width,height,data:Uint8ClampedArray})
  * plus the interactive stepper UI (Prep -> Calibrate -> Extract -> Verify -> Send) rendered into #digitizer-root.
@@ -487,20 +488,33 @@
   /* ======================================================================
    * Quality warnings and printed-value comparison
    * ==================================================================== */
+  // JPEG 8x8 blockiness. Only small luminance steps are counted (real lines/edges are excluded), gradients are
+  // binned by pixel phase (x mod 8, y mod 8), and blockiness requires the block-boundary phase to stand out against
+  // the median of the other 7 phases in BOTH directions. Clean renders whose gridlines fall on multiples of 8 no
+  // longer trigger it because their large edges are capped out and they do not repeat every 8 px in both axes.
   D._blockiness = function (img) {
-    var w = img.width, h = img.height, d = img.data;
-    if (w < 32 || h < 32) return { ratio: 1, interior: 0 };
-    var bSum = 0, bN = 0, iSum = 0, iN = 0, ys = Math.max(1, Math.floor(h / 300)), xs = Math.max(1, Math.floor(w / 300));
+    var w = img.width, h = img.height, d = img.data, CAP = 40;
+    if (w < 32 || h < 32) return { ratio: 1, boundary: 0, interior: 0, ratioX: 1, ratioY: 1 };
+    var hx = [0, 0, 0, 0, 0, 0, 0, 0], nx = [0, 0, 0, 0, 0, 0, 0, 0], hy = hx.slice(), ny = nx.slice();
+    var ys = Math.max(1, Math.floor(h / 300)), xs = Math.max(1, Math.floor(w / 300));
     for (var y = 0; y < h; y += ys) for (var x = 0; x < w - 1; x++) {
       var k = (y * w + x) * 4, g = Math.abs(lum(d[k], d[k + 1], d[k + 2]) - lum(d[k + 4], d[k + 5], d[k + 6]));
-      if (x % 8 === 7) { bSum += g; bN++; } else { iSum += g; iN++; }
+      if (g > 0 && g < CAP) { hx[x & 7] += g; nx[x & 7]++; }
     }
     for (var x2 = 0; x2 < w; x2 += xs) for (var y2 = 0; y2 < h - 1; y2++) {
       var k2 = (y2 * w + x2) * 4, k3 = k2 + w * 4, g2 = Math.abs(lum(d[k2], d[k2 + 1], d[k2 + 2]) - lum(d[k3], d[k3 + 1], d[k3 + 2]));
-      if (y2 % 8 === 7) { bSum += g2; bN++; } else { iSum += g2; iN++; }
+      if (g2 > 0 && g2 < CAP) { hy[y2 & 7] += g2; ny[y2 & 7]++; }
     }
-    var bi = bN ? bSum / bN : 0, ii = iN ? iSum / iN : 0;
-    return { ratio: ii > 1e-9 ? bi / ii : (bi > 0 ? 99 : 1), boundary: bi, interior: ii };
+    function phaseRatio(sum, cnt) {
+      var tot = 0, n = 0; for (var i = 0; i < 8; i++) { tot += sum[i]; n += cnt[i]; }
+      if (n < 200) return { r: 1, b: 0, med: 0 };
+      // per-phase activity = summed small gradients / number of samples in that phase (≈ equal sample counts)
+      var per = sum.map(function (v) { return v / Math.max(1, n / 8); });
+      var others = per.slice(0, 7).sort(function (a, b) { return a - b; }), med = others[3];
+      return { r: med > 1e-9 ? per[7] / med : (per[7] > 0 ? 99 : 1), b: per[7], med: med };
+    }
+    var rx = phaseRatio(hx, nx), ry = phaseRatio(hy, ny);
+    return { ratio: Math.min(rx.r, ry.r), ratioX: rx.r, ratioY: ry.r, boundary: (rx.b + ry.b) / 2, interior: (rx.med + ry.med) / 2 };
   };
   // meta: {plotWidthPx, plotHeightPx, calibSepPx:{x,y}, coverage (0..1), isJpeg}
   D.qualityWarnings = function (img, meta) {
@@ -509,7 +523,7 @@
     if (pw < 600) W.push('Low resolution: plot area is only ' + Math.round(pw) + ' px wide (< 600 px). Retention-time precision is limited to about one pixel.');
     if (img.width * img.height < 150000) W.push('Very small image (' + img.width + '×' + img.height + ' px). Use a larger export or screenshot if you can.');
     var bl = D._blockiness(img);
-    if ((bl.ratio > 1.35 && bl.boundary > 0.6) || (meta.isJpeg && bl.ratio > 1.2 && bl.boundary > 0.4)) W.push('JPEG compression artifacts (8×8 blockiness) detected. Colour masks may pick up noise, so tighten the tolerance or use a PNG.');
+    if ((bl.ratio > 1.5 && bl.boundary > 0.3) || (meta.isJpeg && bl.ratio > 1.25 && bl.boundary > 0.2)) W.push('JPEG compression artifacts (8×8 blockiness) detected. Colour masks may pick up noise, so tighten the tolerance or use a PNG.');
     if (meta.calibSepPx) {
       if (meta.calibSepPx.x < 150) W.push('X calibration points are only ' + Math.round(meta.calibSepPx.x) + ' px apart. Place them farther apart for accuracy.');
       if (meta.calibSepPx.y < 100) W.push('Y calibration points are only ' + Math.round(meta.calibSepPx.y) + ' px apart. Place them farther apart for accuracy.');

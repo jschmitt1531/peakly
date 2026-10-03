@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use Peakly, please cite it as below."
+type: software
+title: "Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer"
+abstract: >-
+  Peakly is a free, open-source, client-side web application for analysing
+  HPLC and FPLC chromatograms. It imports common open and vendor formats,
+  digitizes chromatograms from images, integrates peaks with documented and
+  auditable formulas, supports calibration curves, and runs entirely in the
+  browser without uploading data.
+authors:
+  - family-names: Schmitt
+    given-names: Jennifer
+version: 1.1.0
+date-released: 2026-10-03
+license: MIT
+repository-code: "https://github.com/OWNER/peakly"
+url: "https://OWNER.github.io/peakly/"
+keywords:
+  - chromatography
+  - HPLC
+  - FPLC
+  - chromatogram
+  - peak integration
+  - calibration
+  - plot digitizer
+  - analytical chemistry
+  - open science
+# After the first Zenodo release, add the version DOI here (see docs/RELEASING.md):
+# doi: 10.5281/zenodo.XXXXXXX
