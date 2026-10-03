@@ -7,9 +7,9 @@ Areas are in y-unit·min. "Error %" = 100·(measured/true − 1); negative means
 
 ## Summary
 
-- **Isolated peaks:** drop/valley integration is accurate to a few tenths of a percent up to S/N ≈ 30 (noise 1 % of height). The small negative bias is the tail outside the detected bounds; it grows with tailing (about −1 % at τ/σ = 3).
-- **Pairs:** perpendicular drop is accurate for equal heights at any resolution, but for a 4 : 1 pair it moves area into the small peak (several % at R_s = 1) until R_s ≈ 1.5. Valley-to-valley is only acceptable at baseline resolution. Deconvolution is unbiased when the peak model is correct.
-- **Riders (parent/rider 10–50):** drop is badly wrong for the rider; tangent skim under-reads it by 10–40 %; exponential skim recovers rider and parent within about 1 %. At parent/rider = 5, the Dyson rule (skimRatio = 10) declines to skim and falls back to drop.
+- **Isolated peaks:** with automatic bounds, areas are within −0.2 % (noise-free) to −0.8 % (S/N ≈ 67); at S/N 17–33 they under-read by ≈2 % because noisy bounds move inwards, ≈6 % at S/N ≈ 7. Tailing up to τ/σ = 3 costs only ≈ −0.6 % with drop; a Gaussian fit to a tailing peak is biased by up to −10 %, an EMG fit is not. Drifting baselines must be ALS-corrected first (uncorrected: errors of several % to tens of %).
+- **Pairs:** perpendicular drop is accurate for equal heights at any resolution, but for a 4 : 1 pair it moves area from the small peak into the large one (small peak −5 % at R_s = 1, −15 % at 0.8) until R_s ≈ 1.25–1.5. Valley-to-valley is only acceptable near baseline resolution (R_s ≥ 2). Deconvolution is unbiased here because the model is exact.
+- **Riders (parent/rider 10–50):** drop is badly wrong for the rider (+190 % to +1400 %); tangent skim under-reads it by 9–43 %; exponential skim recovers it within −1 % to −6 %. At parent/rider = 5, the Dyson rule (skimRatio = 10) declines to skim and falls back to drop.
 - **Calibration:** slopes are unbiased under every weighting; the 95 % inverse-prediction intervals have ≈95 % coverage when the weighting matches the noise model (none for constant SD, 1/x² for constant CV), and are badly mis-sized when it does not.
 - **Limits of this report:** synthetic Gaussian/EMG peaks, white noise, and correct models flatter deconvolution; real peaks, correlated noise and wrong bounds will do worse. Treat these as best-case numbers that show *which* method is appropriate, not as validated accuracy claims (see the disclaimer in the README).
 
@@ -53,7 +53,7 @@ Single Gaussian, height 100, σ = 0.05 min (≈ 10 points per σ), flat baseline
 | 2 % | 17 | -2.20 | 2.47 | -1.74 | 2.04 | 0.365 | all |
 | 5 % | 7 | -5.88 | 7.60 | -5.00 | 6.92 | 0.576 | all |
 
-Interpretation: with no noise the drop error is the tail area outside the detected bounds (a small negative bias). As noise grows, detected bounds move inwards (the return-to-baseline test stops earlier), so drop integration under-reads by a few tenths of a percent and scatters more; the model fit integrates the full Gaussian and stays unbiased.
+Interpretation: without noise the error (≈ −0.2 %) is the tail area outside the detected bounds, which sit where the signal returns to within 0.1 % of the peak height. With noise the bounds stop where the signal is within 2σ of the local minimum, so they move inwards: drop integration under-reads by ≈0.8 % at S/N ≈ 67, ≈2 % at S/N 17–33 and ≈6 % at S/N ≈ 7, with growing scatter. The Gaussian fit is only slightly better because it is fitted inside the same window above the same bound-to-bound line. For low-S/N peaks, widen the bounds manually (click-to-integrate) or quote the larger uncertainty.
 
 ## 2. Baseline drift
 
@@ -67,7 +67,7 @@ Two isolated slightly tailing peaks (height 50, σ = 0.06 min, τ = 0.02 min) at
 | curved (sample drift) | +4.03 | 5.71 | -0.33 | 0.43 |
 | steep curve | -42.29 | 39.04 | -4.87 | 4.98 |
 
-Interpretation: under a peak a few σ wide any smooth drift is almost linear, so the drop line between the bounds removes it on its own; curvature under the peak shows up as a small bias. ALS correction gives similar accuracy; its benefit is mostly in detection and in clusters, where the common baseline spans a longer stretch.
+Interpretation: integrating the uncorrected signal is unreliable — not because of the straight baseline under the peak, but because on a sloping baseline the detected bounds are placed asymmetrically (the return-to-baseline test is relative to the lowest point on each side), giving errors of a few percent with large scatter, and up to tens of percent on a steep curved drift. ALS baseline correction first makes every smooth drift behave like no drift; only the steep, strongly curved drift leaves ≈ −5 % because λ = 1e8 is too stiff to follow it (use a smaller λ there). Recommendation: always correct the baseline before integrating drifting data.
 
 ## 3. Resolution of peak pairs
 
@@ -89,7 +89,7 @@ Two Gaussians (σ = 0.06 min) separated by Δt = 4σ·R_s, noise SD 0.2 (0.2 % o
 
 | R_s | drop | valley | baseline | fit (Gaussian) | pair detected |
 |---|---|---|---|---|---|
-| 0.60 | +8.6 / -35.6 | -38.2 / -170.2 | +9.7 / -32.5 | +2.1 / -10.7 | 3/20 |
+| 0.60 | +10.6 / -43.3 | -34.2 / -165.2 | +11.6 / -40.3 | +0.0 / -0.8 | 3/20 |
 | 0.80 | +3.4 / -15.4 | -25.4 / -93.1 | +3.6 / -15.0 | -0.2 / -0.6 | 20/20 |
 | 1.00 | +0.5 / -4.9 | -14.6 / -52.7 | +0.8 / -3.4 | -0.3 / -1.2 | 20/20 |
 | 1.25 | -0.1 / -1.1 | -5.5 / -18.5 | +0.1 / -0.4 | -0.2 / -0.4 | 20/20 |
@@ -97,7 +97,7 @@ Two Gaussians (σ = 0.06 min) separated by Δt = 4σ·R_s, noise SD 0.2 (0.2 % o
 | 2.00 | -0.4 / -1.0 | +0.1 / +0.6 | +0.4 / +1.5 | -0.2 / -0.8 | 20/20 |
 | 3.00 | -0.6 / -2.5 | +0.4 / +1.2 | +0.9 / +2.9 | -0.3 / -1.5 | 20/20 |
 
-Interpretation: perpendicular drop is accurate for equal peaks at any resolution (the area each peak loses across the drop line is regained from its neighbour), but for unequal peaks it transfers area from the larger to the smaller peak until R_s ≈ 1.5. Valley-to-valley loses the area under the raised valley and is only acceptable at baseline resolution. Baseline-to-baseline equals drop on a flat baseline. Gaussian deconvolution is nearly unbiased at every resolution here because the model is exactly right — on real, non-Gaussian peaks it is only as good as the model.
+Interpretation: perpendicular drop is accurate for equal peaks at any resolution (what each peak loses across the drop line it regains from its neighbour). For unequal peaks it gives the larger peak part of the smaller one: the small peak reads −5 % at R_s = 1, −15 % at R_s = 0.8 and −43 % at R_s = 0.6, and only becomes accurate around R_s ≥ 1.25–1.5. Valley-to-valley removes the area under the raised valley and is only acceptable near baseline resolution (R_s ≥ 2). Baseline-to-baseline behaves like drop on a flat baseline. Gaussian deconvolution is nearly unbiased at every resolution here because the model is exactly right; on real, non-Gaussian peaks it is only as good as the model (see §4). At R_s = 0.6 with 4 : 1 heights the detector usually reports a single peak; the table then uses constructed bounds.
 
 ## 4. Tailing (EMG τ/σ from 0 to 3)
 
@@ -121,7 +121,7 @@ Pair of identical tailing peaks (second at μ₁ + 8σ + τ, half height), integ
 | 2.0 | -2.4 / +3.8 | -0.1 / -0.4 |
 | 3.0 | -5.6 / +9.5 | -0.2 / -0.6 |
 
-Interpretation: for an isolated tailing peak, drop integration loses the part of the exponential tail beyond the detected end bound, a few tenths of a percent up to about 1 % at τ/σ = 3. Fitting a Gaussian to a tailing peak is badly biased (wrong model); the EMG model is unbiased. In a tailing pair, drop moves the first peak's tail into the second peak — the classic reason to use skimming or deconvolution.
+Interpretation: for an isolated tailing peak, drop integration loses only the part of the exponential tail beyond the detected end bound (≈ −0.6 % at τ/σ = 2–3). Fitting a Gaussian to a tailing peak is badly biased (−7 % at τ/σ = 2, −10 % at 3: wrong model); the EMG model stays within −0.3 %. In a tailing pair, drop moves the first peak's tail into the second peak (−5.6 % / +9.5 % at τ/σ = 3) — the classic reason to use skimming or deconvolution.
 
 ## 5. Rider peaks on a tail (parent/rider height 5–50)
 
@@ -130,11 +130,11 @@ Parent: EMG, σ = 0.1 min, τ = 0.6 min (τ/σ = 6), apex 30 mAU at ≈6.2 min. 
 | parent/rider height | drop | valley | skim-tangent | skim-exp | fit (EMG) | best for rider | rider detected |
 |---|---|---|---|---|---|---|---|
 | 5 | +190.8 / -10.0 | -87.6 / -22.7 | +190.8 / -10.0 (drop) | +190.8 / -10.0 (drop) | -3.3 / -2.3 | fit | 20/20 |
-| 10 | +356.0 / -10.0 | -150.4 / -22.4 | -9.1 / -4.5 | -1.3 / -4.7 | -16.5 / -2.4 | skim-exp | 20/20 |
-| 20 | +584.6 / -10.3 | -207.5 / -21.9 | -15.9 / -5.8 | -3.3 / -5.9 | -70.6 / -3.1 | skim-exp | 20/20 |
-| 50 | +3911.7 / -17.3 | -2787.7 / -32.9 | -54.3 / -5.4 | -36.3 / -5.5 (skim-exp, skim-tangent) | +300.7 / -4.4 | skim-exp | 20/20 |
+| 10 | +356.0 / -10.0 | -150.4 / -22.4 | -9.1 / -4.5 | -1.1 / -4.7 | -16.5 / -2.4 | skim-exp | 20/20 |
+| 20 | +584.6 / -10.3 | -207.5 / -21.9 | -15.9 / -5.8 | -3.0 / -5.9 | -70.6 / -3.1 | skim-exp | 20/20 |
+| 50 | +1360.8 / -9.7 | -546.2 / -21.2 | -42.8 / -5.5 | -5.6 / -5.6 | -43.9 / -3.2 | skim-exp | 20/20 |
 
-Interpretation: drop and valley give the rider the parent's tail under it (drop: large positive rider error) or cut the parent (valley). Tangent skim is far better but systematically under-reads a rider on a convex exponential tail, because the straight tangent lies above the true tail. Exponential skim models the tail and recovers both areas within about 1 %. At parent/rider = 5 the Dyson criterion refuses to skim and drop is applied (as the table shows); for such comparable peaks deconvolution or better separation is the honest answer. Deconvolution works when both models are right but can converge to a wrong split for small riders.
+Interpretation: drop gives the rider all of the parent's tail beneath it (rider errors of +190 % to +1400 %); valley-to-valley produces nonsense (negative rider areas). Tangent skim is far better but systematically under-reads a rider on a convex exponential tail (−9 % at ratio 10, −43 % at ratio 50) because the straight tangent lies above the true tail. Exponential skim models the tail and recovers the rider within −1 % (ratio 10), −3 % (20) and −6 % (50); the residual bias is the rider's own front lost before the valley and the small skim-end tolerance. The parent reads ≈ −5 % in every skim mode: the cluster ends at the rider's detected end bound, which cuts off the parent's long (τ/σ = 6) tail — extend that end bound when the parent tail matters. At parent/rider = 5 the Dyson criterion (skimRatio 10) declines to skim and applies drop, as the brackets show; there joint EMG deconvolution was best (−3 %), but for small riders (ratio ≥ 10) the fit often converged to a wrong split, so it is not a safe default.
 
 ## 6. Calibration recovery
 

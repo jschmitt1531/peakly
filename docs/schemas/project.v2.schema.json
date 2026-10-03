@@ -14,8 +14,7 @@
     },
     "version": {
       "type": "integer",
-      "const": 2,
-      "description": "Project format version. v1 files (Peakly 1.0) have version 1 or no version and are migrated on load by PK.schema.migrate."
+      "const": 2
     },
     "schema": {
       "type": "object",
@@ -120,6 +119,16 @@
                 },
                 "label": {
                   "type": "string"
+                },
+                "importedFrom": {
+                  "type": "string",
+                  "description": "Tool that reported the peak in an imported file (chromatopy, mocca2); such peaks are kept as manual."
+                },
+                "importedArea": {
+                  "type": "number"
+                },
+                "importedAreaSE": {
+                  "type": "number"
                 },
                 "clip": {
                   "description": "Per-peak override; absent = project default (settings.clipDefault). Manual window integrations default to valley.",
@@ -297,20 +306,6 @@
         "string",
         "null"
       ]
-    },
-    "app": {
-      "type": "string",
-      "description": "Writer application name (\"Peakly\"). Informational."
-    },
-    "peaklyVersion": {
-      "type": "string",
-      "description": "Peakly release that saved the file. Informational."
-    },
-    "saved": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Save timestamp. Informational."
     }
-  },
-  "x-generated-from": "PK.schema.describe() in src/schema.js (Peakly 1.1.0)"
+  }
 }

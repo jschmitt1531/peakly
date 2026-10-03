@@ -2,8 +2,6 @@
 
 Most chromatography data systems can export a chromatogram as text. Peakly recognizes the common layouts automatically. This page gives **general guidance**; exact menu names vary between software versions and site configurations, so we describe where the option *typically* lives rather than exact click paths. If you know the exact path for your version, please [improve this page](../../CONTRIBUTING.md).
 
-![A vendor export loaded with its metadata](../img/tutorial-vendor-1.png)
-
 ## General approach (any software)
 
 1. Open the run (injection / result) in the vendor software.

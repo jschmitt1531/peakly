@@ -128,8 +128,9 @@ function metricsInWindows(x, y, tps) {
   const sp = D._simplePeaks(x, y);
   return tps.map(t => sp.reduce((b, q) => (Math.abs(q.rt - t.rt) < Math.abs(b.rt - t.rt) ? q : b), { rt: Infinity }));
 }
-function autoCount(x, y) {
-  try { return A && A.detectPeaks ? A.detectPeaks(x, y, { threshold: 'auto' }).length : D._simplePeaks(x, y).length; } catch (e) { return null; }
+// Same call the app makes for digitized traces: the pixel step (digitized.dy) is passed as the noise quantum.
+function autoCount(x, y, quantum) {
+  try { return A && A.detectPeaks ? A.detectPeaks(x, y, { threshold: 'auto', quantum: quantum }).length : D._simplePeaks(x, y).length; } catch (e) { return null; }
 }
 
 function runCase(c, truthPeaks, truth) {
@@ -159,7 +160,7 @@ function runCase(c, truthPeaks, truth) {
       dH: 100 * (m.height - tp.height) / tp.height, dA: 100 * (m.area - tp.area) / tp.area, dAPct: m.areaPct - tp.areaPct
     };
   });
-  const auto = autoCount(res.x, res.y);
+  const auto = autoCount(res.x, res.y, Math.abs(cal.dyPerPx) / 2);
   const ok = per.filter(p => !p.missed);
   const maxAbs = k => ok.reduce((s, p) => Math.max(s, Math.abs(p[k])), 0);
   const meanAbs = k => ok.reduce((s, p) => s + Math.abs(p[k]), 0) / Math.max(1, ok.length);
@@ -219,7 +220,7 @@ md += 'legend, a second overlapping orange trace), digitized with the same `PK.d
 md += 'colour mask on the blue trace, legend excluded, centroid extraction, gaps ≤ 15 px interpolated, resampled to 4001 points), then compared with the truth.\n\n';
 md += 'Peaks are detected once on the noise-free truth curve (`PK.analysis.detectPeaks`, threshold 10 mAU) and their integration windows are frozen. ';
 md += 'The digitized curve is then measured with `PK.analysis.peakMetrics` over **exactly the same windows**, so the errors below are caused by digitizing alone, ';
-md += 'not by the peak detector choosing different bounds. The "auto-detect count" column separately shows what `detectPeaks` with `threshold: \'auto\'` finds on the raw (unsmoothed) digitized curve.\n\n';
+md += 'not by the peak detector choosing different bounds. The "auto-detect count" column separately shows what `detectPeaks` with `threshold: \'auto\'` finds on the raw (unsmoothed) digitized curve, passing the half-pixel y step as the noise quantum exactly as the app does for digitized traces.\n\n';
 md += '**Reproduce:** `node tools/digitizer-accuracy.js` (zero dependencies, deterministic, ~' + Math.max(1, Math.round(ms / 1000)) + ' s). Writes this file.\n\n';
 
 md += '## Headline\n\n';
@@ -234,7 +235,7 @@ md += `- Across clean native widths 450–1400 px, RT errors stay within ${f(Mat
 md += `- Worst case in this run: **${worst.name}**, max area error ${f(worst.maxA, 1)} %, max area-% error ${f(worst.maxAPct, 2)} points.\n\n`;
 
 md += '## Summary by case\n\n';
-md += '| Case | Image (px) | Plot w × h (px) | min/px | mAU/px | Coverage | Peaks measured | Auto-detect count (raw, no smoothing) | RMS y (mAU / px) | max \\|ΔRT\\| min (px) | mean / max \\|Δheight\\| % | mean / max \\|Δarea\\| % | max \\|Δarea%\\| (points) |\n';
+md += '| Case | Image (px) | Plot w × h (px) | min/px | mAU/px | Coverage | Peaks measured | Auto-detect count (raw, as in the app) | RMS y (mAU / px) | max \\|ΔRT\\| min (px) | mean / max \\|Δheight\\| % | mean / max \\|Δarea\\| % | max \\|Δarea%\\| (points) |\n';
 md += '|---|---|---|---|---|---|---|---|---|---|---|---|---|\n';
 for (const r of results) {
   md += `| ${r.name} | ${r.imgW}×${r.imgH} | ${r.plotW}×${r.plotH} | ${f(r.dxPerPx, 4)} | ${f(r.dyPerPx, 3)} | ${f(100 * r.coverage, 1)} % | ${r.found}/${truthPeaks.length} | ${r.auto == null ? '—' : r.auto} | ${f(r.rmsY, 2)} / ${f(r.rmsYpx, 2)} | ${f(r.maxRT, 4)} (${f(r.maxRTpx, 2)}) | ${f(r.meanH, 2)} / ${f(r.maxH, 2)} | ${f(r.meanA, 2)} / ${f(r.maxA, 2)} | ${f(r.maxAPct, 2)} |\n`;
@@ -259,7 +260,7 @@ md += '## Interpretation\n\n';
 md += '- **Retention time** is the most robust number. Centroid extraction of an anti-aliased line locates the apex to a fraction of a pixel, so RT error scales with *minutes per pixel*: halve the plot width and the error roughly doubles. The app reports ± half a pixel (`digitized.dxMin`) as the RT uncertainty, which these results support.\n';
 md += '- **Heights** are limited by line thickness and vertical resolution. The centroid of a 2 px line sits on the curve, but at a sharp apex the line\'s round cap and anti-aliasing pull the centroid slightly below the true maximum, so narrow peaks read a little low, more so at low resolution.\n';
 md += '- **Areas** inherit both the height error and the integrator\'s bound placement on a slightly staircased curve. **Area %** (relative areas) cancels most of the common-mode error and is the most reliable quantitative output, which is why the README recommends digitized data for area % of resolved peaks and not for absolute quantitation.\n';
-md += '- **Automatic peak detection on raw digitized traces over-detects.** A digitized curve is a staircase quantized to whole pixels, so the robust noise estimate behind `threshold: \'auto\'` is tiny and pixel steps on peak flanks pass as peaks (see the auto-detect column; the truth has 5). In the app, turn on smoothing (Savitzky–Golay) or set a threshold of a few pixels\' worth of y (several × mAU/px) before detecting peaks on digitized data, or integrate peaks by hand.\n';
+md += '- **Automatic peak detection on digitized traces.** A digitized curve is a staircase quantized to whole pixels. Peakly floors the noise estimate at the pixel step (the trace\'s ± y uncertainty), so `threshold: \'auto\'` ignores pixel steps; the auto-detect column shows the result (the truth has 5): clean renders at 450 px and up give 5 to 6, while blurred, JPEG-compressed or downscaled images still over-detect (8 to 14) because blur and compression add structure larger than one pixel. For those, turn on smoothing (Savitzky-Golay) or set a manual threshold of a few mAU/px before detecting, check the peak list against the image, and remember that peaks only a few pixels tall cannot be told apart from artefacts.\n';
 md += '- **Fused peaks** (5.6 / 6.6 min here) carry the largest relative errors because the valley depth, and hence the split, is sensitive to a pixel or two.\n';
 md += '- **JPEG-like compression and blur** widen and tint the line; with a wider colour tolerance the pipeline still recovers the trace, and the app\'s blockiness detector flags the image. Expect errors similar to a slightly smaller clean image.\n';
 md += '- **Occlusion beats resolution.** The sample\'s legend box has a fixed size, so on the 300 px render it covers the apex of the 10.4 min peak. The pipeline bridges the hidden columns with a straight line, the apex is lost, and height/area errors jump (look for the large negative Δheight in that row). Excluding a region is correct, but nothing can recover data the image does not show. Check the Verify overlay for flattened apexes under legends, labels and annotations.\n';

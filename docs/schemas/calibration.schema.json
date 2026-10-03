@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://OWNER.github.io/peakly/schemas/calibration.schema.json",
+  "title": "Peakly calibration export",
+  "description": "Calibration levels export, schema version 2.",
+  "$defs": {
+    "calibrationRow": {
+      "title": "calibration-row",
+      "description": "One calibration level of a Peakly calibration export.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "analyte",
+        "level",
+        "trace_id",
+        "trace_name",
+        "conc",
+        "response",
+        "included",
+        "predicted",
+        "residual",
+        "back_calc_conc",
+        "recovery_pct"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "description": "Peakly export schema version."
+        },
+        "analyte": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Analyte name."
+        },
+        "level": {
+          "type": "integer",
+          "description": "Level number."
+        },
+        "trace_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Standard trace (empty if typed in)."
+        },
+        "trace_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Standard trace name."
+        },
+        "conc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Nominal concentration. Unit: {conc}."
+        },
+        "response": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Measured response (area or height). Unit: {resp}."
+        },
+        "included": {
+          "type": "boolean",
+          "description": "true if used in the fit."
+        },
+        "predicted": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Response predicted by the fit. Unit: {resp}."
+        },
+        "residual": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "response − predicted. Unit: {resp}."
+        },
+        "back_calc_conc": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Concentration back-calculated from the response. Unit: {conc}."
+        },
+        "recovery_pct": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "100·back-calculated / nominal. Unit: %."
+        }
+      },
+      "x-peakly-schema-version": 2,
+      "x-unit-templates": {
+        "{x}": "trace x unit (min or mL)",
+        "{y}": "trace y unit",
+        "{elu}": "%B or salt/imidazole unit",
+        "{conc}": "calibration concentration unit",
+        "{resp}": "response unit (y·x for area, y for height)"
+      }
+    }
+  },
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/calibrationRow"
+  }
+}

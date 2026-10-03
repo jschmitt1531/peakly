@@ -28,6 +28,15 @@ Sustainability, peak clipping and calibration release.
 - Peak heights and metrics are measured relative to the applied clipping baseline.
 - Calculation details moved from the README into `docs/CALCULATIONS.md`, `docs/INTEGRATION.md` and `docs/CALIBRATION.md`.
 
+### Fixed (found during integration testing)
+- Peak labels of closely eluting peaks (e.g. 7.36 / 7.64 min) overlapped; labels now stack above the taller neighbour and avoid neighbouring peak lines.
+- Automatic peak detection over-counted peaks on digitized (pixel-stepped) traces; the noise estimate is now floored at the pixel step.
+- The "JPEG compression artifacts" warning fired on clean screenshots; the 8×8 blockiness test now compares pixel phases in both directions.
+- Saved projects, share links and all CSV/JSON exports now use project schema v2 via `PK.schema`.
+
+### Security
+- Subresource Integrity (`integrity` + `crossorigin`) on every pinned CDN script.
+
 ## [1.0.0] - 2026-10-03
 
 First build.

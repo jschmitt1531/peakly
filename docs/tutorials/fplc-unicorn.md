@@ -14,7 +14,7 @@ In UNICORN's evaluation module, curves can typically be exported to a text/CSV/A
 2. Each curve becomes a trace. UV traces are the main signals; conductivity (`mS/cm`) and %B (`%`) traces are marked as auxiliary and drawn on a second y axis.
 3. The x axis stays in **mL** (the file has no time axis). A badge shows that x is volume.
 
-![UNICORN run with UV, conductivity and %B](../img/tutorial-fplc-1.png)
+![UNICORN run with UV, conductivity and %B](../img/fplc.png)
 
 ## 3. Volume or time?
 

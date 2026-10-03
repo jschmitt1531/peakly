@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 // Inlines src/*.js, src/parsers/*.js, tests/*.test.js, tests/parsers/*.test.js and shell.html into a single index.html: node build.js
 const fs = require('fs'), path = require('path');
 const R = p => fs.readFileSync(path.join(__dirname, p), 'utf8');

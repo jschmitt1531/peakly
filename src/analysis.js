@@ -281,7 +281,18 @@
     for (j = 0; j < found.length - 1; j++) {
       var a0 = found[j].i, b0 = found[j + 1].i, vi = a0 + 1 < b0 ? argmin(ys, a0 + 1, b0 - 1) : a0;
       if (ys[vi] < Math.min(ys[a0], ys[b0]) && vi > a0 + 1 && vi < b0 - 1) splits.push({ i: vi, valley: true });
-      else { d2s = d2s || A.savitzkyGolay(y, w, 3, 2); splits.push({ i: a0 + 1 < b0 ? argmax(d2s, a0 + 1, b0 - 1) : a0, valley: false }); }
+      else {
+        d2s = d2s || A.savitzkyGolay(y, w, 3, 2);
+        var si = a0 + 1 < b0 ? argmax(d2s, a0 + 1, b0 - 1) : a0;
+        // a shoulder on the tail (front) of a larger peak: split at the d²y maximum nearest the shoulder, not at the
+        // parent's own curvature maximum far up its tail
+        var shR = found[j + 1].shoulder && !found[j].shoulder, shL = found[j].shoulder && !found[j + 1].shoulder;
+        if ((shR || shL) && a0 + 2 < b0 - 1) {
+          var st = shR ? -1 : 1, q0 = shR ? b0 - 2 : a0 + 2, qe = shR ? a0 + 1 : b0 - 1;
+          for (var qq = q0; qq !== qe; qq += st) if (d2s[qq] > 0 && d2s[qq] >= d2s[qq - 1] && d2s[qq] >= d2s[qq + 1]) { si = qq; break; }
+        }
+        splits.push({ i: si, valley: false });
+      }
     }
     // 6. bounds
     var out = found.map(function (f, k) {
@@ -737,6 +748,7 @@
     var host = []; for (k = 0; k < K; k++) host.push(-1);
     for (k = 0; k < K; k++) {
       if (modes[k] !== 'skim-tangent' && modes[k] !== 'skim-exp') continue;
+      if (!(Hown[k] > 3 * c.sig) && K > 1) { applied[k] = 'drop'; notes[k].push('Skim not applied: the peak has no height above its own valley line (≤ 3σ noise); perpendicular drop used.'); continue; }
       var best = -1, bestD = Infinity, hr = Math.max(Hown[k], 1e-300), tallest = -1;
       for (j = 0; j < K; j++) {
         if (j === k) continue; if (tallest < 0 || H[j] > H[tallest]) tallest = j;
@@ -1469,6 +1481,15 @@
     voidTime: { name: 'Void time', expr: 't₀ = ε·π·(d/2)²·L/1000/F', unit: 'min', description: 'Column volume from geometry (mm³ → mL ÷1000) times total porosity ε (≈0.65 for fully porous silica).', ref: 'Snyder, Kirkland & Dolan, Introduction to Modern LC (2010)' },
     Bat: { name: '%B at elution', expr: 'B_elution = B_program(max(0, t_R − t_D − t₀))', unit: '%', description: 'Mobile phase composition that left the mixer t_D + t₀ before the peak reached the detector.', ref: 'Snyder & Dolan (2007)' },
     conc: { name: 'Eluent concentration', expr: 'c = c_A + (c_B,max − c_A)·B/100', unit: 'mM', description: 'Salt/imidazole concentration assuming linear volumetric mixing; c_A = method.aConc (default 0).', ref: '' },
+    clipDrop: { name: 'Perpendicular drop', expr: 'b(t) = straight line y(T_s)→y(T_e) across the cluster; vertical drops at valleys', unit: 'y·min', description: 'Common baseline for fused peaks; conserves the cluster total.', ref: 'Dyson, Chromatographic Integration Methods (RSC)' },
+    clipValley: { name: 'Valley-to-valley', expr: 'b(t) = straight line y(t_s)→y(t_e) per peak', unit: 'y·min', description: 'Each peak on its own baseline; removes the area under a raised valley.', ref: 'Dyson' },
+    clipBaseline: { name: 'Baseline-to-baseline', expr: 'b = lower convex hull of the signal over the cluster', unit: 'y·min', description: 'Common baseline that never rises above the signal (no baseline penetration).', ref: 'Dyson' },
+    clipSkimTangent: { name: 'Tangent skim', expr: 'b(t) = y_v + m(t − t_v), m = extreme slope from the valley to the parent tail/front', unit: 'y·min', description: 'Rider above a tangent; applied only if H_parent/H_rider ≥ skimRatio (10). Under-reads riders on convex tails.', ref: 'Dyson' },
+    clipSkimExp: { name: 'Exponential skim', expr: 'b(t) = c(t) + z₀·exp(∓(t − t_v)/τ) + c₀, fitted to the parent tail', unit: 'y·min', description: 'Rider above an exponential model of the parent tail; same skim criterion.', ref: 'Dyson' },
+    clipFit: { name: 'Deconvolution', expr: 'A = A_fit·σ·√(2π) (Gaussian or EMG component)', unit: 'y·min', description: 'Joint fit of the cluster above the common baseline.', ref: 'Grushka 1972; Kalambet et al. 2011' },
+    calLinear: { name: 'Calibration (weighted LS)', expr: 'b = (XᵀWX)⁻¹XᵀWy; s_y/x = √(Σw e²/(n − p))', unit: '', description: 'Models linear, linear0, quadratic; weights none, 1/x, 1/x² normalised to Σw = n.', ref: 'Miller & Miller, Statistics and Chemometrics for Analytical Chemistry' },
+    lod: { name: 'LOD / LOQ', expr: 'LOD = 3.3·s_y/x/slope; LOQ = 10·s_y/x/slope', unit: 'conc', description: 'Calibration-curve approach; confirm experimentally near the limit.', ref: 'ICH Q2(R2)' },
+    inverse: { name: 'Back-calculated concentration', expr: 'x̂₀ = f⁻¹(ȳ₀); s² = [s²/(m·w) + gᵀCov(b)g]/f′²; x̂₀ ± t·s', unit: 'conc', description: 'Delta-method inverse prediction; equals the classic s_x0 formula for an unweighted line.', ref: 'Miller & Miller; Eurachem' },
     fitArea: { name: 'Fitted area', expr: 'Area = A·σ·√(2π)', unit: 'y·min', description: 'Gaussian or EMG (Gaussian-amplitude parameterisation) component area; SE by delta method from s²(JᵀJ)⁻¹.', ref: 'Marquardt 1963; Grushka 1972; Kalambet et al. 2011' }
   };
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));

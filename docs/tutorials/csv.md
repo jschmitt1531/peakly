@@ -8,8 +8,6 @@
 2. Drag `delimited.csv` onto the window, or click **Import → Choose files…** (shortcut **o**).
 3. Peakly detects the delimiter (comma, tab, semicolon or spaces), decimal separator (point or comma), header row and units, and plots the trace.
 
-![The imported CSV trace](../img/tutorial-csv-1.png)
-
 ## 2. Check units
 
 Peakly works in **minutes**. If the header says `Time (s)`, `sec` or `ms`, it converts automatically. Check the x axis: if a 20-minute run shows as 1200, the time column was in seconds without a unit in the header; use the column mapper (next step) and set the x unit to seconds.
@@ -26,7 +24,7 @@ If Peakly cannot confidently read a file, or you click **"My format isn't workin
 4. Set the **x unit** (min, s, ms, h) and **y unit**.
 5. Click **Use this text** / import.
 
-![Column mapper](../img/tutorial-csv-2.png)
+![Column mapper](../img/app-overview.png)
 
 ## 4. Pasting numbers
 

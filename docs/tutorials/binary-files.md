@@ -2,8 +2,6 @@
 
 Peakly reads three binary/structured formats directly, without vendor software.
 
-![A .ch file loaded with its metadata](../img/tutorial-binary-1.png)
-
 ## Agilent ChemStation `.ch`
 
 **Sample:** [`samples/data/agilent-ch.ch`](../../samples/data/agilent-ch.ch)

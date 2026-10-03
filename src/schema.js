@@ -192,7 +192,10 @@
     ['x_unit', '', 'x unit of the trace (min or mL).'],
     ['y_unit', '', 'y unit of the trace (e.g. mAU).'],
     ['digitized', '', 'true if the trace was digitized from an image (values are estimates).'],
-    ['manual', '', 'true if the peak bounds were set or edited by hand.']
+    ['manual', '', 'true if the peak bounds were set or edited by hand.'],
+    ['imported_from', '', 'Tool that reported this peak in the imported file (chromatopy, mocca2), else empty.'],
+    ['imported_area', '', 'Area as reported by that tool (its own units and integration method; not recomputed).'],
+    ['imported_area_se', '', 'Standard error / SD of the imported area as reported by that tool.']
   ].map(function (c) { return { key: c[0], unit: c[1], description: c[2] }; });
   var TRACE_COLUMNS = [
     ['schema_version', '', 'Peakly export schema version.'], ['trace_id', '', 'Stable trace id.'], ['name', '', 'Trace name.'],
@@ -258,6 +261,7 @@
         row.k_prime = num(m.k);
         row.clip = g.clip || pk.clip || null; row.baseline_kind = (g.baseline && g.baseline.kind) || null;
         row.baseline_area = num(gm.baselineArea); row.gross_area = num(gm.grossArea);
+        row.imported_from = pk.importedFrom || null; row.imported_area = num(pk.importedArea); row.imported_area_se = num(pk.importedAreaSE);
         row.x_unit = t.xUnit || 'min'; row.y_unit = t.yUnit || 'a.u.'; row.digitized = !!dig; row.manual = !!pk.manual;
         if (opts.extra) { var ex = opts.extra(t, pk, i, m) || {}; Object.keys(ex).forEach(function (k) { if (k in row) row[k] = ex[k]; }); }
         rows.push(row);
@@ -315,7 +319,7 @@
     var props = {};
     cols.forEach(function (c) {
       var t = /^(schema_version|peak_no|n_points|n_peaks|level)$/.test(c.key) ? 'integer' : /^(digitized|manual|included)$/.test(c.key) ? 'boolean'
-        : /^(trace_id|trace_name|peak_id|name|clip|baseline_kind|analyte|conc_flags|x_unit|y_unit|role|source_kind|source_format|source_filename|sample_name|sample_id|instrument|detector|processing|calibration_level|inj_vol)$/.test(c.key) ? ['string', 'null'] : ['number', 'null'];
+        : /^(imported_from|trace_id|trace_name|peak_id|name|clip|baseline_kind|analyte|conc_flags|x_unit|y_unit|role|source_kind|source_format|source_filename|sample_name|sample_id|instrument|detector|processing|calibration_level|inj_vol)$/.test(c.key) ? ['string', 'null'] : ['number', 'null'];
       props[c.key] = { type: t, description: c.description + (c.unit ? ' Unit: ' + c.unit + '.' : '') };
       if (c.key === 'clip') props[c.key].enum = S.CLIP_MODES.concat([null]);
     });
@@ -329,6 +333,8 @@
     var num_ = { type: 'number' }, numN = { type: ['number', 'null'] };
     var peak = { type: 'object', required: ['id', 'start', 'end'], properties: {
       id: { type: 'string' }, start: num_, apex: num_, end: num_, manual: { type: 'boolean' }, label: { type: 'string' },
+      importedFrom: { type: 'string', description: 'Tool that reported the peak in an imported file (chromatopy, mocca2); such peaks are kept as manual.' },
+      importedArea: { type: 'number' }, importedAreaSE: { type: 'number' },
       clip: { description: 'Per-peak override; absent = project default (settings.clipDefault). Manual window integrations default to valley.', type: 'string', enum: S.CLIP_MODES.slice() } } };
     var level = { type: 'object', properties: { conc: numN, unit: { type: 'string' }, traceId: { type: 'string', description: 'Standard trace; the response is read from its matched peak.' },
       response: { type: 'number', description: 'Typed-in response (used when traceId is absent).' }, include: { type: 'boolean', default: true }, label: { type: 'string' } } };

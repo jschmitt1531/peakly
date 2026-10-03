@@ -22,7 +22,7 @@ The digitizer has five steps: **Prep → Calibrate → Extract → Verify → Se
 - Adjust **brightness/contrast** if the trace is faint.
 - Photos of screens or paper need perspective correction instead: see [photo of a screen](photo-of-screen.md).
 
-![Prep step](../img/tutorial-image-1.png)
+![Prep step](../img/digitizer.png)
 
 ## 3. Calibrate the axes
 
@@ -32,8 +32,6 @@ The digitizer has five steps: **Prep → Calibrate → Extract → Verify → Se
 4. Optional: **Read axes with Claude** pre-fills ticks, labels and printed peak values (needs your own API key; see [SECURITY.md](../../SECURITY.md#api-key-handling-optional-claude-assist)). Always check and **Confirm calibration** yourself.
 
 Zoom in to place markers precisely: a 1 px error on points 150 px apart is a 0.7 % scale error.
-
-![Calibration markers on ticks](../img/tutorial-image-2.png)
 
 ## 4. Extract the trace
 
@@ -51,8 +49,6 @@ The extracted curve is overlaid on the image. Use the **opacity** slider to comp
 - the **quality warnings** (low resolution, JPEG artifacts, poor calibration spread).
 
 If the image has printed RTs/area %, Peakly compares them with the computed values and flags mismatches.
-
-![Verify overlay](../img/tutorial-image-3.png)
 
 ## 6. Send to plot
 

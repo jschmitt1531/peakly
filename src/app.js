@@ -122,7 +122,12 @@
       peaks: toArr(t.peaks).filter(function (p) { return p && isNum(+p.start) && isNum(+p.end); }).map(function (p) {
         var o = { id: p.id || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
         if (p.manual) o.manual = true; if (p.label != null && String(p.label).trim()) o.label = String(p.label);
-        if (CLIP_MODES.indexOf(p.clip) >= 0) o.clip = p.clip; return o;
+        if (CLIP_MODES.indexOf(p.clip) >= 0) o.clip = p.clip;
+        // peaks reported by another tool (chromatoPy, MOCCA2…): kept as manual peaks so detection never replaces them
+        var src = p.importedFrom || (p.source && p.source !== 'peakly' ? p.source : null);
+        if (src) { o.manual = true; o.importedFrom = String(src); var ia = p.importedArea != null ? p.importedArea : p.area, ise = p.importedAreaSE != null ? p.importedAreaSE : p.areaSE;
+          if (isNum(+ia) && ia !== null) o.importedArea = +ia; if (isNum(+ise) && ise !== null) o.importedAreaSE = +ise; }
+        return o;
       }),
       fit: t.fit && typeof t.fit === 'object' ? t.fit : null
     };
@@ -204,7 +209,7 @@
       traces: (p.traces || []).map(function (t) {
         var o = { id: t.id, name: t.name, xUnit: t.xUnit, yUnit: t.yUnit, source: t.source, meta: t.meta, style: t.style, proc: t.proc,
           x: packArray(toArr(t.x), 7), y: packDelta(toArr(t.y)),
-          peaks: (t.peaks || []).map(function (k) { var q = { id: k.id, start: roundSig(k.start, 7), apex: roundSig(k.apex, 7), end: roundSig(k.end, 7) }; if (k.manual) q.manual = 1; if (k.label) q.label = k.label; if (k.clip) q.clip = k.clip; return q; }) };
+          peaks: (t.peaks || []).map(function (k) { var q = { id: k.id, start: roundSig(k.start, 7), apex: roundSig(k.apex, 7), end: roundSig(k.end, 7) }; if (k.manual) q.manual = 1; if (k.label) q.label = k.label; if (k.clip) q.clip = k.clip; if (k.importedFrom) { q.importedFrom = k.importedFrom; if (k.importedArea != null) q.importedArea = k.importedArea; if (k.importedAreaSE != null) q.importedAreaSE = k.importedAreaSE; } return q; }) };
         if (t.digitized) { o.digitized = clone(t.digitized); o.digitized.imageMissing = true; }
         if (t.derived) o.derived = t.derived;
         if (t.fit) { o.fit = clone(t.fit); delete o.fit.curve; delete o.fit.cov; }
@@ -407,7 +412,7 @@
     try { res = f(pr.x, pr.y, mergeDeep({ threshold: thr, minDist: o.minDist, minWidth: o.minWidth, keep: keep }, quantumOpts(t) || {})) || []; }
     catch (e) { console.error(e); if (!silent) toast('Peak detection failed: ' + e.message, 'error'); return false; }
     t.peaks = toArr(res).filter(function (p) { return p && isNum(p.start) && isNum(p.end); })
-      .map(function (p) { var q = { id: p.id || PK.uid('pk'), start: +p.start, apex: isNum(p.apex) ? +p.apex : (p.start + p.end) / 2, end: +p.end }; if (p.manual) q.manual = true; if (p.label) q.label = p.label; if (CLIP_MODES.indexOf(p.clip) >= 0) q.clip = p.clip; return q; })
+      .map(function (p) { var q = { id: p.id || PK.uid('pk'), start: +p.start, apex: isNum(p.apex) ? +p.apex : (p.start + p.end) / 2, end: +p.end }; if (p.manual) q.manual = true; if (p.label) q.label = p.label; if (CLIP_MODES.indexOf(p.clip) >= 0) q.clip = p.clip; ['importedFrom', 'importedArea', 'importedAreaSE'].forEach(function (k) { if (p[k] != null) q[k] = p[k]; }); return q; })
       .sort(function (a, b) { return a.apex - b.apex; });
     // keep a user-chosen clip on peaks that survive re-detection (same apex within 2 samples)
     var dx2 = pr.x.length > 1 ? 2 * (pr.x[pr.x.length - 1] - pr.x[0]) / (pr.x.length - 1) : 0, prev = state.prevPeaks || [];
@@ -1183,14 +1188,40 @@
       var gdEl = typeof document !== 'undefined' && document.getElementById('plot'), plotPxW = Math.max(200, ((opts.export && opts.width) || (gdEl && gdEl.clientWidth) || 900) - 140);
       var xr = state.viewRange || null, xlo = Infinity, xhi = -Infinity;
       cands.forEach(function (c) { if (c.x < xlo) xlo = c.x; if (c.x > xhi) xhi = c.x; });
-      var span = xr ? Math.abs(xr[1] - xr[0]) : Math.max(xhi - xlo, 1e-9) * 1.1, lastAt = [];
+      // Visible x span: zoom range if set; otherwise the widest of the label spread, the plotted data (incl. the
+      // gradient curve, which can extend the axis well past the last peak) and Plotly's last autorange.
+      var dlo = Infinity, dhi = -Infinity;
+      data.forEach(function (d) { if (d.xaxis && d.xaxis !== 'x') return; var xs = d.x || []; for (var i = 0; i < xs.length; i += Math.max(1, xs.length >> 6)) { if (xs[i] < dlo) dlo = xs[i]; if (xs[i] > dhi) dhi = xs[i]; } if (xs.length) { if (xs[xs.length - 1] > dhi) dhi = xs[xs.length - 1]; } });
+      var mGrad = P().method, gEnd = mGrad && mGrad.gradient && mGrad.gradient.length ? Math.max.apply(null, mGrad.gradient.map(function (r) { return +r.t || 0; })) : 0;
+      if (gEnd > dhi) dhi = gEnd;
+      var flr = gdEl && gdEl._fullLayout && gdEl._fullLayout.xaxis && gdEl._fullLayout.xaxis.range;
+      var autoSpan = Math.max((xhi - xlo) * 1.1, isFinite(dhi - dlo) ? dhi - dlo : 0, flr ? Math.abs(flr[1] - flr[0]) : 0, 1e-9);
+      var span = xr ? Math.abs(xr[1] - xr[0]) : autoSpan, placed = [];
+      // y scale in px per data unit, so labels of close peaks can be stacked above the TALLER neighbour
+      var plotPxH = Math.max(120, ((opts.export && opts.height) || (gdEl && gdEl.clientHeight) || 450) - 130), yTop = 0;
+      cands.forEach(function (c) { if (c.y > yTop) yTop = c.y; });
+      var pxPerY = plotPxH / Math.max(yTop * 1.15, 1e-9), step = lsize + 7;
       cands.sort(function (a, b) { return a.x - b.x; }).forEach(function (c) {
         // label width in data units: ~0.6·fontsize px per char over the plot's pixel width
-        var need = span * (Math.max(3, Math.min(c.text.length, 18)) * lsize * 0.6 + 8) / plotPxW, lvl = 0;
-        while (lvl < 5 && lastAt[lvl] != null && c.x - lastAt[lvl] < need) lvl++;
-        if (lvl >= 5) lvl = 0; lastAt[lvl] = c.x;
+        var need = span * (Math.max(3, Math.min(c.text.length, 18)) * lsize * 0.6 + 8) / plotPxW;
+        var near = placed.filter(function (p) { return c.x - p.x < need; });
+        // raise this label only past labels that actually collide (close in x AND overlapping in screen height);
+        // labels of much taller neighbours sit far above and are ignored. Give up after 4 levels (accept overlap).
+        var top = 14, moved = true, guard = 0;
+        while (moved && guard++ < 8) {
+          moved = false;
+          near.forEach(function (p) {
+            var pTop = p.top + (p.y - c.y) * pxPerY;
+            if (Math.abs(pTop - top) < step) { top = pTop + step; moved = true; return; }          // label-label overlap
+            // the neighbour's peak line + leader rise from the baseline to its label; if it passes under this
+            // label's own width, the label must sit above that column
+            if (Math.abs(c.x - p.x) < need / 2 && pTop > top - step && top < pTop + step) { top = pTop + step; moved = true; }
+          });
+        }
+        if (top > 14 + 4 * step) top = 14;
+        placed.push({ x: c.x, y: c.y, top: top });
         annMap[annotations.length] = { traceId: c.traceId, peakId: c.peakId, text: c.text };
-        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: esc(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -(14 + lvl * (lsize + 7)),
+        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: esc(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -top,
           font: { size: lsize, color: labelTraces.length > 1 ? c.color : col.text }, bgcolor: 'rgba(0,0,0,0)', captureevents: true, hovertext: 'Click to rename this peak' });
       });
     }
@@ -1366,7 +1397,7 @@
   /* ================================================================== peak table + audit */
   var METRIC_LABELS = { rt: 'Retention time', height: 'Height', area: 'Area', areaPct: 'Area %', fwhm: 'Width at half height (W½)', w5: 'Width at 5 % height',
     tailing: 'USP tailing factor', asymmetry: 'Asymmetry (10 %)', plates: 'Plates N (half-height)', platesUSP: 'Plates N (USP tangent)', resolution: 'Resolution Rs', sn: 'Signal-to-noise',
-    pctB: '%B at elution', kprime: "Retention factor k′", fit: 'Fitted area ± SE', clip: 'Peak clipping (how the area is separated)', conc: 'Concentration from the calibration curve (± 95 % interval)' };
+    imported: 'Area reported by the tool that produced the file', pctB: '%B at elution', kprime: "Retention factor k′", fit: 'Fitted area ± SE', clip: 'Peak clipping (how the area is separated)', conc: 'Concentration from the calibration curve (± 95 % interval)' };
   function tableColumns(t, ctx) {
     var xu = t.xUnit, cols = [
       { key: 'name', label: 'Name', d: 0 },
@@ -1375,6 +1406,7 @@
       { key: 'height', label: 'Height (' + t.yUnit + ')', d: 4 },
       { key: 'area', label: 'Area (' + t.yUnit + '·' + xu + ')', d: 5 },
       { key: 'areaPct', label: 'Area %', d: 4 },
+      { key: 'imported', label: 'Imported area ± SE', d: 4, hide: !t.peaks.some(function (p) { return p.importedFrom && isNum(p.importedArea); }) },
       { key: 'conc', label: 'Conc.' + (ctx.concUnit ? ' (' + ctx.concUnit + ')' : ''), d: 4, hide: !ctx.hasConc },
       { key: 'clip', label: 'Clip', d: 0 },
       { key: 'fwhm', label: 'W½ (' + xu + ')', d: 3 },
@@ -1444,6 +1476,11 @@
             CLIP_MODES.map(function (md) { return '<option value="' + md + '"' + (md === cur ? ' selected' : '') + '>' + esc(CLIP_LABELS[md]) + '</option>'; }).join('') + '</select>' +
             (m.clip && m.clip !== clipOf(pk) ? ' <span class="badge warn" title="' + esc(CLIP_LABELS[clipOf(pk)]) + ' could not be applied here; ' + esc(CLIP_LABELS[m.clip] || m.clip) + ' was used">' + esc(m.clip) + '</span>' : '') +
             '<button class="cell-i" data-audit="clip" aria-label="Integration math for peak ' + (i + 1) + '">&#9432;</button></td>';
+        }
+        if (c.key === 'imported') {
+          if (!pk.importedFrom || !isNum(pk.importedArea)) return '<td class="muted">—</td>';
+          var tool = { chromatopy: 'chromatoPy', mocca2: 'MOCCA2' }[pk.importedFrom] || pk.importedFrom;
+          return '<td title="Area as reported by ' + esc(tool) + ' (units and integration method of that tool; not recomputed by Peakly)">' + esc(fmt(pk.importedArea, 5)) + (isNum(pk.importedAreaSE) ? ' <span class="muted">± ' + esc(fmt(pk.importedAreaSE, 2)) + '</span>' : '') + ' <span class="badge">' + esc(tool) + '</span></td>';
         }
         if (c.key === 'conc') {
           var cq = ctx.conc && ctx.conc[i];
@@ -3582,7 +3619,7 @@
   function demoParam() { try { var m = /[?&]demo=([\w-]+)/.exec(location.search || ''); return m ? m[1] : null; } catch (e) { return null; } }
   function demoReady(delay) {
     setTimeout(function () {
-      var el = $('plot'), done = function () { requestAnimationFrame(function () { setTimeout(function () { document.body.dataset.demoReady = '1'; }, 250); }); };
+      var el = $('plot'), done = function () { setTimeout(function () { document.body.dataset.demoReady = '1'; }, 300); }; // no rAF: it pauses in hidden tabs
       if (el && el._fullLayout && typeof Plotly !== 'undefined') { var tries = 0; (function wait() { if (!el.querySelector('.main-svg') && tries++ < 40) { setTimeout(wait, 100); return; } done(); })(); } else done();
     }, delay || 300);
   }
@@ -3591,7 +3628,7 @@
     PK.toast = function () {}; // no lingering toasts in screenshots
     var t, i;
     switch (kind) {
-      case 'hplc': loadSampleHPLC(); t = activeTrace(); if (t && t.peaks.length) { for (i = 0; i < t.peaks.length; i++) if (Math.abs(t.peaks[i].apex - 4.8) < 0.1) { state.selPeakId = t.peaks[i].id; break; } renderAll(); } break;
+      case 'hplc': loadSampleHPLC(); break; // nothing selected: clean overview for screenshots
       case 'calibration': loadSampleCalibration({ open: true }); demoReady(900); return;
       case 'compare': loadSampleCalibration({ open: false }); state.view = 'compare'; P().settings.stack = 0.12; renderAll(); break;
       case 'integration-math': loadSampleHPLC(); t = activeTrace(); if (t) { var cl = clustersFor(t).filter(function (c) { return c.length > 1; })[0]; if (cl) state.selPeakId = t.peaks[cl[0]].id; renderAll(); } openMathModal(); break;

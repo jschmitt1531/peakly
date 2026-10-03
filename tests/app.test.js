@@ -182,4 +182,14 @@
     var sk = A.localIntegrate(x, y, [{ id: 'a', start: 1.1, apex: 1.5, end: 1.72, clip: 'skim-exp' }], 'drop');
     t.eq(sk[0].clip, 'drop', 'skim unavailable locally → drop'); t.ok(sk[0].math.notes.length === 1, 'fallback explained');
   });
+
+  PK.test('app: imported tool peaks become manual peaks with ids and keep the reported area', function (t) {
+    if (!ensureApp()) { t.ok(true, 'skipped'); return; }
+    var tr = PK.app.normalizeTrace({ x: [0, 1, 2, 3], y: [0, 5, 1, 0], peaks: [{ start: 0.5, apex: 1, end: 1.6, label: 'X', area: 12.5, areaSE: 0.4, source: 'chromatopy' }, { start: 2, apex: 2.5, end: 3, source: 'peakly' }] });
+    var a = tr.peaks[0], b = tr.peaks[1];
+    t.ok(a.id && b.id, 'ids assigned'); t.eq(a.manual, true, 'imported → manual'); t.eq(a.importedFrom, 'chromatopy', 'source kept');
+    t.eq(a.importedArea, 12.5, 'area kept'); t.eq(a.importedAreaSE, 0.4, 'SE kept'); t.ok(!b.importedFrom && !b.manual, 'peakly-sourced peak is not "imported"');
+    var rows = PK.schema.peakTableRows({ traces: [tr] }, { metrics: function () { return []; } });
+    t.eq(rows[0].imported_from, 'chromatopy', 'row imported_from'); t.eq(rows[0].imported_area, 12.5, 'row imported_area');
+  });
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));

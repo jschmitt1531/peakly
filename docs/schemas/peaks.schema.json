@@ -2,40 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://OWNER.github.io/peakly/schemas/peaks.schema.json",
   "title": "Peakly peak table",
-  "description": "Peak table export, schema version 2. A JSON export is an array of peak rows (or an object with a \"peaks\" array); the CSV export has one column per property, in the order listed in PK.schema.PEAK_COLUMNS, preceded by \"# \" comment lines including a \"# units:\" line. Unknown values are null in JSON and empty in CSV.",
-  "oneOf": [
-    {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/peakRow"
-      }
-    },
-    {
-      "type": "object",
-      "required": [
-        "peaks"
-      ],
-      "properties": {
-        "schema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "version": {
-              "type": "integer"
-            }
-          }
-        },
-        "peaks": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/peakRow"
-          }
-        }
-      }
-    }
-  ],
+  "description": "Peak table export, schema version 2. JSON: an array of peak rows or an object with a \"peaks\" array. CSV: one column per property, in PK.schema.PEAK_COLUMNS order, after \"# \" comment lines.",
   "$defs": {
     "peakRow": {
       "title": "peak-row",
@@ -78,7 +45,10 @@
         "x_unit",
         "y_unit",
         "digitized",
-        "manual"
+        "manual",
+        "imported_from",
+        "imported_area",
+        "imported_area_se"
       ],
       "properties": {
         "schema_version": {
@@ -336,6 +306,27 @@
         "manual": {
           "type": "boolean",
           "description": "true if the peak bounds were set or edited by hand."
+        },
+        "imported_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Tool that reported this peak in the imported file (chromatopy, mocca2), else empty."
+        },
+        "imported_area": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Area as reported by that tool (its own units and integration method; not recomputed)."
+        },
+        "imported_area_se": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Standard error / SD of the imported area as reported by that tool."
         }
       },
       "x-peakly-schema-version": 2,
@@ -348,6 +339,29 @@
       }
     }
   },
-  "x-peakly-schema-version": 2,
-  "x-generated-from": "PK.schema.describe().peakRow in src/schema.js (Peakly 1.1.0)"
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/peakRow"
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "peaks"
+      ],
+      "properties": {
+        "schema": {
+          "type": "object"
+        },
+        "peaks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/peakRow"
+          }
+        }
+      }
+    }
+  ]
 }

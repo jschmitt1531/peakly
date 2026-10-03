@@ -8,7 +8,7 @@ Load several files (they overlay on shared axes, each in its own colour, with a 
 
 Use the trace list to show/hide, rename, recolour and reorder traces; the active trace (bold) is the one the cursor and peak tools act on (switch with `[` and `]`).
 
-![Overlaid runs](../img/tutorial-compare-1.png)
+![Overlaid runs](../img/compare.png)
 
 ## 2. Normalize, align, offset
 
@@ -24,8 +24,6 @@ In the overlay options:
 2. Click **Compare**. Peaks are matched across visible traces by retention time within a tolerance.
 3. The comparison table shows, for each matched peak, its RT and area in every run, **ΔRT** and **area ratio** relative to the reference trace.
 4. Choose the reference trace and the RT tolerance; unmatched peaks are listed separately.
-
-![Compare table](../img/tutorial-compare-2.png)
 
 ## 4. Export
 

@@ -19,9 +19,6 @@ Photos add perspective distortion (the plot is a trapezoid, not a rectangle), un
 3. Click the **four corners of the plot area** in order (the corners where the axes meet and their opposites). Use the axis box corners, not the screen bezel.
 4. **Apply perspective**. The plot becomes a rectangle.
 
-![Four corner points on a skewed photo](../img/tutorial-photo-1.png)
-![After perspective correction](../img/tutorial-photo-2.png)
-
 ## 3. Clean up
 
 - **Brightness/contrast** to even out lighting; a **threshold** can help for black-and-white printouts.

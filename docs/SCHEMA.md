@@ -9,10 +9,11 @@ The source of truth is [`src/schema.js`](../src/schema.js) (`PK.schema`). Machin
 | [`project.v2.schema.json`](schemas/project.v2.schema.json) | Saved project (`*.peakly.json`), format version 2 |
 | [`peaks.schema.json`](schemas/peaks.schema.json) | Peak table export (array of peak rows) |
 | [`traces.schema.json`](schemas/traces.schema.json) | Trace data exports (traces JSON, trace summary rows, long-format data rows) |
+| [`calibration.schema.json`](schemas/calibration.schema.json) | Calibration levels export |
 
-These files were generated from `PK.schema.describe()`. If `src/schema.js` changes, regenerate them and review the diff. The `$id` URLs use the project website (`https://OWNER.github.io/peakly/schemas/…`), which serves this folder.
+These files are generated from `PK.schema.describe()` by `node tools/gen-schemas.js`. If `src/schema.js` changes, regenerate them and review the diff. The `$id` URLs use the project website (`https://OWNER.github.io/peakly/schemas/…`), which serves this folder.
 
-> **Status (1.1.0).** `src/schema.js` defines the v2 schema and row builders. Items marked **(verify)** below describe app behaviour that was still being wired up when this page was written; check them against a real export before relying on them in a pipeline.
+> **Status (1.1.0).** Saved projects, share links and all CSV/JSON exports are produced through `PK.schema`, so the tables below describe what the app writes.
 
 ## Conventions
 
@@ -108,7 +109,7 @@ Peakly 1.0 wrote `version: 1` (or no version). `PK.schema.migrate(project)` upgr
 
 `PK.schema.validateProject(obj)` returns `{ ok, errors[], warnings[] }`. Errors (wrong types, mismatched x/y lengths, unknown clip modes) make a file unusable; warnings (NaN points, unsorted x, old version) are repaired on load.
 
-**(verify)** In the 1.1.0 development build, the app's "Save project" path still tagged files as `version: 1`; loading migrates them correctly either way. Saved files should carry `version: 2` once the save path uses `PK.schema`.
+Projects are saved as `version: 2` with `schema: {name: "peakly-project", version: 2}`. Files without a version are treated as v1 and migrated on load.
 
 ## Peak table (CSV / JSON)
 
@@ -144,10 +145,12 @@ One row per peak, built by `PK.schema.peakTableRows(project)`. Auxiliary channel
 | `conc_flags` | | `;`-separated: `extrapolated`, `below_LOQ`, `below_LOD`, `standard` |
 | `x_unit`, `y_unit` | | Units of this trace |
 | `digitized`, `manual` | | Booleans |
+| `imported_from` | | Tool that reported the peak in an imported file (`chromatopy`, `mocca2`), else empty |
+| `imported_area`, `imported_area_se` | tool's units | Area (and SE/SD) as reported by that tool, not recomputed |
 
 Formulas: [CALCULATIONS.md](CALCULATIONS.md), [INTEGRATION.md](INTEGRATION.md), [CALIBRATION.md](CALIBRATION.md).
 
-**(verify)** The 1.0 peak CSV used different headers (`RT_min`, `area_pct`, `W_half_min`, `tailing_USP`, …, `yes`/`no` booleans). The v2 column keys above are what `PK.schema` produces; check whether the app's "Peak table CSV" button in your build uses them (the first comment line says which Peakly version wrote the file).
+Note: the 1.0 peak CSV used different headers (`RT_min`, `area_pct`, `W_half_min`, `tailing_USP`, …, `yes`/`no` booleans). Files written by 1.1.0+ use the v2 column keys above; the first comment line records the Peakly version.
 
 ## Trace data (CSV / JSON)
 

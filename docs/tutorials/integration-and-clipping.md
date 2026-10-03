@@ -16,7 +16,7 @@ Background and formulas: [INTEGRATION.md](../INTEGRATION.md) and [CALCULATIONS.m
 - **a** then click near an apex: adds a peak with automatically found bounds.
 - Drag the bound handles to adjust; select a peak and press **Delete** to remove. Everything is undoable (Ctrl/⌘+Z).
 
-![Manual integration window](../img/tutorial-integration-1.png)
+![Manual integration window](../img/app-overview.png)
 
 ## 3. Fused peaks: choose how to split them
 
@@ -33,7 +33,7 @@ When peaks share a boundary (no return to baseline between them), the way the ar
 
 **Skim rule of thumb (Dyson):** skim only when the parent is at least ~10× taller than the rider (`skimRatio`, default 10); otherwise use drop.
 
-![Clip dialog comparing modes](../img/tutorial-integration-2.png)
+![Clip dialog comparing modes](../img/split-dialog.png)
 
 The project default for new automatic integrations is set in the processing panel (**clip default**); each peak can override it.
 
@@ -41,7 +41,7 @@ The project default for new automatic integrations is set in the processing pane
 
 Click the ⓘ next to a peak's area: the **integration audit** shows the clipping mode, baseline points, number of samples, Δt, gross area, baseline area and net area, step by step, so you can reproduce the value by hand. Every other metric (tailing, plates, resolution, S/N) has the same kind of explanation.
 
-![Integration audit](../img/tutorial-integration-3.png)
+![Integration audit](../img/integration-math.png)
 
 ## 5. Curve fitting
 

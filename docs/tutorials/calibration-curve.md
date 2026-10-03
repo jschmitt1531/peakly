@@ -4,6 +4,8 @@
 
 Background and formulas: [CALIBRATION.md](../CALIBRATION.md).
 
+**Try it first:** **Sample ▾ → Calibration set** loads five standard levels and one unknown for two analytes and opens the Calibration panel (shortcut **c**). Clicking a standard on the curve excludes it; **Undo** restores it.
+
 ## 1. Load the runs
 
 Load all standard and unknown runs (multi-select in **Import**, or drop several files). Integrate the analyte peak in each: detect with **p**, or integrate the same window across runs with "apply same window to all traces" in **Compare** ([compare tutorial](compare-runs.md)). Check that the analyte peak is integrated consistently, with the same clipping mode, in every run.
@@ -21,7 +23,7 @@ For each standard, add a level: its **concentration** and unit, and either the *
 
 Use at least 5 levels spanning the expected range; replicate injections count as separate levels at the same concentration.
 
-![Calibration levels table](../img/tutorial-calibration-1.png)
+![Calibration levels table](../img/calibration.png)
 
 ## 4. Choose the model and weighting
 
@@ -37,8 +39,6 @@ Use at least 5 levels spanning the expected range; replicate injections count as
 | 1/x or 1/x² | The range spans more than about one order of magnitude and residuals grow with concentration (common) |
 
 Look at the **residual plot**: it should show no trend. Check R², s(y/x) and back-calculated recoveries for each standard (typically within ±15 %, ±20 % at the lowest level, for bioanalytical-style criteria).
-
-![Fit with residuals](../img/tutorial-calibration-2.png)
 
 ## 5. Read unknowns
 

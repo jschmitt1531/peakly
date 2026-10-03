@@ -1,151 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://OWNER.github.io/peakly/schemas/traces.schema.json",
-  "title": "Peakly trace data",
-  "description": "Trace exports, schema version 2. Three shapes: (1) the traces JSON export (object with a \"traces\" array of full x/y arrays); (2) the trace summary table (array of traceRow, also written as CSV); (3) the long-format data table (array of dataRow, also written as CSV with columns trace_id, trace_name, x, y, y_processed, digitized).",
-  "oneOf": [
-    {
-      "$ref": "#/$defs/tracesExport"
-    },
-    {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/traceRow"
-      }
-    },
-    {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/dataRow"
-      }
-    }
-  ],
+  "title": "Peakly traces export",
+  "description": "Traces export, schema version 2: trace summary rows plus long-format data rows (CSV) or per-trace arrays (JSON).",
   "$defs": {
-    "tracesExport": {
-      "type": "object",
-      "required": [
-        "traces"
-      ],
-      "properties": {
-        "app": {
-          "type": "string"
-        },
-        "version": {
-          "type": "string",
-          "description": "Peakly release that wrote the file."
-        },
-        "exported": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "schema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "version": {
-              "type": "integer"
-            }
-          }
-        },
-        "traces": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "x",
-              "y"
-            ],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "xUnit": {
-                "type": "string",
-                "description": "min, or mL for FPLC volume axes."
-              },
-              "yUnit": {
-                "type": "string"
-              },
-              "source": {
-                "type": "object"
-              },
-              "digitized": {
-                "description": "false, or {dxMin, dy, note} for image-derived traces (values are estimates).",
-                "type": [
-                  "boolean",
-                  "object"
-                ]
-              },
-              "run": {
-                "type": "object",
-                "description": "Run info (sampleName, sampleId, injVol_uL, instrument, column, methodName, operator, date, detector, notes)."
-              },
-              "x": {
-                "type": "array",
-                "items": {
-                  "type": "number"
-                }
-              },
-              "y": {
-                "type": "array",
-                "items": {
-                  "type": "number"
-                }
-              },
-              "yProcessed": {
-                "type": "array",
-                "items": {
-                  "type": [
-                    "number",
-                    "null"
-                  ]
-                }
-              },
-              "peaks": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "start": {
-                      "type": "number"
-                    },
-                    "apex": {
-                      "type": "number"
-                    },
-                    "end": {
-                      "type": "number"
-                    },
-                    "manual": {
-                      "type": "boolean"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "clip": {
-                      "type": "string",
-                      "enum": [
-                        "drop",
-                        "valley",
-                        "baseline",
-                        "skim-tangent",
-                        "skim-exp",
-                        "fit"
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "traceRow": {
       "title": "trace-row",
       "description": "One row of a Peakly trace summary export.",
@@ -398,6 +256,25 @@
       }
     }
   },
-  "x-peakly-schema-version": 2,
-  "x-generated-from": "PK.schema.describe() in src/schema.js (Peakly 1.1.0) plus the traces JSON export in src/app.js"
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "object"
+    },
+    "traces": {
+      "type": "array"
+    },
+    "traceRows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/traceRow"
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataRow"
+      }
+    }
+  }
 }

@@ -5,7 +5,6 @@ This is a statement of direction, not a promise of dates. Priorities shift with 
 ## Near term (next minor releases)
 
 - **Validation with real reference data.** Run Peakly side by side with established chromatography data systems on shared, non-confidential datasets and publish the comparison (RT, area, tailing, plates, resolution) in [docs/VALIDATION.md](docs/VALIDATION.md). Contributions of paired data are the single most useful thing a lab can give.
-- **Subresource Integrity** hashes on all CDN script tags ([SECURITY.md](SECURITY.md#cdn-integrity-sri-policy)).
 - **Accessibility pass:** keyboard access to every function, screen-reader labels, colour-blind-safe defaults; findings tracked in [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 - **Digitizer benchmark on real images:** extend `tools/digitizer-accuracy.js` with contributed screenshots and photos that have known ground truth.
 - **Sample library:** more example files in `samples/` for every supported format and tutorial.
