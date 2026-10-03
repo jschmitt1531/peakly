@@ -1,2 +1,7 @@
 node_modules/
 .DS_Store
+# never commit secrets or local env files
+.env
+.env.*
+*.pem
+*.key

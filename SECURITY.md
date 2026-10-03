@@ -14,7 +14,7 @@ Security fixes go into the latest release. Because Peakly is a single static fil
 **Please report privately. Do not open a public issue for security problems.**
 
 1. Preferred: use GitHub's **[private vulnerability reporting](https://github.com/jschmitt1531/peakly/security/advisories/new)** (Security tab → "Report a vulnerability").
-2. Or email **SECURITY_CONTACT_EMAIL** (placeholder until the project has a dedicated address).
+2. If that button is not available (for example while the repository is private or reporting is disabled), open a **public** issue titled "Security contact request" with **no details**, or message the maintainer [@jschmitt1531](https://github.com/jschmitt1531) on GitHub, and a private channel will be arranged. Never post exploit details in a public issue, discussion or pull request.
 
 Please include the Peakly version (Help → About), browser and OS, steps or a file that reproduces the issue, and the impact you expect. Do not include real patient, clinical or confidential data; build a minimal synthetic reproduction instead.
 

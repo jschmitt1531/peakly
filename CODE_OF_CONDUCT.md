@@ -10,7 +10,7 @@ Peakly adopts the **[Contributor Covenant, version 2.1](https://www.contributor-
 
 ## Reporting
 
-If you experience or witness unacceptable behavior, contact the project maintainers privately at **CONDUCT_CONTACT_EMAIL** (placeholder until the project has a dedicated address). Reports are handled confidentially. If the report concerns a maintainer, it will be handled by the other maintainers without that person's involvement, or, while the project has a single maintainer, you may contact GitHub through its [abuse reporting](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) process.
+If you experience or witness unacceptable behavior, contact the project maintainer privately: message [@jschmitt1531](https://github.com/jschmitt1531) on GitHub or via the [LinkedIn profile](https://www.linkedin.com/in/jschmitt1531/) linked in the app's About panel, and ask for a private channel. Reports are handled confidentially. If the report concerns a maintainer, it will be handled by the other maintainers without that person's involvement, or, while the project has a single maintainer, you may contact GitHub through its [abuse reporting](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) process.
 
 ## Enforcement
 

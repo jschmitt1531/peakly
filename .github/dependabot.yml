@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned GitHub Actions up to date (weekly PRs). The app itself has no npm dependencies;
+# browser libraries are pinned CDN URLs with SRI hashes and are bumped by hand (see SECURITY.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
