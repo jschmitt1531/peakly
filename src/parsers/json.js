@@ -77,7 +77,7 @@
   function isDataRows(rows) { var r = rows[0]; return !!(r && typeof r === 'object' && !Array.isArray(r) && 'x' in r && 'y' in r && ('trace_id' in r || 'trace_name' in r)); }
   // Long-format data rows [{trace_id, trace_name, x, y}] (PK.schema.dataRows) -> one trace per trace_id.
   function dataRowsToTraces(rows, units) {
-    var by = {}, order = [];
+    var by = Object.create(null), order = []; // keys come from the file ("__proto__", "constructor"…): no prototype
     rows.forEach(function (r) {
       if (!r) return; var k = r.trace_id != null ? r.trace_id : r.trace_name;
       if (!by[k]) { by[k] = { name: r.trace_name || String(k), id: r.trace_id, x: [], y: [] }; order.push(k); }
@@ -88,7 +88,7 @@
   // Peak table export: rows reference traces by trace_id/trace_name (or traceId/traceName/trace). Rows are attached as
   // imported peaks to the traces embedded in the same document (traces[] or long-format data rows), if any.
   function parsePeakTable(obj, rows) {
-    var traces = [], units = {};
+    var traces = [], units = Object.create(null);
     rows.forEach(function (r) { if (r && (r.trace_id != null || r.trace_name != null)) units[r.trace_id != null ? r.trace_id : r.trace_name] = { x: r.x_unit, y: r.y_unit }; });
     (Array.isArray(obj.traces) ? obj.traces : []).forEach(function (o, i) { var t = jsonTrace(o, (o && o.name) || 'Trace ' + (i + 1)); if (t && t.x.length) { t._key = [o.id, o.name, t.name]; traces.push(t); } });
     if (!traces.length && Array.isArray(obj.data) && isDataRows(obj.data)) traces = dataRowsToTraces(obj.data, units);

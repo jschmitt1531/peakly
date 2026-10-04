@@ -3,6 +3,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy (see docs/SECURITY_AUDIT.md). build.js replaces the hash placeholder with the sha256 of every
+     inline script element, so no 'unsafe-inline' is needed for scripts. Third-party code may only come from the pinned library
+     paths below; the only network endpoint for data is the optional, user-started Claude call. A <meta> CSP cannot set
+     frame-ancestors, sandbox or report-uri: send those as HTTP headers when you host Peakly. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' PK_SCRIPT_HASHES https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peakly</title>
 <meta name="description" content="Peakly: a free HPLC/FPLC chromatogram analyzer that runs entirely in your browser. Import vendor exports or digitize a chromatogram image, then detect, integrate and fit peaks, overlay runs and export reports. No accounts, no tracking, no uploads.">
@@ -12,6 +18,11 @@
   /* Record CDN failures so the app can explain what is unavailable. */
   window.__pkCdnFail = [];
   window.__pkCdn = function (name) { window.__pkCdnFail.push(name); };
+  /* No inline event-handler attributes (the CSP forbids them): a capturing listener sees <script src> load failures. */
+  window.addEventListener('error', function (e) {
+    var t = e && e.target;
+    if (t && t.tagName === 'SCRIPT' && t.getAttribute('data-pk-lib')) window.__pkCdn(t.getAttribute('data-pk-lib'));
+  }, true);
   /* Apply theme before first paint to avoid a flash. */
   (function () {
     var t = null;
@@ -20,12 +31,12 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous" onerror="__pkCdn('Plotly')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" onerror="__pkCdn('SheetJS')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" integrity="sha384-rNlaE5fs9dGIjmxWDALQh/RBAaGRYT5ChrzHo6tRfgrZ36iRFAiquP5g41Jsv+0j" crossorigin="anonymous" onerror="__pkCdn('pako')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous" onerror="__pkCdn('LZString')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" onerror="__pkCdn('jsPDF')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" onerror="__pkCdn('pdf.js')"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous" data-pk-lib="Plotly"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" data-pk-lib="SheetJS"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" integrity="sha384-rNlaE5fs9dGIjmxWDALQh/RBAaGRYT5ChrzHo6tRfgrZ36iRFAiquP5g41Jsv+0j" crossorigin="anonymous" data-pk-lib="pako"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous" data-pk-lib="LZString"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" data-pk-lib="jsPDF"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" data-pk-lib="pdf.js"></script>
 <style>
 :root {
   --bg: #f4f6f9; --panel: #ffffff; --panel-2: #eef1f6; --text: #0f172a; --muted: #5b6577;

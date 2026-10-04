@@ -83,15 +83,135 @@
         clipDefault: 'drop', askClip: true, lineStyles: false },
       activeTraceId: null };
   }
+  function isSafeKey(k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; }
+  /** Recursive merge of plain objects. Never copies __proto__/constructor/prototype (prototype-pollution guard). */
   function mergeDeep(dst, src) {
     if (!src || typeof src !== 'object') return dst;
     Object.keys(src).forEach(function (k) {
+      if (!isSafeKey(k)) return;
       var v = src[k];
       if (v && typeof v === 'object' && !Array.isArray(v) && dst[k] && typeof dst[k] === 'object' && !Array.isArray(dst[k])) mergeDeep(dst[k], v);
       else if (v !== undefined) dst[k] = v;
     });
     return dst;
   }
+  /* ------------------------------------------------------------------ untrusted-input sanitizers (pure)
+     Everything that comes from a project file, share link, parser or paste is coerced to the documented types here, so
+     render code never sees objects where it expects strings, markup-bearing numbers, or prototype-polluting keys. */
+  var MAX_NAME = 1000, MAX_UNIT = 64, MAX_TEXT = 20000, MAX_ID = 200;
+  function strip(o) { return U.stripUnsafeKeys ? U.stripUnsafeKeys(o) : clone(o); }
+  function sStr(v, max, fb) {
+    if (U.safeString) return U.safeString(v, max, fb);
+    if (v == null || typeof v === 'object' || typeof v === 'function') return fb === undefined ? '' : fb;
+    return String(v).slice(0, max || 1e9);
+  }
+  function nOr(v, d) { var n = typeof v === 'string' && v.trim() !== '' ? +v : v; return isNum(n) ? n : d; }
+  function bOr(v, d) { return typeof v === 'boolean' ? v : d; }
+  function oneOf(v, list, d) { return list.indexOf(v) >= 0 ? v : d; }
+  function isPlain(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+  function idStr(v) { return v == null || typeof v === 'object' || typeof v === 'function' ? null : (String(v).slice(0, MAX_ID) || null); }
+  function safeColor(c) { return U.safeColor ? U.safeColor(c) : (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : null); }
+  function safeImage(s) { return U.safeDataImage ? U.safeDataImage(s) : (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(String(s || '')) ? s : null); }
+  /** Plotly-safe text (names, titles, annotations, hover templates). */
+  function ptxt(s) { return U.plotlyText ? U.plotlyText(s) : esc(s); }
+  app.ptxt = ptxt;
+  function sanitizeRun(r) {
+    var out = {}; if (!isPlain(r)) return out;
+    RUN_FIELDS.forEach(function (f) { var v = sStr(r[f[0]], MAX_TEXT); if (v !== '') out[f[0]] = v; });
+    return out;
+  }
+  function sanitizeProc(pr, n) {
+    var d = defaultProc(n); pr = isPlain(pr) ? pr : {};
+    var s = isPlain(pr.smooth) ? pr.smooth : {}, b = isPlain(pr.baseline) ? pr.baseline : {}, k = isPlain(pr.peaks) ? pr.peaks : {};
+    var lam = nOr(b.lambda, NaN), thr = k.threshold === 'auto' ? NaN : nOr(k.threshold, NaN);
+    var out = {
+      smooth: { on: bOr(s.on, d.smooth.on), window: Math.round(U.clamp(nOr(s.window, d.smooth.window), 3, 1001)), order: Math.round(U.clamp(nOr(s.order, d.smooth.order), 0, 10)) },
+      baseline: { on: bOr(b.on, d.baseline.on), lambda: lam > 0 ? lam : d.baseline.lambda, lambdaAuto: bOr(b.lambdaAuto, d.baseline.lambdaAuto),
+        p: U.clamp(nOr(b.p, d.baseline.p), 1e-6, 0.5), iter: Math.round(U.clamp(nOr(b.iter, d.baseline.iter), 1, 100)) },
+      peaks: { threshold: isNum(thr) ? thr : 'auto', minDist: Math.max(0, nOr(k.minDist, d.peaks.minDist)), minWidth: Math.max(0, nOr(k.minWidth, d.peaks.minWidth)), auto: bOr(k.auto, d.peaks.auto) }
+    };
+    if (b.lambda != null && !(lam > 0)) out.baseline.lambdaAuto = true; // garbage λ → automatic
+    return out;
+  }
+  app.sanitizeProc = sanitizeProc;
+  function sanitizeDigitized(dg) {
+    if (!isPlain(dg)) return false;
+    var o = strip(dg);
+    o.dxMin = nOr(dg.dxMin, null); o.dy = nOr(dg.dy, null); o.imageId = idStr(dg.imageId);
+    o.printedPeaks = (Array.isArray(dg.printedPeaks) ? dg.printedPeaks : []).filter(isPlain).map(function (q) {
+      var r = { rt: nOr(q.rt, NaN) }, a = nOr(q.areaPct, NaN), l = sStr(q.label, 200);
+      if (isNum(a)) r.areaPct = a; if (l) r.label = l; return r;
+    }).filter(function (q) { return isNum(q.rt); });
+    o.warnings = (Array.isArray(dg.warnings) ? dg.warnings : []).map(function (w) { return sStr(w, 500); }).filter(Boolean);
+    if (o.imageMissing != null) o.imageMissing = !!o.imageMissing;
+    return o;
+  }
+  function sanitizeFit(f) {
+    if (!isPlain(f)) return null;
+    var o = strip(f);
+    o.model = oneOf(f.model, ['gaussian', 'emg'], 'gaussian');
+    o.components = Array.isArray(o.components) ? o.components.filter(isPlain) : [];
+    o.components.forEach(function (c) { if (c.id != null) c.id = idStr(c.id); });
+    o.peakIds = Array.isArray(o.peakIds) ? o.peakIds.map(idStr) : [];
+    ['r2', 'rss', 'dof'].forEach(function (k) { if (o[k] != null) o[k] = nOr(o[k], null); });
+    if (o.converged != null) o.converged = o.converged !== false;
+    if (!isPlain(o.curve)) o.curve = null;
+    return o;
+  }
+  function sanitizeMeta(m) {
+    var o = isPlain(m) ? strip(m) : {};
+    if (o.role != null) { var r = sStr(o.role, MAX_UNIT); if (r) o.role = r; else delete o.role; }
+    if (o.run != null) o.run = sanitizeRun(o.run);
+    if (o.events != null && !Array.isArray(o.events)) delete o.events;
+    return o;
+  }
+  function sanitizeSource(s) {
+    var o = isPlain(s) ? strip(s) : { kind: 'file' };
+    ['kind', 'format', 'filename'].forEach(function (k) { if (o[k] != null) { var v = sStr(o[k], k === 'kind' ? 32 : 500); if (v) o[k] = v; else delete o[k]; } });
+    if (!o.kind) o.kind = 'file';
+    return o;
+  }
+  function sanitizeMethod(m) {
+    m = isPlain(m) ? m : {};
+    var c = isPlain(m.column) ? m.column : {}, out = blankMethod();
+    out.name = sStr(m.name, MAX_NAME); out.mode = oneOf(m.mode, ['linear', 'step'], 'linear');
+    out.solventA = sStr(m.solventA, MAX_NAME); out.solventB = sStr(m.solventB, MAX_NAME);
+    out.gradientType = oneOf(m.gradientType, ['organic', 'salt', 'imidazole', 'isocratic'], 'organic');
+    out.bConcUnit = sStr(m.bConcUnit, 16) || 'mM';
+    ['bufferPH', 'bMaxConc', 'aConc', 'flow', 'dwellVolume_mL', 'wavelength_nm', 'temperature_C', 'voidTime_min'].forEach(function (k) { out[k] = nOr(m[k], null); });
+    if (out.aConc === null) delete out.aConc;
+    out.column = { name: sStr(c.name, MAX_NAME), length_mm: nOr(c.length_mm, null), id_mm: nOr(c.id_mm, null), particle_um: nOr(c.particle_um, null), porosity: nOr(c.porosity, 0.65) };
+    out.notes = sStr(m.notes, MAX_TEXT); out.run = sanitizeRun(m.run);
+    out.gradient = Array.isArray(m.gradient) ? m.gradient : [];
+    return out;
+  }
+  app.sanitizeMethod = sanitizeMethod;
+  var LABEL_MODES = ['auto', 'name', 'rt', 'name+rt', 'area', 'none'];
+  function sanitizeSettings(s, base) {
+    s = isPlain(s) ? s : {};
+    var o = base, lb = isPlain(s.labels) ? s.labels : {}, gh = isPlain(s.ghost) ? s.ghost : {};
+    o.normalization = oneOf(s.normalization, ['none', 'max', 'area'], o.normalization);
+    ['showGradient', 'showRaw', 'grid', 'mirror', 'darkPlot', 'caption', 'gradientIncludeVoid', 'snapAll', 'askClip', 'lineStyles', 'showEvents'].forEach(function (k) { if (typeof s[k] === 'boolean') o[k] = s[k]; });
+    o.ghost = { show: bOr(gh.show, o.ghost.show), opacity: U.clamp(nOr(gh.opacity, o.ghost.opacity), 0, 1) };
+    o.labels = { mode: oneOf(lb.mode, LABEL_MODES, o.labels.mode), size: U.clamp(nOr(lb.size, o.labels.size), 6, 24), all: bOr(lb.all, o.labels.all) };
+    o.alignRef = idStr(s.alignRef); o.compareRef = idStr(s.compareRef);
+    o.differenceOf = Array.isArray(s.differenceOf) && s.differenceOf.length === 2 ? s.differenceOf.map(idStr) : null;
+    o.stack = U.clamp(nOr(s.stack, o.stack), 0, 1); o.compareTol = nOr(s.compareTol, 0) > 0 ? nOr(s.compareTol, 0.1) : o.compareTol;
+    o.compareLabels = (Array.isArray(s.compareLabels) ? s.compareLabels : []).filter(isPlain).map(function (l) { return { rt: nOr(l.rt, NaN), label: sStr(l.label, 200) }; })
+      .filter(function (l) { return isNum(l.rt) && l.label; });
+    o.fitModel = oneOf(s.fitModel, ['gaussian', 'emg'], o.fitModel);
+    o.clipDefault = oneOf(s.clipDefault, CLIP_MODES, o.clipDefault);
+    return o;
+  }
+  app.sanitizeSettings = function (s) { return sanitizeSettings(s, emptyProject().settings); };
+  /** Image map from a project file: keys are ids, values must be base64 PNG/JPEG/WebP/GIF data URLs. */
+  function sanitizeImages(im) {
+    var out = {}; if (!isPlain(im)) return out;
+    Object.keys(im).forEach(function (k) { if (!isSafeKey(k)) return; var id = idStr(k), v = safeImage(im[k]); if (id && v) out[id] = v; });
+    return out;
+  }
+  app.sanitizeImages = sanitizeImages;
+
   var colorCounter = 0;
   function nextColor(project) {
     var pal = APP_PALETTE;
@@ -109,36 +229,38 @@
     var sorted = true;
     for (var j = 1; j < pts.length; j++) if (pts[j][0] < pts[j - 1][0]) { sorted = false; break; }
     if (!sorted) pts.sort(function (a, b) { return a[0] - b[0]; });
+    var st = isPlain(t.style) ? t.style : {};
     var out = {
-      id: t.id || (PK.uid ? PK.uid('tr') : 'tr_' + Math.random().toString(36).slice(2)),
-      name: String(t.name || 'Trace'),
+      id: idStr(t.id) || (PK.uid ? PK.uid('tr') : 'tr_' + Math.random().toString(36).slice(2)),
+      name: sStr(t.name, MAX_NAME) || 'Trace',
       x: pts.map(function (p) { return p[0]; }), y: pts.map(function (p) { return p[1]; }),
-      xUnit: t.xUnit || 'min', yUnit: t.yUnit || 'a.u.',
-      source: t.source && typeof t.source === 'object' ? t.source : { kind: 'file' },
-      digitized: t.digitized && typeof t.digitized === 'object' ? t.digitized : false,
-      meta: t.meta && typeof t.meta === 'object' ? t.meta : {},
-      style: mergeDeep({ color: null, visible: true, width: 1.5, offset: 0 }, t.style || {}),
-      proc: mergeDeep(defaultProc(pts.length), t.proc || {}),
-      peaks: toArr(t.peaks).filter(function (p) { return p && isNum(+p.start) && isNum(+p.end); }).map(function (p) {
-        var o = { id: p.id || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
-        if (p.manual) o.manual = true; if (p.label != null && String(p.label).trim()) o.label = String(p.label);
+      xUnit: sStr(t.xUnit, MAX_UNIT) || 'min', yUnit: sStr(t.yUnit, MAX_UNIT) || 'a.u.',
+      source: sanitizeSource(t.source),
+      digitized: sanitizeDigitized(t.digitized),
+      meta: sanitizeMeta(t.meta),
+      style: { color: safeColor(st.color), visible: st.visible !== false, width: U.clamp(nOr(st.width, 1.5), 0.1, 20), offset: nOr(st.offset, 0) },
+      proc: sanitizeProc(t.proc, pts.length),
+      peaks: toArr(t.peaks).filter(function (p) { return isPlain(p) && isNum(+p.start) && isNum(+p.end) && p.start !== null && p.end !== null; }).map(function (p) {
+        var o = { id: idStr(p.id) || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) && p.apex !== null ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
+        var lbl = sStr(p.label, 200);
+        if (p.manual) o.manual = true; if (lbl.trim()) o.label = lbl;
         if (CLIP_MODES.indexOf(p.clip) >= 0) o.clip = p.clip;
         // peaks reported by another tool (chromatoPy, MOCCA2…): kept as manual peaks so detection never replaces them
-        var src = p.importedFrom || (p.source && p.source !== 'peakly' ? p.source : null);
-        if (src) { o.manual = true; o.importedFrom = String(src); var ia = p.importedArea != null ? p.importedArea : p.area, ise = p.importedAreaSE != null ? p.importedAreaSE : p.areaSE;
+        var src = sStr(p.importedFrom, 64) || (p.source && p.source !== 'peakly' ? sStr(p.source, 64) : '');
+        if (src) { o.manual = true; o.importedFrom = src; var ia = p.importedArea != null ? p.importedArea : p.area, ise = p.importedAreaSE != null ? p.importedAreaSE : p.areaSE;
           if (isNum(+ia) && ia !== null) o.importedArea = +ia; if (isNum(+ise) && ise !== null) o.importedAreaSE = +ise; }
         return o;
       }),
-      fit: t.fit && typeof t.fit === 'object' ? t.fit : null
+      fit: sanitizeFit(t.fit)
     };
-    if (t.derived) out.derived = t.derived;
+    if (t.derived) out.derived = isPlain(t.derived) ? strip(t.derived) : true;
     if (out.meta.xIsVolume && out.xUnit === 'min') out.xUnit = 'mL';
     if (out.xUnit === 'minutes' || out.xUnit === 'minute') out.xUnit = 'min';
     // colors handed out by other modules from PK.palette are treated as unassigned → publication palette
     var pkp = (PK.palette || []).map(function (c) { return String(c).toLowerCase(); });
     var taken = (project ? project.traces : []).some(function (o) { return o.id !== out.id && String(o.style && o.style.color).toLowerCase() === String(out.style.color).toLowerCase(); });
     if (!out.style.color || taken || (pkp.indexOf(String(out.style.color).toLowerCase()) >= 0 && APP_PALETTE.indexOf(out.style.color) < 0)) out.style.color = nextColor(project);
-    var bl = t.proc && t.proc.baseline, explicitLam = bl && bl.lambda != null && bl.lambdaAuto !== true;
+    var bl = t.proc && t.proc.baseline, explicitLam = bl && nOr(bl.lambda, NaN) > 0 && bl.lambdaAuto !== true;
     if (explicitLam) out.proc.baseline.lambdaAuto = false;
     if (out.proc.baseline.lambdaAuto) out.proc.baseline.lambda = autoLambda(out.x.length);
     if (!out.meta.run || typeof out.meta.run !== 'object') out.meta.run = runFromMeta(out.meta);
@@ -148,25 +270,24 @@
 
   /** Validate and fill a project object (from file/share/undo). Throws on garbage. */
   function sanitizeProject(p) {
-    if (!p || typeof p !== 'object') throw new Error('Not a Peakly project');
+    if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('Not a Peakly project');
     if (p.traces != null && !Array.isArray(p.traces)) throw new Error('Project traces must be an array');
+    p = strip(p); // untrusted JSON: drop __proto__/constructor/prototype keys everywhere before anything reads it
     var from = +p.version || 1, mig = null;
     if (SCH && SCH.migrate && from < PROJECT_VERSION) { mig = SCH.migrate(p, { report: true }); p = mig.project; }
     if (from > PROJECT_VERSION) throw new Error('This project was saved by a newer Peakly (format v' + from + '). Update Peakly to open it.');
     var out = emptyProject();
     app.lastMigration = mig && mig.from < mig.to ? mig : null;
-    out.name = p.name ? String(p.name) : out.name;
-    out.method = mergeDeep(blankMethod(), p.method || {});
-    if (!Array.isArray(out.method.gradient)) out.method.gradient = [];
-    if (!out.method.run || typeof out.method.run !== 'object') out.method.run = {};
-    out.method.gradient = out.method.gradient.filter(function (r) { return r && isNum(+r.t) && isNum(+r.B); })
+    out.name = sStr(p.name, MAX_NAME) || out.name;
+    out.method = sanitizeMethod(p.method);
+    out.method.gradient = out.method.gradient.filter(function (r) { return isPlain(r) && isNum(+r.t) && isNum(+r.B) && r.t !== null && r.B !== null; })
       .map(function (r) { return { t: +r.t, B: +r.B, flow: isNum(+r.flow) && r.flow !== null && r.flow !== '' ? +r.flow : null }; });
-    out.settings = mergeDeep(out.settings, p.settings || {});
-    out.images = p.images && typeof p.images === 'object' ? p.images : {};
-    if (CLIP_MODES.indexOf(out.settings.clipDefault) < 0) out.settings.clipDefault = 'drop';
-    out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (p.calibration && typeof p.calibration === 'object' ? p.calibration : blankCalibration());
-    (p.traces || []).forEach(function (t) { out.traces.push(normalizeTrace(t, out)); });
-    out.activeTraceId = p.activeTraceId && out.traces.some(function (t) { return t.id === p.activeTraceId; }) ? p.activeTraceId : (out.traces[0] ? out.traces[0].id : null);
+    out.settings = sanitizeSettings(p.settings, out.settings);
+    out.images = sanitizeImages(p.images);
+    out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (isPlain(p.calibration) ? p.calibration : blankCalibration());
+    (p.traces || []).forEach(function (t) { var nt = normalizeTrace(t, out); delete nt.meta._src; out.traces.push(nt); });
+    var act = idStr(p.activeTraceId);
+    out.activeTraceId = act && out.traces.some(function (t) { return t.id === act; }) ? act : (out.traces[0] ? out.traces[0].id : null);
     return out;
   }
 
@@ -190,11 +311,13 @@
     for (i = 0; i < arr.length; i++) { var q = Math.round(arr[i] / sc); d[i] = q - prev; prev = q; }
     return { e: e, d: d };
   }
-  function unpackArray(a) {
-    if (Array.isArray(a)) return a.map(function (v) { return v == null ? NaN : +v; });
-    if (a && Array.isArray(a.d) && isNum(a.e)) { var sc = Math.pow(10, a.e), acc = 0; return a.d.map(function (v) { acc += +v; return +(acc * sc).toPrecision(12); }); }
+  var SHARE_POINT_BUDGET = 2e7; // total points a share link may expand to
+  function unpackArray(a, maxN) {
+    var lim = Math.max(0, Math.min(isNum(maxN) ? maxN : 5e6, 5e6));
+    if (Array.isArray(a)) return a.slice(0, lim).map(function (v) { return v == null ? NaN : +v; });
+    if (a && Array.isArray(a.d) && isNum(a.e) && Math.abs(a.e) < 400) { var sc = Math.pow(10, a.e), acc = 0; return a.d.slice(0, lim).map(function (v) { acc += +v; return +(acc * sc).toPrecision(12); }); }
     if (a && Array.isArray(a.u) && a.u.length === 3) {
-      var x0 = +a.u[0], dx = +a.u[1], n = Math.min(+a.u[2] | 0, 5e6), out = new Array(Math.max(n, 0));
+      var x0 = +a.u[0], dx = +a.u[1], n = Math.min(Math.floor(+a.u[2]) || 0, lim), out = new Array(Math.max(n, 0));
       for (var i = 0; i < n; i++) out[i] = x0 + i * dx; return out;
     }
     return [];
@@ -221,7 +344,11 @@
     if (!obj || typeof obj !== 'object' || obj.app !== 'Peakly') throw new Error('This link does not contain a Peakly project');
     var p = clone(obj);
     p.version = +obj.schema || +obj.version || 1; // share links before v1.1 carried no schema → v1 (migrated)
-    p.traces = (p.traces || []).map(function (t) { t.x = unpackArray(t.x); t.y = unpackArray(t.y); return t; });
+    if (p.traces != null && !Array.isArray(p.traces)) throw new Error('This link does not contain a Peakly project');
+    var budget = SHARE_POINT_BUDGET; // a crafted {u:[x0,dx,n]} could otherwise ask for billions of points
+    p.traces = (p.traces || []).filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); }).map(function (t) {
+      t.x = unpackArray(t.x, budget); budget -= t.x.length; t.y = unpackArray(t.y, budget); budget -= t.y.length; return t;
+    });
     p.images = {};
     return sanitizeProject(p);
   }
@@ -1010,7 +1137,7 @@
     return (t.derived || (t.meta && t.meta.derived)) ? 'dot' : 'solid';
   }
   app.DASHES = DASHES;
-  function unitTitle(u) { return u === 'min' ? 'Retention time (min)' : u === 'mL' ? 'Elution volume (mL)' : u === 'CV' ? 'Column volumes (CV)' : String(u);
+  function unitTitle(u) { return u === 'min' ? 'Retention time (min)' : u === 'mL' ? 'Elution volume (mL)' : u === 'CV' ? 'Column volumes (CV)' : ptxt(u); // Plotly axis title (escaped)
   }
   /** Vertical waterfall offsets for visible main traces (settings.stack = fraction of max |y|). */
   function stackOffsets(AX) {
@@ -1038,7 +1165,7 @@
   function imgDims(id) {
     var c = state.imgDims || (state.imgDims = {});
     if (c[id]) return c[id].w ? c[id] : null;
-    var src = P().images[id]; if (!src || !HAS_DOM || typeof Image === 'undefined') return null;
+    var src = safeImage(P().images[id]); if (!src || !HAS_DOM || typeof Image === 'undefined') return null;
     c[id] = {}; var im = new Image();
     im.onload = function () { c[id] = { w: im.naturalWidth, h: im.naturalHeight }; renderPlot(); renderPlotTools(); };
     im.src = src; return null;
@@ -1107,18 +1234,18 @@
       var ds = displaySeries(t, AX, stk), pr = ds.pr, aux = isAux(t), k = ds.k, off = ds.off, dy = ds.dy;
       var xs = ds.x, ys = ds.y, xa = ds.xa, ya = ds.ya; disp[t.id] = ds;
       if (xa === 'x2') hasX2 = true; if (ya === 'y2') hasY2 = true;
-      if (ya === 'y3') { hasY3 = true; var lb = (t.meta.role === 'pH' ? 'pH' : (t.meta.role.charAt(0).toUpperCase() + t.meta.role.slice(1) + ' (' + t.yUnit + ')')); if (y3Title.indexOf(lb) < 0) y3Title.push(lb); }
+      if (ya === 'y3') { hasY3 = true; var role = String(t.meta.role), lb = (role === 'pH' ? 'pH' : (role.charAt(0).toUpperCase() + role.slice(1) + ' (' + t.yUnit + ')')); if (y3Title.indexOf(lb) < 0) y3Title.push(lb); }
       if (ya === 'y') yUnits[t.yUnit] = 1;
       var isAct = act && t.id === act.id;
       var tm = xToMin(t, pr.x[pr.x.length - 1] + off); if (isNum(tm) && tm > xMaxMin) xMaxMin = tm;
-      data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, xaxis: xa, yaxis: ya, name: t.name + (t.digitized ? ' (digitized)' : ''),
+      data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, xaxis: xa, yaxis: ya, name: ptxt(t.name + (t.digitized ? ' (digitized)' : '')),
         line: { color: t.style.color, width: (t.style.width || 1.5) + (isAct && AX.mains.length > 1 && !opts.export ? 0.5 : 0), dash: traceDash(t, AX, aux) },
-        hovertemplate: '%{y:.4~g} ' + esc(k === 1 ? t.yUnit : 'norm.') + '<extra>' + esc(t.name).slice(0, 30) + '</extra>', _pkId: t.id, _pkOff: off });
+        hovertemplate: '%{y:.4~g} ' + ptxt(k === 1 ? t.yUnit : 'norm.') + '<extra>' + ptxt(String(t.name).slice(0, 30)) + '</extra>', _pkId: t.id, _pkOff: off });
       if (isAct && !aux && s.showRaw && pr.baseline && !opts.export) {
         data.push({ type: 'scatter', mode: 'lines', x: xs, y: pr.yRaw.map(function (v) { return v * k + dy; }), xaxis: xa, yaxis: ya, name: 'Raw', line: { color: col.muted, width: 1, dash: 'dot' }, hoverinfo: 'skip' });
         data.push({ type: 'scatter', mode: 'lines', x: xs, y: pr.baseline.map(function (v) { return v * k + dy; }), xaxis: xa, yaxis: ya, name: 'Baseline', line: { color: col.grad, width: 1.2, dash: 'dash' }, hoverinfo: 'skip' });
       }
-      var ext = ghostExtent(t), img = t.digitized && p.images[t.digitized.imageId];
+      var ext = ghostExtent(t), img = t.digitized && safeImage(p.images[t.digitized.imageId]);
       if (opts.includeGhost && ext && img && k === 1 && !dy && !aux) {
         images.push({ source: img, xref: xa, yref: 'y', x: ext.x0 + off, y: ext.y1, sizex: ext.x1 - ext.x0, sizey: ext.y1 - ext.y0, sizing: 'stretch', xanchor: 'left', yanchor: 'top', layer: 'below', opacity: num(s.ghost.opacity, 0.35) });
       }
@@ -1128,7 +1255,7 @@
         evs.forEach(function (ev) {
           if (!isNum(+ev.x)) return; var ex = +ev.x + off;
           shapes.push({ type: 'line', name: 'ev', xref: xa, yref: 'paper', x0: ex, x1: ex, y0: 0, y1: 0.035, line: { color: col.muted, width: 1 } });
-          if (evs.length <= 60 && ev.label) annotations.push({ xref: xa, yref: 'paper', x: ex, y: 0.04, text: esc(String(ev.label)).slice(0, 16), showarrow: false, textangle: -90, xanchor: 'center', yanchor: 'bottom', font: { size: 8, color: col.muted } });
+          if (evs.length <= 60 && ev.label) annotations.push({ xref: xa, yref: 'paper', x: ex, y: 0.04, text: ptxt(String(ev.label).slice(0, 16)), showarrow: false, textangle: -90, xanchor: 'center', yanchor: 'bottom', font: { size: 8, color: col.muted } });
         });
       }
     });
@@ -1221,7 +1348,7 @@
         if (top > 14 + 4 * step) top = 14;
         placed.push({ x: c.x, y: c.y, top: top });
         annMap[annotations.length] = { traceId: c.traceId, peakId: c.peakId, text: c.text };
-        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: esc(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -top,
+        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: ptxt(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -top,
           font: { size: lsize, color: labelTraces.length > 1 ? c.color : col.text }, bgcolor: 'rgba(0,0,0,0)', captureevents: true, hovertext: 'Click to rename this peak' });
       });
     }
@@ -1241,14 +1368,14 @@
       if (AX.mainUnit === 'mL') { if (fl) gx = gx.map(function (v) { return v * fl; }); else ok = false; }
       if (ok) {
         hasY2 = true;
-        data.push({ type: 'scatter', mode: 'lines', x: gx, y: gy, xaxis: 'x', yaxis: 'y2', name: 'Gradient ' + gradTitle, line: { color: col.grad, width: 1.3, dash: 'dash' }, hovertemplate: '%{y:.3~f} ' + esc(ci ? ci.unit : '%B') + '<extra>gradient</extra>' });
+        data.push({ type: 'scatter', mode: 'lines', x: gx, y: gy, xaxis: 'x', yaxis: 'y2', name: ptxt('Gradient ' + gradTitle), line: { color: col.grad, width: 1.3, dash: 'dash' }, hovertemplate: '%{y:.3~f} ' + ptxt(ci ? ci.unit : '%B') + '<extra>gradient</extra>' });
       }
     }
     var ys = Object.keys(yUnits), normLbl = { max: 'Normalized intensity (max = 1)', area: 'Normalized intensity (area = 1)' }[s.normalization];
     var named = data.filter(function (d) { return d.showlegend !== false && d.name && d.name !== 'Raw' && d.name !== 'Baseline'; }).length;
     var title = isDefaultTitle(p.name) ? '' : p.name, cap = s.caption !== false ? captionText() : '';
     var axisBase = { gridcolor: col.grid, showgrid: s.grid !== false, zeroline: false, linecolor: col.axis, linewidth: 1, tickcolor: col.axis, tickfont: { color: col.axis, size: 11 }, showline: true, ticks: 'outside', ticklen: 5, automargin: true, mirror: s.mirror ? 'ticks' : false, title: { font: { size: 12.5, color: col.axis } } };
-    if (cap) annotations.push({ xref: 'paper', yref: 'paper', x: 0, y: 0, xanchor: 'left', yanchor: 'top', yshift: -62, showarrow: false, align: 'left', text: esc(cap), font: { size: 10.5, color: col.muted }, _pkCaption: true });
+    if (cap) annotations.push({ xref: 'paper', yref: 'paper', x: 0, y: 0, xanchor: 'left', yanchor: 'top', yshift: -62, showarrow: false, align: 'left', text: ptxt(cap), font: { size: 10.5, color: col.muted }, _pkCaption: true });
     var gdW = (opts.export && opts.width) || (typeof document !== 'undefined' && document.getElementById('plot') && document.getElementById('plot').clientWidth) || 900, narrow = gdW < 640;
     // phones: horizontal legend above the plot; estimate wrapped rows from item widths (~6 px/char + swatch)
     var legendRows = 1, rowW = 0;
@@ -1257,21 +1384,21 @@
     });
     var layout = {
       paper_bgcolor: col.panel, plot_bgcolor: col.panel, font: { family: font, size: 12, color: col.text },
-      title: narrow ? { text: esc(title), x: 0.02, xanchor: 'left', y: 0.985, yref: 'container', yanchor: 'top', font: { size: 13, color: col.text } } : { text: esc(title), x: 0.5, xanchor: 'center', font: { size: 15, color: col.text } },
+      title: narrow ? { text: ptxt(title), x: 0.02, xanchor: 'left', y: 0.985, yref: 'container', yanchor: 'top', font: { size: 13, color: col.text } } : { text: ptxt(title), x: 0.5, xanchor: 'center', font: { size: 15, color: col.text } },
       margin: { l: narrow ? 52 : 64, r: hasY3 ? 72 : hasY2 ? 52 : 18, t: ((title || !opts.export) ? 44 : 14) + (hasX2 ? 36 : 0) + (narrow && named > 1 ? 19 * legendRows + 6 : 0), b: 48 + (cap ? 30 : 0) },
       hovermode: (state.cursorOn && !opts.export) ? false : 'x unified', hoverlabel: { bgcolor: '#ffffff', bordercolor: '#999', font: { color: '#000', size: 11 } },
       dragmode: 'zoom', uirevision: 'pk' + (state.uirev || 0), showlegend: named > 1,
       legend: narrow ? { orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom', bgcolor: col.legendBg, bordercolor: col.legendBorder, borderwidth: 1, font: { size: 10, color: col.text } } : { x: hasY2 || hasY3 ? 0.98 : 0.995, xanchor: 'right', y: 0.99, yanchor: 'top', bgcolor: col.legendBg, bordercolor: col.legendBorder, borderwidth: 1, font: { size: 11, color: col.text } },
       xaxis: mergeDeep(clone(axisBase), { title: { text: unitTitle(AX.mainUnit) }, domain: [0, hasY3 ? 0.92 : 1], anchor: 'y' }),
-      yaxis: mergeDeep(clone(axisBase), { showticklabels: !num(s.stack, 0), title: { text: (num(s.stack, 0) ? 'Stacked · ' : '') + (normLbl || (ys.length ? 'Absorbance (' + ys.join(', ') + ')' : 'Signal')) }, exponentformat: 'SI' }),
+      yaxis: mergeDeep(clone(axisBase), { showticklabels: !num(s.stack, 0), title: { text: (num(s.stack, 0) ? 'Stacked · ' : '') + (normLbl || (ys.length ? 'Absorbance (' + ptxt(ys.join(', ')) + ')' : 'Signal')) }, exponentformat: 'SI' }),
       shapes: shapes, images: images, annotations: annotations
     };
     if (ys.length && !/AU$/i.test(ys[0])) layout.yaxis.title.text = layout.yaxis.title.text.replace('Absorbance', 'Signal');
     if (opts.export) { layout.width = opts.width; layout.height = opts.height; }
     var xu2 = AX.vis.filter(function (t) { return t.xUnit !== AX.mainUnit; }).map(function (t) { return t.xUnit; })[0];
     if (hasX2) layout.xaxis2 = mergeDeep(clone(axisBase), { title: { text: unitTitle(xu2) }, overlaying: 'x', side: 'top', showgrid: false, anchor: 'y', mirror: false });
-    if (hasY2) layout.yaxis2 = mergeDeep(clone(axisBase), { title: { text: gradTitle }, overlaying: 'y', side: 'right', showgrid: false, anchor: 'x', mirror: false, range: ci ? undefined : [-2, 105] });
-    if (hasY3) layout.yaxis3 = mergeDeep(clone(axisBase), { title: { text: y3Title.join(' / ') }, overlaying: 'y', side: 'right', anchor: 'free', position: 1, showgrid: false, mirror: false });
+    if (hasY2) layout.yaxis2 = mergeDeep(clone(axisBase), { title: { text: ptxt(gradTitle) }, overlaying: 'y', side: 'right', showgrid: false, anchor: 'x', mirror: false, range: ci ? undefined : [-2, 105] });
+    if (hasY3) layout.yaxis3 = mergeDeep(clone(axisBase), { title: { text: ptxt(y3Title.join(' / ')) }, overlaying: 'y', side: 'right', anchor: 'free', position: 1, showgrid: false, mirror: false });
     var config = { responsive: true, scrollZoom: true, displaylogo: false, edits: { shapePosition: true, annotationText: true, titleText: true }, doubleClickDelay: 300,
       modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'], toImageButtonOptions: { format: 'png', filename: fileSafe(p.name), scale: 2 } };
     return { data: data, layout: layout, config: config };
@@ -2173,7 +2300,7 @@
   }
   function renderGradTable() {
     var tb = $('m-grad'); if (!tb) return; var g = P().method.gradient, ci = concInfo(P().method);
-    tb.innerHTML = '<thead><tr><th scope="col">Time (min)</th><th scope="col">%B' + (ci ? ' (' + ci.unit + ')' : '') + '</th><th scope="col">Flow (mL/min)</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
+    tb.innerHTML = '<thead><tr><th scope="col">Time (min)</th><th scope="col">%B' + (ci ? ' (' + esc(ci.unit) + ')' : '') + '</th><th scope="col">Flow (mL/min)</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
       (g.length ? g.map(function (r, i) {
         return '<tr><td><input type="number" step="any" data-g="' + i + '.t" value="' + esc(r.t) + '" aria-label="Row ' + (i + 1) + ' time"></td><td><input type="number" step="any" min="0" max="100" data-g="' + i + '.B" value="' + esc(r.B) + '" aria-label="Row ' + (i + 1) + ' percent B"></td>' +
           '<td><input type="number" step="any" min="0" data-g="' + i + '.flow" value="' + esc(r.flow == null ? '' : r.flow) + '" placeholder="' + esc(P().method.flow || '') + '" aria-label="Row ' + (i + 1) + ' flow"></td><td><button class="btn ghost sm icon danger" data-gdel="' + i + '" aria-label="Remove row ' + (i + 1) + '">&#10005;</button></td></tr>';
@@ -2710,11 +2837,12 @@
   }
   function readoutText(r, html) {
     var t = r.t, dig = t.digitized, xu = t.xUnit;
-    var parts = [(html ? '<b style="color:' + esc(t.style.color) + '">' + esc(t.name) + '</b>' : t.name),
-      (xu === 'min' ? 't' : 'x') + ' = ' + fmt(r.x, 5) + (dig ? ' ± ' + fmt(dig.dxMin, 2) : '') + ' ' + xu,
-      'y = ' + fmt(r.y, 5) + (dig ? ' ± ' + fmt(dig.dy, 2) : '') + ' ' + t.yUnit];
-    if (isNum(r.B)) parts.push(r.cunit ? fmt(r.conc, 4) + ' ' + r.cunit + ' (' + fmt(r.B, 3) + ' %B)' : fmt(r.B, 3) + ' %B');
-    return parts.map(function (p) { return html ? p : p; }).join(html ? ' · ' : ' · ');
+    var E = html ? esc : function (v) { return String(v); }; // HTML mode feeds innerHTML: escape every data-derived piece
+    var parts = [(html ? '<b style="color:' + esc(safeColor(t.style.color) || '#000') + '">' + esc(t.name) + '</b>' : t.name),
+      (xu === 'min' ? 't' : 'x') + ' = ' + fmt(r.x, 5) + (dig ? ' ± ' + fmt(dig.dxMin, 2) : '') + ' ' + E(xu),
+      'y = ' + fmt(r.y, 5) + (dig ? ' ± ' + fmt(dig.dy, 2) : '') + ' ' + E(t.yUnit)];
+    if (isNum(r.B)) parts.push(r.cunit ? fmt(r.conc, 4) + ' ' + E(r.cunit) + ' (' + fmt(r.B, 3) + ' %B)' : fmt(r.B, 3) + ' %B');
+    return parts.join(' · ');
   }
   function drawCursor() {
     var ov = ensureOverlay(); if (!ov) return;
@@ -2923,13 +3051,13 @@
     var keys = Object.keys(ev);
     if (keys.some(function (k) { return k.indexOf('shapes[') === 0; })) onShapeDrag();
     if (ev['title.text'] != null) {
-      var tt = String(ev['title.text']).replace(/<[^>]*>/g, '').trim();
+      var tt = String(ev['title.text']).replace(/<[^>]*>/g, '').replace(/&#123;/g, '{').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim();
       if (tt !== (isDefaultTitle(P().name) ? '' : P().name)) { app.pushUndo('Rename project'); p_setTitle(tt); renderPlot(); }
     }
     keys.forEach(function (k) {
       var mm = k.match(/^annotations\[(\d+)\]\.text$/); if (!mm) return;
       var info = state.annMap && state.annMap[+mm[1]]; if (!info) { renderPlot(); return; }
-      var txt = String(ev[k]).replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(), t = traceById(info.traceId);
+      var txt = String(ev[k]).replace(/<[^>]*>/g, '').replace(/&#123;/g, '{').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim(), t = traceById(info.traceId);
       if (!t) return;
       var pk = t.peaks.filter(function (q) { return q.id === info.peakId; })[0]; if (!pk) return;
       if (txt === info.text) return;
@@ -3292,15 +3420,15 @@
     }
     data.push({ type: 'scatter', mode: 'markers', x: inc.map(function (p) { return p.x; }), y: inc.map(function (p) { return p.y; }), customdata: inc.map(function (p) { return p.level; }), name: 'Standards (click to exclude)', marker: { size: 9, color: '#1f4fd8', line: { color: '#000', width: 1 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>included</extra>' });
     if (exc.length) data.push({ type: 'scatter', mode: 'markers', x: exc.map(function (p) { return p.x; }), y: exc.map(function (p) { return p.y; }), customdata: exc.map(function (p) { return p.level; }), name: 'Excluded (click to include)', marker: { size: 10, symbol: 'x-open', color: '#d62728', line: { width: 2 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>excluded</extra>' });
-    if (unk.length) data.push({ type: 'scatter', mode: 'markers', x: unk.map(function (u) { return u.q.x; }), y: unk.map(function (u) { return u.q.y; }), text: unk.map(function (u) { return u.t.name; }), name: 'Unknowns (± 95 %)', marker: { size: 11, symbol: 'diamond', color: '#ff7f0e', line: { color: '#000', width: 1 } },
+    if (unk.length) data.push({ type: 'scatter', mode: 'markers', x: unk.map(function (u) { return u.q.x; }), y: unk.map(function (u) { return u.q.y; }), text: unk.map(function (u) { return ptxt(u.t.name); }), name: 'Unknowns (± 95 %)', marker: { size: 11, symbol: 'diamond', color: '#ff7f0e', line: { color: '#000', width: 1 } },
       error_x: { type: 'data', symmetric: false, array: unk.map(function (u) { return isNum(u.q.hi) ? u.q.hi - u.q.x : 0; }), arrayminus: unk.map(function (u) { return isNum(u.q.lo) ? u.q.x - u.q.lo : 0; }), color: '#ff7f0e', thickness: 1.5 }, hovertemplate: '%{text}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>unknown</extra>' });
     var shapes = [];
     if (fit && isNum(fit.loq) && fit.loq > 0) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: fit.loq, x1: fit.loq, y0: 0, y1: 1, line: { color: '#7f7f7f', width: 1, dash: 'dot' } });
     var axis = { gridcolor: col.grid, zeroline: false, linecolor: '#000', tickcolor: '#000', showline: true, ticks: 'outside', automargin: true, tickfont: { color: '#000' } };
     var layout = { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 12, color: '#000' }, margin: { l: 60, r: 14, t: o.title ? 36 : 12, b: 46 },
-      title: o.title ? { text: esc(o.title), font: { size: 14 } } : undefined, showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#000', borderwidth: 1, font: { size: 10.5 } },
-      xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }),
-      yaxis: mergeDeep(clone(axis), { title: { text: 'Response: ' + (a.response === 'height' ? 'height' : 'area') + ' (' + respUnit(tr0, a) + ')' }, rangemode: 'tozero' }), shapes: shapes,
+      title: o.title ? { text: ptxt(o.title), font: { size: 14 } } : undefined, showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#000', borderwidth: 1, font: { size: 10.5 } },
+      xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + ptxt(unit) + ')' : '') }, rangemode: 'tozero' }),
+      yaxis: mergeDeep(clone(axis), { title: { text: 'Response: ' + (a.response === 'height' ? 'height' : 'area') + ' (' + ptxt(respUnit(tr0, a)) + ')' }, rangemode: 'tozero' }), shapes: shapes,
       annotations: fit && isNum(fit.loq) && fit.loq > 0 ? [{ x: fit.loq, y: 1, xref: 'x', yref: 'paper', text: 'LOQ', showarrow: false, xanchor: 'left', yanchor: 'top', font: { size: 10, color: '#555' } }] : [] };
     if (o.width) { layout.width = o.width; layout.height = o.height; }
     var resid = null;
@@ -3309,7 +3437,7 @@
       resid = { data: [{ type: 'scatter', mode: 'markers', x: rp.map(function (p) { return p.x; }), y: rp.map(function (p) { return p.y - fit.predict(p.x); }), customdata: rp.map(function (p) { return p.level; }),
         marker: { size: 8, color: rp.map(function (p) { return p.include ? '#1f4fd8' : '#d62728'; }), symbol: rp.map(function (p) { return p.include ? 'circle' : 'x-open'; }) }, hovertemplate: 'Level %{customdata}<br>residual %{y:.4~g}<extra></extra>', showlegend: false }],
         layout: { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 11, color: '#000' }, margin: { l: 60, r: 14, t: 8, b: 40 }, height: 170,
-          xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }), yaxis: mergeDeep(clone(axis), { title: { text: 'Residual' }, zeroline: true, zerolinecolor: '#000' }) } };
+          xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + ptxt(unit) + ')' : '') }, rangemode: 'tozero' }), yaxis: mergeDeep(clone(axis), { title: { text: 'Residual' }, zeroline: true, zerolinecolor: '#000' }) } };
     }
     return { data: data, layout: layout, resid: resid, config: { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'] } };
   }

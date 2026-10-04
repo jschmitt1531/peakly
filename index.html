@@ -3,6 +3,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Content-Security-Policy (see docs/SECURITY_AUDIT.md). build.js replaces the hash placeholder with the sha256 of every
+     inline script element, so no 'unsafe-inline' is needed for scripts. Third-party code may only come from the pinned library
+     paths below; the only network endpoint for data is the optional, user-started Claude call. A <meta> CSP cannot set
+     frame-ancestors, sandbox or report-uri: send those as HTTP headers when you host Peakly. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BfrvLYZXe322iRaOa2fKbMtc6/8/jgnwqjnLgHZ1F/s=' 'sha256-YTkalBJ/QqXmEFRL+vvo/1nbe0cV0ziszMSFCFnJ+PY=' 'sha256-qktlRePbcnK9goJsaBjRbMJLnARJCFt/lOYvRuel7Zg=' https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peakly</title>
 <meta name="description" content="Peakly: a free HPLC/FPLC chromatogram analyzer that runs entirely in your browser. Import vendor exports or digitize a chromatogram image, then detect, integrate and fit peaks, overlay runs and export reports. No accounts, no tracking, no uploads.">
@@ -12,6 +18,11 @@
   /* Record CDN failures so the app can explain what is unavailable. */
   window.__pkCdnFail = [];
   window.__pkCdn = function (name) { window.__pkCdnFail.push(name); };
+  /* No inline event-handler attributes (the CSP forbids them): a capturing listener sees <script src> load failures. */
+  window.addEventListener('error', function (e) {
+    var t = e && e.target;
+    if (t && t.tagName === 'SCRIPT' && t.getAttribute('data-pk-lib')) window.__pkCdn(t.getAttribute('data-pk-lib'));
+  }, true);
   /* Apply theme before first paint to avoid a flash. */
   (function () {
     var t = null;
@@ -20,12 +31,12 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous" onerror="__pkCdn('Plotly')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" onerror="__pkCdn('SheetJS')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" integrity="sha384-rNlaE5fs9dGIjmxWDALQh/RBAaGRYT5ChrzHo6tRfgrZ36iRFAiquP5g41Jsv+0j" crossorigin="anonymous" onerror="__pkCdn('pako')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous" onerror="__pkCdn('LZString')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" onerror="__pkCdn('jsPDF')"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" onerror="__pkCdn('pdf.js')"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous" data-pk-lib="Plotly"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" data-pk-lib="SheetJS"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" integrity="sha384-rNlaE5fs9dGIjmxWDALQh/RBAaGRYT5ChrzHo6tRfgrZ36iRFAiquP5g41Jsv+0j" crossorigin="anonymous" data-pk-lib="pako"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous" data-pk-lib="LZString"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" data-pk-lib="jsPDF"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous" data-pk-lib="pdf.js"></script>
 <style>
 :root {
   --bg: #f4f6f9; --panel: #ffffff; --panel-2: #eef1f6; --text: #0f172a; --muted: #5b6577;
@@ -620,7 +631,7 @@ footer.foot .spacer { flex: 1; }
     if (a !== 0 && (a >= 1e6 || a < 1e-3)) return v.toExponential(Math.max(1, digits - 1));
     return Number(v.toPrecision(digits)).toString();
   };
-  U.escapeHtml = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  U.escapeHtml = function (s) { return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]; }); };
   U.downloadBlob = function (blob, filename) {
     if (typeof document === 'undefined') return;
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
@@ -634,6 +645,51 @@ footer.foot .spacer { flex: 1; }
     });
   };
   U.deepClone = function (o) { return JSON.parse(JSON.stringify(o)); };
+
+  /* ---- untrusted-input helpers (see docs/SECURITY_AUDIT.md) ---- */
+  /** Keys that must never be copied from untrusted JSON (prototype pollution). */
+  U.isSafeKey = function (k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; };
+  /** Deep copy of JSON-like data with __proto__/constructor/prototype keys dropped, functions/undefined dropped,
+      typed arrays turned into plain arrays and nesting cut at `maxDepth` (default 64; deeper values become null). */
+  U.stripUnsafeKeys = function (v, maxDepth) {
+    maxDepth = maxDepth == null ? 64 : maxDepth;
+    function walk(o, d) {
+      if (o === null || typeof o === 'string' || typeof o === 'number' || typeof o === 'boolean') return o;
+      if (typeof o !== 'object') return undefined;
+      if (d > maxDepth) return null;
+      if (Array.isArray(o)) { var a = new Array(o.length); for (var i = 0; i < o.length; i++) { var w = walk(o[i], d + 1); a[i] = w === undefined ? null : w; } return a; }
+      if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(o)) return Array.prototype.slice.call(o);
+      var out = {};
+      Object.keys(o).forEach(function (k) { if (!U.isSafeKey(k)) return; var w = walk(o[k], d + 1); if (w !== undefined) out[k] = w; });
+      return out;
+    }
+    return walk(v, 0);
+  };
+  /** String coercion with a length cap (objects/arrays/functions → fallback). */
+  U.safeString = function (v, max, fallback) {
+    if (v == null || (typeof v === 'object') || typeof v === 'function') return fallback === undefined ? '' : fallback;
+    var s = String(v); return max && s.length > max ? s.slice(0, max) : s;
+  };
+  /** Image data URL accepted from project files: base64 PNG/JPEG/WebP/GIF only. Anything else (http:, javascript:,
+      SVG, text/html…) → null, so it can never become an <img src> or a Plotly layout image. */
+  U.SAFE_IMAGE_RE = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/;
+  U.safeDataImage = function (s) { return typeof s === 'string' && s.length < 64e6 && U.SAFE_IMAGE_RE.test(s) ? s : null; };
+  /** CSS/Plotly color from untrusted data: #rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/rgba() with numbers, or a plain
+      color keyword. Anything else → null (prevents CSS injection through style="background:…"). */
+  U.safeColor = function (c) {
+    if (typeof c !== 'string') return null;
+    var s = c.trim();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s)) return s;
+    if (/^rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\)$/i.test(s)) return s;
+    if (/^[a-z]{3,20}$/i.test(s)) return s;
+    return null;
+  };
+  /** Text for Plotly names, titles, annotations and hover templates. Plotly renders a subset of HTML (<a href>, <b>,
+      <span style>…) in these strings, and `%{…}` is a template token in hovertemplate. Escape &, <, > and break `%{`
+      with a numeric entity (Plotly decodes it back to "{" for display). */
+  U.plotlyText = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }).replace(/%\{/g, '%&#123;');
+  };
 
   PK.palette = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569'];
 
@@ -783,7 +839,8 @@ footer.foot .spacer { flex: 1; }
   S.migrate = function (obj, opts) {
     opts = opts || {};
     if (!isObj(obj)) throw new Error('Not a Peakly project');
-    var p = clone(obj), from = isNum(+p.version) && +p.version > 0 ? +p.version : 1, changes = [];
+    // untrusted JSON: deep copy without __proto__/constructor/prototype keys (prototype-pollution guard)
+    var p = PK.util && PK.util.stripUnsafeKeys ? PK.util.stripUnsafeKeys(obj) : clone(obj), from = isNum(+p.version) && +p.version > 0 ? +p.version : 1, changes = [];
     if (from > VERSION) return opts.report ? { project: p, from: from, to: from, changes: [] } : p;
     if (from < 2) {
       p.settings = isObj(p.settings) ? p.settings : {};
@@ -2340,7 +2397,7 @@ footer.foot .spacer { flex: 1; }
   function isDataRows(rows) { var r = rows[0]; return !!(r && typeof r === 'object' && !Array.isArray(r) && 'x' in r && 'y' in r && ('trace_id' in r || 'trace_name' in r)); }
   // Long-format data rows [{trace_id, trace_name, x, y}] (PK.schema.dataRows) -> one trace per trace_id.
   function dataRowsToTraces(rows, units) {
-    var by = {}, order = [];
+    var by = Object.create(null), order = []; // keys come from the file ("__proto__", "constructor"…): no prototype
     rows.forEach(function (r) {
       if (!r) return; var k = r.trace_id != null ? r.trace_id : r.trace_name;
       if (!by[k]) { by[k] = { name: r.trace_name || String(k), id: r.trace_id, x: [], y: [] }; order.push(k); }
@@ -2351,7 +2408,7 @@ footer.foot .spacer { flex: 1; }
   // Peak table export: rows reference traces by trace_id/trace_name (or traceId/traceName/trace). Rows are attached as
   // imported peaks to the traces embedded in the same document (traces[] or long-format data rows), if any.
   function parsePeakTable(obj, rows) {
-    var traces = [], units = {};
+    var traces = [], units = Object.create(null);
     rows.forEach(function (r) { if (r && (r.trace_id != null || r.trace_name != null)) units[r.trace_id != null ? r.trace_id : r.trace_name] = { x: r.x_unit, y: r.y_unit }; });
     (Array.isArray(obj.traces) ? obj.traces : []).forEach(function (o, i) { var t = jsonTrace(o, (o && o.name) || 'Trace ' + (i + 1)); if (t && t.x.length) { t._key = [o.id, o.name, t.name]; traces.push(t); } });
     if (!traces.length && Array.isArray(obj.data) && isDataRows(obj.data)) traces = dataRowsToTraces(obj.data, units);
@@ -2721,7 +2778,7 @@ footer.foot .spacer { flex: 1; }
       p += pad4(n * sz); return out;
     }
     function attList() {
-      var tag = u32(), n = u32(), a = {};
+      var tag = u32(), n = u32(), a = Object.create(null); // names come from the file: no prototype to pollute
       if (tag === 0) return a; if (tag !== 12) throw new Error('bad attribute list tag ' + tag + '.');
       for (var i = 0; i < n; i++) { var nm = name(), t = u32(), k = u32(); a[nm] = values(t, k); }
       return a;
@@ -2733,7 +2790,7 @@ footer.foot .spacer { flex: 1; }
     p = 4;
     var numrecs = u32(), dims = [], tag = u32(), n = u32(), i;
     if (tag === 10) for (i = 0; i < n; i++) dims.push({ name: name(), len: u32() }); else if (tag !== 0) throw new Error('bad dimension list tag ' + tag + '.');
-    var attrs = attList(), vars = {}, order = [];
+    var attrs = attList(), vars = Object.create(null), order = [];
     tag = u32(); n = u32();
     if (tag === 11) for (i = 0; i < n; i++) {
       var vn = name(), nd = u32(), ids = []; for (var k = 0; k < nd; k++) ids.push(u32());
@@ -5164,6 +5221,8 @@ footer.foot .spacer { flex: 1; }
   };
 
   function numOrNull(v) { var n = typeof v === 'string' ? parseFloat(v) : v; return typeof n === 'number' && isFinite(n) ? n : null; }
+  /** Strings from the (untrusted) model response: primitives only, length-capped, else null. */
+  function str(v, max) { if (v == null || typeof v === 'object' || typeof v === 'function') return null; var s = String(v).slice(0, max || 500); return s === '' ? null : s; }
   // Normalise Claude's JSON; rescale pixel coords from the sent image (sentW×sentH) to the full image (fullW×fullH).
   D._normalizeClaude = function (obj, sentW, sentH, fullW, fullH) {
     obj = obj || {};
@@ -5176,16 +5235,16 @@ footer.foot .spacer { flex: 1; }
         if (v == null || p == null) return null;
         var r = { value: v, approxPxFrac: p / (dim || 1) }; r[key] = p * k; return r;
       }).filter(Boolean);
-      return { label: a.label || null, unit: a.unit || null, scale: /log/i.test(a.scale || '') ? 'log' : 'linear', ticks: ticks };
+      return { label: str(a.label, 200), unit: str(a.unit, 40), scale: /log/i.test(str(a.scale, 20) || '') ? 'log' : 'linear', ticks: ticks };
     }
     var pb = obj.plotBox || obj.plotFrame || null, plotBox = null;
     if (pb && [pb.left, pb.top, pb.right, pb.bottom].every(function (v) { return numOrNull(v) != null; }))
       plotBox = { left: pb.left * kx, top: pb.top * ky, right: pb.right * kx, bottom: pb.bottom * ky };
     return {
-      title: obj.title || null, plotBox: plotBox,
+      title: str(obj.title, 300), plotBox: plotBox,
       xAxis: ax(obj.xAxis, 'px', kx, iw), yAxis: ax(obj.yAxis, 'py', ky, ih),
-      traces: (Array.isArray(obj.traces) ? obj.traces : []).map(function (t) { return { label: t && t.label || null, color: t && hexToRgb(t.color) ? rgbToHex(hexToRgb(t.color)) : null }; }),
-      peaks: (Array.isArray(obj.peaks) ? obj.peaks : []).map(function (p) { var rt = numOrNull(p && p.rt); return rt == null ? null : { rt: rt, areaPct: numOrNull(p.areaPct), label: p.label || p.name || null }; }).filter(Boolean),
+      traces: (Array.isArray(obj.traces) ? obj.traces : []).slice(0, 20).map(function (t) { return { label: str(t && t.label, 200), color: t && hexToRgb(t.color) ? rgbToHex(hexToRgb(t.color)) : null }; }),
+      peaks: (Array.isArray(obj.peaks) ? obj.peaks : []).slice(0, 500).map(function (p) { var rt = numOrNull(p && p.rt); return rt == null ? null : { rt: rt, areaPct: numOrNull(p.areaPct), label: str(p.label, 200) || str(p.name, 200) }; }).filter(Boolean),
       sentSize: { w: iw, h: ih }, scale: { x: kx, y: ky }
     };
   };
@@ -5564,7 +5623,8 @@ footer.foot .spacer { flex: 1; }
   function loadPdf(buf, name) {
     if (typeof pdfjsLib === 'undefined') return Promise.reject(new Error('PDF support (pdf.js) is not loaded. Export the figure as PNG/JPEG instead.'));
     try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) { /* ignore */ }
-    return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (doc) {
+    // isEvalSupported:false: pdf.js would otherwise probe `new Function` (blocked by the CSP) to compile PostScript functions
+    return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise.then(function (doc) {
       S.pdf = { doc: doc, page: 1, pages: doc.numPages, name: name };
       return renderPdfPage(1);
     });
@@ -5695,7 +5755,8 @@ footer.foot .spacer { flex: 1; }
   /* ---------------- extraction ---------------- */
   function addTrace(hex, name, mode) {
     var i = S.traces.length;
-    S.traces.push({ id: PK.uid('dg'), name: name || ('Trace ' + (i + 1)), hex: hex || PK.palette[i % PK.palette.length], mode: mode || 'color', tol: mode === 'dark' ? 110 : 80, extract: 'centroid', result: null });
+    var rgb = hexToRgb(hex); // colours may come from the Claude response: normalize to #rrggbb before they reach style=""
+    S.traces.push({ id: PK.uid('dg'), name: String(name || ('Trace ' + (i + 1))), hex: rgb ? rgbToHex(rgb) : PK.palette[i % PK.palette.length], mode: mode || 'color', tol: mode === 'dark' ? 110 : 80, extract: 'centroid', result: null });
     S.active = S.traces.length - 1;
   }
   function scheduleExtract() { clearTimeout(S.extractTimer); S.extractTimer = setTimeout(runExtraction, 60); }
@@ -5914,7 +5975,7 @@ footer.foot .spacer { flex: 1; }
   }
   function drawMiniPlot() {
     var el = document.getElementById('pkd-mini'); if (!el) return;
-    var data = S.traces.filter(function (t) { return t.result; }).map(function (t) { return { x: t.result.x, y: t.result.y, name: t.name + ' (digitized)', mode: 'lines', line: { color: t.mode === 'dark' ? '#444' : t.hex, width: 1.5 } }; });
+    var data = S.traces.filter(function (t) { return t.result; }).map(function (t) { return { x: t.result.x, y: t.result.y, name: PK.util.plotlyText(t.name + ' (digitized)'), mode: 'lines', line: { color: t.mode === 'dark' ? '#444' : t.hex, width: 1.5 } }; });
     if (typeof Plotly !== 'undefined') {
       var cs = getComputedStyle(S.el.body);
       try { Plotly.react(el, data, { margin: { l: 40, r: 8, t: 6, b: 30 }, showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: cs.getPropertyValue('--text') || '#333' }, xaxis: { title: { text: 'min' } } }, { displayModeBar: false, responsive: true }); } catch (e) { /* ignore */ }
@@ -6453,15 +6514,135 @@ footer.foot .spacer { flex: 1; }
         clipDefault: 'drop', askClip: true, lineStyles: false },
       activeTraceId: null };
   }
+  function isSafeKey(k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; }
+  /** Recursive merge of plain objects. Never copies __proto__/constructor/prototype (prototype-pollution guard). */
   function mergeDeep(dst, src) {
     if (!src || typeof src !== 'object') return dst;
     Object.keys(src).forEach(function (k) {
+      if (!isSafeKey(k)) return;
       var v = src[k];
       if (v && typeof v === 'object' && !Array.isArray(v) && dst[k] && typeof dst[k] === 'object' && !Array.isArray(dst[k])) mergeDeep(dst[k], v);
       else if (v !== undefined) dst[k] = v;
     });
     return dst;
   }
+  /* ------------------------------------------------------------------ untrusted-input sanitizers (pure)
+     Everything that comes from a project file, share link, parser or paste is coerced to the documented types here, so
+     render code never sees objects where it expects strings, markup-bearing numbers, or prototype-polluting keys. */
+  var MAX_NAME = 1000, MAX_UNIT = 64, MAX_TEXT = 20000, MAX_ID = 200;
+  function strip(o) { return U.stripUnsafeKeys ? U.stripUnsafeKeys(o) : clone(o); }
+  function sStr(v, max, fb) {
+    if (U.safeString) return U.safeString(v, max, fb);
+    if (v == null || typeof v === 'object' || typeof v === 'function') return fb === undefined ? '' : fb;
+    return String(v).slice(0, max || 1e9);
+  }
+  function nOr(v, d) { var n = typeof v === 'string' && v.trim() !== '' ? +v : v; return isNum(n) ? n : d; }
+  function bOr(v, d) { return typeof v === 'boolean' ? v : d; }
+  function oneOf(v, list, d) { return list.indexOf(v) >= 0 ? v : d; }
+  function isPlain(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+  function idStr(v) { return v == null || typeof v === 'object' || typeof v === 'function' ? null : (String(v).slice(0, MAX_ID) || null); }
+  function safeColor(c) { return U.safeColor ? U.safeColor(c) : (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : null); }
+  function safeImage(s) { return U.safeDataImage ? U.safeDataImage(s) : (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/.test(String(s || '')) ? s : null); }
+  /** Plotly-safe text (names, titles, annotations, hover templates). */
+  function ptxt(s) { return U.plotlyText ? U.plotlyText(s) : esc(s); }
+  app.ptxt = ptxt;
+  function sanitizeRun(r) {
+    var out = {}; if (!isPlain(r)) return out;
+    RUN_FIELDS.forEach(function (f) { var v = sStr(r[f[0]], MAX_TEXT); if (v !== '') out[f[0]] = v; });
+    return out;
+  }
+  function sanitizeProc(pr, n) {
+    var d = defaultProc(n); pr = isPlain(pr) ? pr : {};
+    var s = isPlain(pr.smooth) ? pr.smooth : {}, b = isPlain(pr.baseline) ? pr.baseline : {}, k = isPlain(pr.peaks) ? pr.peaks : {};
+    var lam = nOr(b.lambda, NaN), thr = k.threshold === 'auto' ? NaN : nOr(k.threshold, NaN);
+    var out = {
+      smooth: { on: bOr(s.on, d.smooth.on), window: Math.round(U.clamp(nOr(s.window, d.smooth.window), 3, 1001)), order: Math.round(U.clamp(nOr(s.order, d.smooth.order), 0, 10)) },
+      baseline: { on: bOr(b.on, d.baseline.on), lambda: lam > 0 ? lam : d.baseline.lambda, lambdaAuto: bOr(b.lambdaAuto, d.baseline.lambdaAuto),
+        p: U.clamp(nOr(b.p, d.baseline.p), 1e-6, 0.5), iter: Math.round(U.clamp(nOr(b.iter, d.baseline.iter), 1, 100)) },
+      peaks: { threshold: isNum(thr) ? thr : 'auto', minDist: Math.max(0, nOr(k.minDist, d.peaks.minDist)), minWidth: Math.max(0, nOr(k.minWidth, d.peaks.minWidth)), auto: bOr(k.auto, d.peaks.auto) }
+    };
+    if (b.lambda != null && !(lam > 0)) out.baseline.lambdaAuto = true; // garbage λ → automatic
+    return out;
+  }
+  app.sanitizeProc = sanitizeProc;
+  function sanitizeDigitized(dg) {
+    if (!isPlain(dg)) return false;
+    var o = strip(dg);
+    o.dxMin = nOr(dg.dxMin, null); o.dy = nOr(dg.dy, null); o.imageId = idStr(dg.imageId);
+    o.printedPeaks = (Array.isArray(dg.printedPeaks) ? dg.printedPeaks : []).filter(isPlain).map(function (q) {
+      var r = { rt: nOr(q.rt, NaN) }, a = nOr(q.areaPct, NaN), l = sStr(q.label, 200);
+      if (isNum(a)) r.areaPct = a; if (l) r.label = l; return r;
+    }).filter(function (q) { return isNum(q.rt); });
+    o.warnings = (Array.isArray(dg.warnings) ? dg.warnings : []).map(function (w) { return sStr(w, 500); }).filter(Boolean);
+    if (o.imageMissing != null) o.imageMissing = !!o.imageMissing;
+    return o;
+  }
+  function sanitizeFit(f) {
+    if (!isPlain(f)) return null;
+    var o = strip(f);
+    o.model = oneOf(f.model, ['gaussian', 'emg'], 'gaussian');
+    o.components = Array.isArray(o.components) ? o.components.filter(isPlain) : [];
+    o.components.forEach(function (c) { if (c.id != null) c.id = idStr(c.id); });
+    o.peakIds = Array.isArray(o.peakIds) ? o.peakIds.map(idStr) : [];
+    ['r2', 'rss', 'dof'].forEach(function (k) { if (o[k] != null) o[k] = nOr(o[k], null); });
+    if (o.converged != null) o.converged = o.converged !== false;
+    if (!isPlain(o.curve)) o.curve = null;
+    return o;
+  }
+  function sanitizeMeta(m) {
+    var o = isPlain(m) ? strip(m) : {};
+    if (o.role != null) { var r = sStr(o.role, MAX_UNIT); if (r) o.role = r; else delete o.role; }
+    if (o.run != null) o.run = sanitizeRun(o.run);
+    if (o.events != null && !Array.isArray(o.events)) delete o.events;
+    return o;
+  }
+  function sanitizeSource(s) {
+    var o = isPlain(s) ? strip(s) : { kind: 'file' };
+    ['kind', 'format', 'filename'].forEach(function (k) { if (o[k] != null) { var v = sStr(o[k], k === 'kind' ? 32 : 500); if (v) o[k] = v; else delete o[k]; } });
+    if (!o.kind) o.kind = 'file';
+    return o;
+  }
+  function sanitizeMethod(m) {
+    m = isPlain(m) ? m : {};
+    var c = isPlain(m.column) ? m.column : {}, out = blankMethod();
+    out.name = sStr(m.name, MAX_NAME); out.mode = oneOf(m.mode, ['linear', 'step'], 'linear');
+    out.solventA = sStr(m.solventA, MAX_NAME); out.solventB = sStr(m.solventB, MAX_NAME);
+    out.gradientType = oneOf(m.gradientType, ['organic', 'salt', 'imidazole', 'isocratic'], 'organic');
+    out.bConcUnit = sStr(m.bConcUnit, 16) || 'mM';
+    ['bufferPH', 'bMaxConc', 'aConc', 'flow', 'dwellVolume_mL', 'wavelength_nm', 'temperature_C', 'voidTime_min'].forEach(function (k) { out[k] = nOr(m[k], null); });
+    if (out.aConc === null) delete out.aConc;
+    out.column = { name: sStr(c.name, MAX_NAME), length_mm: nOr(c.length_mm, null), id_mm: nOr(c.id_mm, null), particle_um: nOr(c.particle_um, null), porosity: nOr(c.porosity, 0.65) };
+    out.notes = sStr(m.notes, MAX_TEXT); out.run = sanitizeRun(m.run);
+    out.gradient = Array.isArray(m.gradient) ? m.gradient : [];
+    return out;
+  }
+  app.sanitizeMethod = sanitizeMethod;
+  var LABEL_MODES = ['auto', 'name', 'rt', 'name+rt', 'area', 'none'];
+  function sanitizeSettings(s, base) {
+    s = isPlain(s) ? s : {};
+    var o = base, lb = isPlain(s.labels) ? s.labels : {}, gh = isPlain(s.ghost) ? s.ghost : {};
+    o.normalization = oneOf(s.normalization, ['none', 'max', 'area'], o.normalization);
+    ['showGradient', 'showRaw', 'grid', 'mirror', 'darkPlot', 'caption', 'gradientIncludeVoid', 'snapAll', 'askClip', 'lineStyles', 'showEvents'].forEach(function (k) { if (typeof s[k] === 'boolean') o[k] = s[k]; });
+    o.ghost = { show: bOr(gh.show, o.ghost.show), opacity: U.clamp(nOr(gh.opacity, o.ghost.opacity), 0, 1) };
+    o.labels = { mode: oneOf(lb.mode, LABEL_MODES, o.labels.mode), size: U.clamp(nOr(lb.size, o.labels.size), 6, 24), all: bOr(lb.all, o.labels.all) };
+    o.alignRef = idStr(s.alignRef); o.compareRef = idStr(s.compareRef);
+    o.differenceOf = Array.isArray(s.differenceOf) && s.differenceOf.length === 2 ? s.differenceOf.map(idStr) : null;
+    o.stack = U.clamp(nOr(s.stack, o.stack), 0, 1); o.compareTol = nOr(s.compareTol, 0) > 0 ? nOr(s.compareTol, 0.1) : o.compareTol;
+    o.compareLabels = (Array.isArray(s.compareLabels) ? s.compareLabels : []).filter(isPlain).map(function (l) { return { rt: nOr(l.rt, NaN), label: sStr(l.label, 200) }; })
+      .filter(function (l) { return isNum(l.rt) && l.label; });
+    o.fitModel = oneOf(s.fitModel, ['gaussian', 'emg'], o.fitModel);
+    o.clipDefault = oneOf(s.clipDefault, CLIP_MODES, o.clipDefault);
+    return o;
+  }
+  app.sanitizeSettings = function (s) { return sanitizeSettings(s, emptyProject().settings); };
+  /** Image map from a project file: keys are ids, values must be base64 PNG/JPEG/WebP/GIF data URLs. */
+  function sanitizeImages(im) {
+    var out = {}; if (!isPlain(im)) return out;
+    Object.keys(im).forEach(function (k) { if (!isSafeKey(k)) return; var id = idStr(k), v = safeImage(im[k]); if (id && v) out[id] = v; });
+    return out;
+  }
+  app.sanitizeImages = sanitizeImages;
+
   var colorCounter = 0;
   function nextColor(project) {
     var pal = APP_PALETTE;
@@ -6479,36 +6660,38 @@ footer.foot .spacer { flex: 1; }
     var sorted = true;
     for (var j = 1; j < pts.length; j++) if (pts[j][0] < pts[j - 1][0]) { sorted = false; break; }
     if (!sorted) pts.sort(function (a, b) { return a[0] - b[0]; });
+    var st = isPlain(t.style) ? t.style : {};
     var out = {
-      id: t.id || (PK.uid ? PK.uid('tr') : 'tr_' + Math.random().toString(36).slice(2)),
-      name: String(t.name || 'Trace'),
+      id: idStr(t.id) || (PK.uid ? PK.uid('tr') : 'tr_' + Math.random().toString(36).slice(2)),
+      name: sStr(t.name, MAX_NAME) || 'Trace',
       x: pts.map(function (p) { return p[0]; }), y: pts.map(function (p) { return p[1]; }),
-      xUnit: t.xUnit || 'min', yUnit: t.yUnit || 'a.u.',
-      source: t.source && typeof t.source === 'object' ? t.source : { kind: 'file' },
-      digitized: t.digitized && typeof t.digitized === 'object' ? t.digitized : false,
-      meta: t.meta && typeof t.meta === 'object' ? t.meta : {},
-      style: mergeDeep({ color: null, visible: true, width: 1.5, offset: 0 }, t.style || {}),
-      proc: mergeDeep(defaultProc(pts.length), t.proc || {}),
-      peaks: toArr(t.peaks).filter(function (p) { return p && isNum(+p.start) && isNum(+p.end); }).map(function (p) {
-        var o = { id: p.id || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
-        if (p.manual) o.manual = true; if (p.label != null && String(p.label).trim()) o.label = String(p.label);
+      xUnit: sStr(t.xUnit, MAX_UNIT) || 'min', yUnit: sStr(t.yUnit, MAX_UNIT) || 'a.u.',
+      source: sanitizeSource(t.source),
+      digitized: sanitizeDigitized(t.digitized),
+      meta: sanitizeMeta(t.meta),
+      style: { color: safeColor(st.color), visible: st.visible !== false, width: U.clamp(nOr(st.width, 1.5), 0.1, 20), offset: nOr(st.offset, 0) },
+      proc: sanitizeProc(t.proc, pts.length),
+      peaks: toArr(t.peaks).filter(function (p) { return isPlain(p) && isNum(+p.start) && isNum(+p.end) && p.start !== null && p.end !== null; }).map(function (p) {
+        var o = { id: idStr(p.id) || (PK.uid ? PK.uid('pk') : 'pk_' + Math.random().toString(36).slice(2)), start: +p.start, apex: isNum(+p.apex) && p.apex !== null ? +p.apex : (+p.start + +p.end) / 2, end: +p.end };
+        var lbl = sStr(p.label, 200);
+        if (p.manual) o.manual = true; if (lbl.trim()) o.label = lbl;
         if (CLIP_MODES.indexOf(p.clip) >= 0) o.clip = p.clip;
         // peaks reported by another tool (chromatoPy, MOCCA2…): kept as manual peaks so detection never replaces them
-        var src = p.importedFrom || (p.source && p.source !== 'peakly' ? p.source : null);
-        if (src) { o.manual = true; o.importedFrom = String(src); var ia = p.importedArea != null ? p.importedArea : p.area, ise = p.importedAreaSE != null ? p.importedAreaSE : p.areaSE;
+        var src = sStr(p.importedFrom, 64) || (p.source && p.source !== 'peakly' ? sStr(p.source, 64) : '');
+        if (src) { o.manual = true; o.importedFrom = src; var ia = p.importedArea != null ? p.importedArea : p.area, ise = p.importedAreaSE != null ? p.importedAreaSE : p.areaSE;
           if (isNum(+ia) && ia !== null) o.importedArea = +ia; if (isNum(+ise) && ise !== null) o.importedAreaSE = +ise; }
         return o;
       }),
-      fit: t.fit && typeof t.fit === 'object' ? t.fit : null
+      fit: sanitizeFit(t.fit)
     };
-    if (t.derived) out.derived = t.derived;
+    if (t.derived) out.derived = isPlain(t.derived) ? strip(t.derived) : true;
     if (out.meta.xIsVolume && out.xUnit === 'min') out.xUnit = 'mL';
     if (out.xUnit === 'minutes' || out.xUnit === 'minute') out.xUnit = 'min';
     // colors handed out by other modules from PK.palette are treated as unassigned → publication palette
     var pkp = (PK.palette || []).map(function (c) { return String(c).toLowerCase(); });
     var taken = (project ? project.traces : []).some(function (o) { return o.id !== out.id && String(o.style && o.style.color).toLowerCase() === String(out.style.color).toLowerCase(); });
     if (!out.style.color || taken || (pkp.indexOf(String(out.style.color).toLowerCase()) >= 0 && APP_PALETTE.indexOf(out.style.color) < 0)) out.style.color = nextColor(project);
-    var bl = t.proc && t.proc.baseline, explicitLam = bl && bl.lambda != null && bl.lambdaAuto !== true;
+    var bl = t.proc && t.proc.baseline, explicitLam = bl && nOr(bl.lambda, NaN) > 0 && bl.lambdaAuto !== true;
     if (explicitLam) out.proc.baseline.lambdaAuto = false;
     if (out.proc.baseline.lambdaAuto) out.proc.baseline.lambda = autoLambda(out.x.length);
     if (!out.meta.run || typeof out.meta.run !== 'object') out.meta.run = runFromMeta(out.meta);
@@ -6518,25 +6701,24 @@ footer.foot .spacer { flex: 1; }
 
   /** Validate and fill a project object (from file/share/undo). Throws on garbage. */
   function sanitizeProject(p) {
-    if (!p || typeof p !== 'object') throw new Error('Not a Peakly project');
+    if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('Not a Peakly project');
     if (p.traces != null && !Array.isArray(p.traces)) throw new Error('Project traces must be an array');
+    p = strip(p); // untrusted JSON: drop __proto__/constructor/prototype keys everywhere before anything reads it
     var from = +p.version || 1, mig = null;
     if (SCH && SCH.migrate && from < PROJECT_VERSION) { mig = SCH.migrate(p, { report: true }); p = mig.project; }
     if (from > PROJECT_VERSION) throw new Error('This project was saved by a newer Peakly (format v' + from + '). Update Peakly to open it.');
     var out = emptyProject();
     app.lastMigration = mig && mig.from < mig.to ? mig : null;
-    out.name = p.name ? String(p.name) : out.name;
-    out.method = mergeDeep(blankMethod(), p.method || {});
-    if (!Array.isArray(out.method.gradient)) out.method.gradient = [];
-    if (!out.method.run || typeof out.method.run !== 'object') out.method.run = {};
-    out.method.gradient = out.method.gradient.filter(function (r) { return r && isNum(+r.t) && isNum(+r.B); })
+    out.name = sStr(p.name, MAX_NAME) || out.name;
+    out.method = sanitizeMethod(p.method);
+    out.method.gradient = out.method.gradient.filter(function (r) { return isPlain(r) && isNum(+r.t) && isNum(+r.B) && r.t !== null && r.B !== null; })
       .map(function (r) { return { t: +r.t, B: +r.B, flow: isNum(+r.flow) && r.flow !== null && r.flow !== '' ? +r.flow : null }; });
-    out.settings = mergeDeep(out.settings, p.settings || {});
-    out.images = p.images && typeof p.images === 'object' ? p.images : {};
-    if (CLIP_MODES.indexOf(out.settings.clipDefault) < 0) out.settings.clipDefault = 'drop';
-    out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (p.calibration && typeof p.calibration === 'object' ? p.calibration : blankCalibration());
-    (p.traces || []).forEach(function (t) { out.traces.push(normalizeTrace(t, out)); });
-    out.activeTraceId = p.activeTraceId && out.traces.some(function (t) { return t.id === p.activeTraceId; }) ? p.activeTraceId : (out.traces[0] ? out.traces[0].id : null);
+    out.settings = sanitizeSettings(p.settings, out.settings);
+    out.images = sanitizeImages(p.images);
+    out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (isPlain(p.calibration) ? p.calibration : blankCalibration());
+    (p.traces || []).forEach(function (t) { var nt = normalizeTrace(t, out); delete nt.meta._src; out.traces.push(nt); });
+    var act = idStr(p.activeTraceId);
+    out.activeTraceId = act && out.traces.some(function (t) { return t.id === act; }) ? act : (out.traces[0] ? out.traces[0].id : null);
     return out;
   }
 
@@ -6560,11 +6742,13 @@ footer.foot .spacer { flex: 1; }
     for (i = 0; i < arr.length; i++) { var q = Math.round(arr[i] / sc); d[i] = q - prev; prev = q; }
     return { e: e, d: d };
   }
-  function unpackArray(a) {
-    if (Array.isArray(a)) return a.map(function (v) { return v == null ? NaN : +v; });
-    if (a && Array.isArray(a.d) && isNum(a.e)) { var sc = Math.pow(10, a.e), acc = 0; return a.d.map(function (v) { acc += +v; return +(acc * sc).toPrecision(12); }); }
+  var SHARE_POINT_BUDGET = 2e7; // total points a share link may expand to
+  function unpackArray(a, maxN) {
+    var lim = Math.max(0, Math.min(isNum(maxN) ? maxN : 5e6, 5e6));
+    if (Array.isArray(a)) return a.slice(0, lim).map(function (v) { return v == null ? NaN : +v; });
+    if (a && Array.isArray(a.d) && isNum(a.e) && Math.abs(a.e) < 400) { var sc = Math.pow(10, a.e), acc = 0; return a.d.slice(0, lim).map(function (v) { acc += +v; return +(acc * sc).toPrecision(12); }); }
     if (a && Array.isArray(a.u) && a.u.length === 3) {
-      var x0 = +a.u[0], dx = +a.u[1], n = Math.min(+a.u[2] | 0, 5e6), out = new Array(Math.max(n, 0));
+      var x0 = +a.u[0], dx = +a.u[1], n = Math.min(Math.floor(+a.u[2]) || 0, lim), out = new Array(Math.max(n, 0));
       for (var i = 0; i < n; i++) out[i] = x0 + i * dx; return out;
     }
     return [];
@@ -6591,7 +6775,11 @@ footer.foot .spacer { flex: 1; }
     if (!obj || typeof obj !== 'object' || obj.app !== 'Peakly') throw new Error('This link does not contain a Peakly project');
     var p = clone(obj);
     p.version = +obj.schema || +obj.version || 1; // share links before v1.1 carried no schema → v1 (migrated)
-    p.traces = (p.traces || []).map(function (t) { t.x = unpackArray(t.x); t.y = unpackArray(t.y); return t; });
+    if (p.traces != null && !Array.isArray(p.traces)) throw new Error('This link does not contain a Peakly project');
+    var budget = SHARE_POINT_BUDGET; // a crafted {u:[x0,dx,n]} could otherwise ask for billions of points
+    p.traces = (p.traces || []).filter(function (t) { return t && typeof t === 'object' && !Array.isArray(t); }).map(function (t) {
+      t.x = unpackArray(t.x, budget); budget -= t.x.length; t.y = unpackArray(t.y, budget); budget -= t.y.length; return t;
+    });
     p.images = {};
     return sanitizeProject(p);
   }
@@ -7380,7 +7568,7 @@ footer.foot .spacer { flex: 1; }
     return (t.derived || (t.meta && t.meta.derived)) ? 'dot' : 'solid';
   }
   app.DASHES = DASHES;
-  function unitTitle(u) { return u === 'min' ? 'Retention time (min)' : u === 'mL' ? 'Elution volume (mL)' : u === 'CV' ? 'Column volumes (CV)' : String(u);
+  function unitTitle(u) { return u === 'min' ? 'Retention time (min)' : u === 'mL' ? 'Elution volume (mL)' : u === 'CV' ? 'Column volumes (CV)' : ptxt(u); // Plotly axis title (escaped)
   }
   /** Vertical waterfall offsets for visible main traces (settings.stack = fraction of max |y|). */
   function stackOffsets(AX) {
@@ -7408,7 +7596,7 @@ footer.foot .spacer { flex: 1; }
   function imgDims(id) {
     var c = state.imgDims || (state.imgDims = {});
     if (c[id]) return c[id].w ? c[id] : null;
-    var src = P().images[id]; if (!src || !HAS_DOM || typeof Image === 'undefined') return null;
+    var src = safeImage(P().images[id]); if (!src || !HAS_DOM || typeof Image === 'undefined') return null;
     c[id] = {}; var im = new Image();
     im.onload = function () { c[id] = { w: im.naturalWidth, h: im.naturalHeight }; renderPlot(); renderPlotTools(); };
     im.src = src; return null;
@@ -7477,18 +7665,18 @@ footer.foot .spacer { flex: 1; }
       var ds = displaySeries(t, AX, stk), pr = ds.pr, aux = isAux(t), k = ds.k, off = ds.off, dy = ds.dy;
       var xs = ds.x, ys = ds.y, xa = ds.xa, ya = ds.ya; disp[t.id] = ds;
       if (xa === 'x2') hasX2 = true; if (ya === 'y2') hasY2 = true;
-      if (ya === 'y3') { hasY3 = true; var lb = (t.meta.role === 'pH' ? 'pH' : (t.meta.role.charAt(0).toUpperCase() + t.meta.role.slice(1) + ' (' + t.yUnit + ')')); if (y3Title.indexOf(lb) < 0) y3Title.push(lb); }
+      if (ya === 'y3') { hasY3 = true; var role = String(t.meta.role), lb = (role === 'pH' ? 'pH' : (role.charAt(0).toUpperCase() + role.slice(1) + ' (' + t.yUnit + ')')); if (y3Title.indexOf(lb) < 0) y3Title.push(lb); }
       if (ya === 'y') yUnits[t.yUnit] = 1;
       var isAct = act && t.id === act.id;
       var tm = xToMin(t, pr.x[pr.x.length - 1] + off); if (isNum(tm) && tm > xMaxMin) xMaxMin = tm;
-      data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, xaxis: xa, yaxis: ya, name: t.name + (t.digitized ? ' (digitized)' : ''),
+      data.push({ type: 'scatter', mode: 'lines', x: xs, y: ys, xaxis: xa, yaxis: ya, name: ptxt(t.name + (t.digitized ? ' (digitized)' : '')),
         line: { color: t.style.color, width: (t.style.width || 1.5) + (isAct && AX.mains.length > 1 && !opts.export ? 0.5 : 0), dash: traceDash(t, AX, aux) },
-        hovertemplate: '%{y:.4~g} ' + esc(k === 1 ? t.yUnit : 'norm.') + '<extra>' + esc(t.name).slice(0, 30) + '</extra>', _pkId: t.id, _pkOff: off });
+        hovertemplate: '%{y:.4~g} ' + ptxt(k === 1 ? t.yUnit : 'norm.') + '<extra>' + ptxt(String(t.name).slice(0, 30)) + '</extra>', _pkId: t.id, _pkOff: off });
       if (isAct && !aux && s.showRaw && pr.baseline && !opts.export) {
         data.push({ type: 'scatter', mode: 'lines', x: xs, y: pr.yRaw.map(function (v) { return v * k + dy; }), xaxis: xa, yaxis: ya, name: 'Raw', line: { color: col.muted, width: 1, dash: 'dot' }, hoverinfo: 'skip' });
         data.push({ type: 'scatter', mode: 'lines', x: xs, y: pr.baseline.map(function (v) { return v * k + dy; }), xaxis: xa, yaxis: ya, name: 'Baseline', line: { color: col.grad, width: 1.2, dash: 'dash' }, hoverinfo: 'skip' });
       }
-      var ext = ghostExtent(t), img = t.digitized && p.images[t.digitized.imageId];
+      var ext = ghostExtent(t), img = t.digitized && safeImage(p.images[t.digitized.imageId]);
       if (opts.includeGhost && ext && img && k === 1 && !dy && !aux) {
         images.push({ source: img, xref: xa, yref: 'y', x: ext.x0 + off, y: ext.y1, sizex: ext.x1 - ext.x0, sizey: ext.y1 - ext.y0, sizing: 'stretch', xanchor: 'left', yanchor: 'top', layer: 'below', opacity: num(s.ghost.opacity, 0.35) });
       }
@@ -7498,7 +7686,7 @@ footer.foot .spacer { flex: 1; }
         evs.forEach(function (ev) {
           if (!isNum(+ev.x)) return; var ex = +ev.x + off;
           shapes.push({ type: 'line', name: 'ev', xref: xa, yref: 'paper', x0: ex, x1: ex, y0: 0, y1: 0.035, line: { color: col.muted, width: 1 } });
-          if (evs.length <= 60 && ev.label) annotations.push({ xref: xa, yref: 'paper', x: ex, y: 0.04, text: esc(String(ev.label)).slice(0, 16), showarrow: false, textangle: -90, xanchor: 'center', yanchor: 'bottom', font: { size: 8, color: col.muted } });
+          if (evs.length <= 60 && ev.label) annotations.push({ xref: xa, yref: 'paper', x: ex, y: 0.04, text: ptxt(String(ev.label).slice(0, 16)), showarrow: false, textangle: -90, xanchor: 'center', yanchor: 'bottom', font: { size: 8, color: col.muted } });
         });
       }
     });
@@ -7591,7 +7779,7 @@ footer.foot .spacer { flex: 1; }
         if (top > 14 + 4 * step) top = 14;
         placed.push({ x: c.x, y: c.y, top: top });
         annMap[annotations.length] = { traceId: c.traceId, peakId: c.peakId, text: c.text };
-        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: esc(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -top,
+        annotations.push({ xref: c.xa, yref: 'y', x: c.x, y: c.y, text: ptxt(c.text), showarrow: true, arrowhead: 0, arrowwidth: 0.7, arrowcolor: col.muted, ax: 0, ay: -top,
           font: { size: lsize, color: labelTraces.length > 1 ? c.color : col.text }, bgcolor: 'rgba(0,0,0,0)', captureevents: true, hovertext: 'Click to rename this peak' });
       });
     }
@@ -7611,14 +7799,14 @@ footer.foot .spacer { flex: 1; }
       if (AX.mainUnit === 'mL') { if (fl) gx = gx.map(function (v) { return v * fl; }); else ok = false; }
       if (ok) {
         hasY2 = true;
-        data.push({ type: 'scatter', mode: 'lines', x: gx, y: gy, xaxis: 'x', yaxis: 'y2', name: 'Gradient ' + gradTitle, line: { color: col.grad, width: 1.3, dash: 'dash' }, hovertemplate: '%{y:.3~f} ' + esc(ci ? ci.unit : '%B') + '<extra>gradient</extra>' });
+        data.push({ type: 'scatter', mode: 'lines', x: gx, y: gy, xaxis: 'x', yaxis: 'y2', name: ptxt('Gradient ' + gradTitle), line: { color: col.grad, width: 1.3, dash: 'dash' }, hovertemplate: '%{y:.3~f} ' + ptxt(ci ? ci.unit : '%B') + '<extra>gradient</extra>' });
       }
     }
     var ys = Object.keys(yUnits), normLbl = { max: 'Normalized intensity (max = 1)', area: 'Normalized intensity (area = 1)' }[s.normalization];
     var named = data.filter(function (d) { return d.showlegend !== false && d.name && d.name !== 'Raw' && d.name !== 'Baseline'; }).length;
     var title = isDefaultTitle(p.name) ? '' : p.name, cap = s.caption !== false ? captionText() : '';
     var axisBase = { gridcolor: col.grid, showgrid: s.grid !== false, zeroline: false, linecolor: col.axis, linewidth: 1, tickcolor: col.axis, tickfont: { color: col.axis, size: 11 }, showline: true, ticks: 'outside', ticklen: 5, automargin: true, mirror: s.mirror ? 'ticks' : false, title: { font: { size: 12.5, color: col.axis } } };
-    if (cap) annotations.push({ xref: 'paper', yref: 'paper', x: 0, y: 0, xanchor: 'left', yanchor: 'top', yshift: -62, showarrow: false, align: 'left', text: esc(cap), font: { size: 10.5, color: col.muted }, _pkCaption: true });
+    if (cap) annotations.push({ xref: 'paper', yref: 'paper', x: 0, y: 0, xanchor: 'left', yanchor: 'top', yshift: -62, showarrow: false, align: 'left', text: ptxt(cap), font: { size: 10.5, color: col.muted }, _pkCaption: true });
     var gdW = (opts.export && opts.width) || (typeof document !== 'undefined' && document.getElementById('plot') && document.getElementById('plot').clientWidth) || 900, narrow = gdW < 640;
     // phones: horizontal legend above the plot; estimate wrapped rows from item widths (~6 px/char + swatch)
     var legendRows = 1, rowW = 0;
@@ -7627,21 +7815,21 @@ footer.foot .spacer { flex: 1; }
     });
     var layout = {
       paper_bgcolor: col.panel, plot_bgcolor: col.panel, font: { family: font, size: 12, color: col.text },
-      title: narrow ? { text: esc(title), x: 0.02, xanchor: 'left', y: 0.985, yref: 'container', yanchor: 'top', font: { size: 13, color: col.text } } : { text: esc(title), x: 0.5, xanchor: 'center', font: { size: 15, color: col.text } },
+      title: narrow ? { text: ptxt(title), x: 0.02, xanchor: 'left', y: 0.985, yref: 'container', yanchor: 'top', font: { size: 13, color: col.text } } : { text: ptxt(title), x: 0.5, xanchor: 'center', font: { size: 15, color: col.text } },
       margin: { l: narrow ? 52 : 64, r: hasY3 ? 72 : hasY2 ? 52 : 18, t: ((title || !opts.export) ? 44 : 14) + (hasX2 ? 36 : 0) + (narrow && named > 1 ? 19 * legendRows + 6 : 0), b: 48 + (cap ? 30 : 0) },
       hovermode: (state.cursorOn && !opts.export) ? false : 'x unified', hoverlabel: { bgcolor: '#ffffff', bordercolor: '#999', font: { color: '#000', size: 11 } },
       dragmode: 'zoom', uirevision: 'pk' + (state.uirev || 0), showlegend: named > 1,
       legend: narrow ? { orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom', bgcolor: col.legendBg, bordercolor: col.legendBorder, borderwidth: 1, font: { size: 10, color: col.text } } : { x: hasY2 || hasY3 ? 0.98 : 0.995, xanchor: 'right', y: 0.99, yanchor: 'top', bgcolor: col.legendBg, bordercolor: col.legendBorder, borderwidth: 1, font: { size: 11, color: col.text } },
       xaxis: mergeDeep(clone(axisBase), { title: { text: unitTitle(AX.mainUnit) }, domain: [0, hasY3 ? 0.92 : 1], anchor: 'y' }),
-      yaxis: mergeDeep(clone(axisBase), { showticklabels: !num(s.stack, 0), title: { text: (num(s.stack, 0) ? 'Stacked · ' : '') + (normLbl || (ys.length ? 'Absorbance (' + ys.join(', ') + ')' : 'Signal')) }, exponentformat: 'SI' }),
+      yaxis: mergeDeep(clone(axisBase), { showticklabels: !num(s.stack, 0), title: { text: (num(s.stack, 0) ? 'Stacked · ' : '') + (normLbl || (ys.length ? 'Absorbance (' + ptxt(ys.join(', ')) + ')' : 'Signal')) }, exponentformat: 'SI' }),
       shapes: shapes, images: images, annotations: annotations
     };
     if (ys.length && !/AU$/i.test(ys[0])) layout.yaxis.title.text = layout.yaxis.title.text.replace('Absorbance', 'Signal');
     if (opts.export) { layout.width = opts.width; layout.height = opts.height; }
     var xu2 = AX.vis.filter(function (t) { return t.xUnit !== AX.mainUnit; }).map(function (t) { return t.xUnit; })[0];
     if (hasX2) layout.xaxis2 = mergeDeep(clone(axisBase), { title: { text: unitTitle(xu2) }, overlaying: 'x', side: 'top', showgrid: false, anchor: 'y', mirror: false });
-    if (hasY2) layout.yaxis2 = mergeDeep(clone(axisBase), { title: { text: gradTitle }, overlaying: 'y', side: 'right', showgrid: false, anchor: 'x', mirror: false, range: ci ? undefined : [-2, 105] });
-    if (hasY3) layout.yaxis3 = mergeDeep(clone(axisBase), { title: { text: y3Title.join(' / ') }, overlaying: 'y', side: 'right', anchor: 'free', position: 1, showgrid: false, mirror: false });
+    if (hasY2) layout.yaxis2 = mergeDeep(clone(axisBase), { title: { text: ptxt(gradTitle) }, overlaying: 'y', side: 'right', showgrid: false, anchor: 'x', mirror: false, range: ci ? undefined : [-2, 105] });
+    if (hasY3) layout.yaxis3 = mergeDeep(clone(axisBase), { title: { text: ptxt(y3Title.join(' / ')) }, overlaying: 'y', side: 'right', anchor: 'free', position: 1, showgrid: false, mirror: false });
     var config = { responsive: true, scrollZoom: true, displaylogo: false, edits: { shapePosition: true, annotationText: true, titleText: true }, doubleClickDelay: 300,
       modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'], toImageButtonOptions: { format: 'png', filename: fileSafe(p.name), scale: 2 } };
     return { data: data, layout: layout, config: config };
@@ -8543,7 +8731,7 @@ footer.foot .spacer { flex: 1; }
   }
   function renderGradTable() {
     var tb = $('m-grad'); if (!tb) return; var g = P().method.gradient, ci = concInfo(P().method);
-    tb.innerHTML = '<thead><tr><th scope="col">Time (min)</th><th scope="col">%B' + (ci ? ' (' + ci.unit + ')' : '') + '</th><th scope="col">Flow (mL/min)</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
+    tb.innerHTML = '<thead><tr><th scope="col">Time (min)</th><th scope="col">%B' + (ci ? ' (' + esc(ci.unit) + ')' : '') + '</th><th scope="col">Flow (mL/min)</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead><tbody>' +
       (g.length ? g.map(function (r, i) {
         return '<tr><td><input type="number" step="any" data-g="' + i + '.t" value="' + esc(r.t) + '" aria-label="Row ' + (i + 1) + ' time"></td><td><input type="number" step="any" min="0" max="100" data-g="' + i + '.B" value="' + esc(r.B) + '" aria-label="Row ' + (i + 1) + ' percent B"></td>' +
           '<td><input type="number" step="any" min="0" data-g="' + i + '.flow" value="' + esc(r.flow == null ? '' : r.flow) + '" placeholder="' + esc(P().method.flow || '') + '" aria-label="Row ' + (i + 1) + ' flow"></td><td><button class="btn ghost sm icon danger" data-gdel="' + i + '" aria-label="Remove row ' + (i + 1) + '">&#10005;</button></td></tr>';
@@ -9080,11 +9268,12 @@ footer.foot .spacer { flex: 1; }
   }
   function readoutText(r, html) {
     var t = r.t, dig = t.digitized, xu = t.xUnit;
-    var parts = [(html ? '<b style="color:' + esc(t.style.color) + '">' + esc(t.name) + '</b>' : t.name),
-      (xu === 'min' ? 't' : 'x') + ' = ' + fmt(r.x, 5) + (dig ? ' ± ' + fmt(dig.dxMin, 2) : '') + ' ' + xu,
-      'y = ' + fmt(r.y, 5) + (dig ? ' ± ' + fmt(dig.dy, 2) : '') + ' ' + t.yUnit];
-    if (isNum(r.B)) parts.push(r.cunit ? fmt(r.conc, 4) + ' ' + r.cunit + ' (' + fmt(r.B, 3) + ' %B)' : fmt(r.B, 3) + ' %B');
-    return parts.map(function (p) { return html ? p : p; }).join(html ? ' · ' : ' · ');
+    var E = html ? esc : function (v) { return String(v); }; // HTML mode feeds innerHTML: escape every data-derived piece
+    var parts = [(html ? '<b style="color:' + esc(safeColor(t.style.color) || '#000') + '">' + esc(t.name) + '</b>' : t.name),
+      (xu === 'min' ? 't' : 'x') + ' = ' + fmt(r.x, 5) + (dig ? ' ± ' + fmt(dig.dxMin, 2) : '') + ' ' + E(xu),
+      'y = ' + fmt(r.y, 5) + (dig ? ' ± ' + fmt(dig.dy, 2) : '') + ' ' + E(t.yUnit)];
+    if (isNum(r.B)) parts.push(r.cunit ? fmt(r.conc, 4) + ' ' + E(r.cunit) + ' (' + fmt(r.B, 3) + ' %B)' : fmt(r.B, 3) + ' %B');
+    return parts.join(' · ');
   }
   function drawCursor() {
     var ov = ensureOverlay(); if (!ov) return;
@@ -9293,13 +9482,13 @@ footer.foot .spacer { flex: 1; }
     var keys = Object.keys(ev);
     if (keys.some(function (k) { return k.indexOf('shapes[') === 0; })) onShapeDrag();
     if (ev['title.text'] != null) {
-      var tt = String(ev['title.text']).replace(/<[^>]*>/g, '').trim();
+      var tt = String(ev['title.text']).replace(/<[^>]*>/g, '').replace(/&#123;/g, '{').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim();
       if (tt !== (isDefaultTitle(P().name) ? '' : P().name)) { app.pushUndo('Rename project'); p_setTitle(tt); renderPlot(); }
     }
     keys.forEach(function (k) {
       var mm = k.match(/^annotations\[(\d+)\]\.text$/); if (!mm) return;
       var info = state.annMap && state.annMap[+mm[1]]; if (!info) { renderPlot(); return; }
-      var txt = String(ev[k]).replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(), t = traceById(info.traceId);
+      var txt = String(ev[k]).replace(/<[^>]*>/g, '').replace(/&#123;/g, '{').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim(), t = traceById(info.traceId);
       if (!t) return;
       var pk = t.peaks.filter(function (q) { return q.id === info.peakId; })[0]; if (!pk) return;
       if (txt === info.text) return;
@@ -9662,15 +9851,15 @@ footer.foot .spacer { flex: 1; }
     }
     data.push({ type: 'scatter', mode: 'markers', x: inc.map(function (p) { return p.x; }), y: inc.map(function (p) { return p.y; }), customdata: inc.map(function (p) { return p.level; }), name: 'Standards (click to exclude)', marker: { size: 9, color: '#1f4fd8', line: { color: '#000', width: 1 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>included</extra>' });
     if (exc.length) data.push({ type: 'scatter', mode: 'markers', x: exc.map(function (p) { return p.x; }), y: exc.map(function (p) { return p.y; }), customdata: exc.map(function (p) { return p.level; }), name: 'Excluded (click to include)', marker: { size: 10, symbol: 'x-open', color: '#d62728', line: { width: 2 } }, hovertemplate: 'Level %{customdata}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>excluded</extra>' });
-    if (unk.length) data.push({ type: 'scatter', mode: 'markers', x: unk.map(function (u) { return u.q.x; }), y: unk.map(function (u) { return u.q.y; }), text: unk.map(function (u) { return u.t.name; }), name: 'Unknowns (± 95 %)', marker: { size: 11, symbol: 'diamond', color: '#ff7f0e', line: { color: '#000', width: 1 } },
+    if (unk.length) data.push({ type: 'scatter', mode: 'markers', x: unk.map(function (u) { return u.q.x; }), y: unk.map(function (u) { return u.q.y; }), text: unk.map(function (u) { return ptxt(u.t.name); }), name: 'Unknowns (± 95 %)', marker: { size: 11, symbol: 'diamond', color: '#ff7f0e', line: { color: '#000', width: 1 } },
       error_x: { type: 'data', symmetric: false, array: unk.map(function (u) { return isNum(u.q.hi) ? u.q.hi - u.q.x : 0; }), arrayminus: unk.map(function (u) { return isNum(u.q.lo) ? u.q.x - u.q.lo : 0; }), color: '#ff7f0e', thickness: 1.5 }, hovertemplate: '%{text}<br>x = %{x:.4~g}<br>y = %{y:.5~g}<extra>unknown</extra>' });
     var shapes = [];
     if (fit && isNum(fit.loq) && fit.loq > 0) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: fit.loq, x1: fit.loq, y0: 0, y1: 1, line: { color: '#7f7f7f', width: 1, dash: 'dot' } });
     var axis = { gridcolor: col.grid, zeroline: false, linecolor: '#000', tickcolor: '#000', showline: true, ticks: 'outside', automargin: true, tickfont: { color: '#000' } };
     var layout = { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 12, color: '#000' }, margin: { l: 60, r: 14, t: o.title ? 36 : 12, b: 46 },
-      title: o.title ? { text: esc(o.title), font: { size: 14 } } : undefined, showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#000', borderwidth: 1, font: { size: 10.5 } },
-      xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }),
-      yaxis: mergeDeep(clone(axis), { title: { text: 'Response: ' + (a.response === 'height' ? 'height' : 'area') + ' (' + respUnit(tr0, a) + ')' }, rangemode: 'tozero' }), shapes: shapes,
+      title: o.title ? { text: ptxt(o.title), font: { size: 14 } } : undefined, showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#000', borderwidth: 1, font: { size: 10.5 } },
+      xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + ptxt(unit) + ')' : '') }, rangemode: 'tozero' }),
+      yaxis: mergeDeep(clone(axis), { title: { text: 'Response: ' + (a.response === 'height' ? 'height' : 'area') + ' (' + ptxt(respUnit(tr0, a)) + ')' }, rangemode: 'tozero' }), shapes: shapes,
       annotations: fit && isNum(fit.loq) && fit.loq > 0 ? [{ x: fit.loq, y: 1, xref: 'x', yref: 'paper', text: 'LOQ', showarrow: false, xanchor: 'left', yanchor: 'top', font: { size: 10, color: '#555' } }] : [] };
     if (o.width) { layout.width = o.width; layout.height = o.height; }
     var resid = null;
@@ -9679,7 +9868,7 @@ footer.foot .spacer { flex: 1; }
       resid = { data: [{ type: 'scatter', mode: 'markers', x: rp.map(function (p) { return p.x; }), y: rp.map(function (p) { return p.y - fit.predict(p.x); }), customdata: rp.map(function (p) { return p.level; }),
         marker: { size: 8, color: rp.map(function (p) { return p.include ? '#1f4fd8' : '#d62728'; }), symbol: rp.map(function (p) { return p.include ? 'circle' : 'x-open'; }) }, hovertemplate: 'Level %{customdata}<br>residual %{y:.4~g}<extra></extra>', showlegend: false }],
         layout: { paper_bgcolor: '#fff', plot_bgcolor: '#fff', font: { family: 'Arial, Helvetica, sans-serif', size: 11, color: '#000' }, margin: { l: 60, r: 14, t: 8, b: 40 }, height: 170,
-          xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + unit + ')' : '') }, rangemode: 'tozero' }), yaxis: mergeDeep(clone(axis), { title: { text: 'Residual' }, zeroline: true, zerolinecolor: '#000' }) } };
+          xaxis: mergeDeep(clone(axis), { title: { text: 'Concentration' + (unit ? ' (' + ptxt(unit) + ')' : '') }, rangemode: 'tozero' }), yaxis: mergeDeep(clone(axis), { title: { text: 'Residual' }, zeroline: true, zerolinecolor: '#000' }) } };
     }
     return { data: data, layout: layout, resid: resid, config: { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toggleSpikelines'] } };
   }
@@ -11212,6 +11401,198 @@ footer.foot .spacer { flex: 1; }
     var n = PK.schema.normalizeCalibration({ unit: 'mM', analytes: [{ name: 'X', model: 'bogus', levels: [{ conc: '5', response: '12', include: false }, 'junk'] }] });
     t.eq(n.analytes[0].model, 'linear', 'bad model → linear'); t.eq(n.analytes[0].levels.length, 1, 'junk level dropped');
     t.eq(n.analytes[0].levels[0].conc, 5, 'conc number'); t.eq(n.analytes[0].levels[0].response, 12, 'response number'); t.eq(n.analytes[0].levels[0].include, false, 'include kept');
+  });
+})(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
+
+/* ==== tests/security.test.js ==== */
+/* SPDX-License-Identifier: MIT */
+/* Security regression tests (pure, no DOM): escaping, prototype-pollution guards, project/share-link sanitizing, image and
+   colour allow-lists, bounded share-link expansion, Claude-response normalizing. See docs/SECURITY_AUDIT.md. */
+(function (PK) {
+  'use strict';
+  // tests/run.js does not load app.js; load it here when running under Node (no DOM is touched at load time).
+  function ensureApp() {
+    if (PK.app && PK.app.sanitizeProject) return true;
+    try {
+      var gb = typeof process !== 'undefined' && process.getBuiltinModule;
+      if (!gb) return false;
+      var fs = gb('fs'), path = gb('path'), vm = gb('vm');
+      var f = path.join(path.dirname(process.argv[1]), '..', 'src', 'app.js');
+      vm.runInThisContext(fs.readFileSync(f, 'utf8'), { filename: f });
+      return !!(PK.app && PK.app.sanitizeProject);
+    } catch (e) { return false; }
+  }
+  var ID_LZ = { compressToEncodedURIComponent: function (s) { return encodeURIComponent(s); }, decompressFromEncodedURIComponent: function (s) { try { return decodeURIComponent(s); } catch (e) { return null; } } };
+  var IMG = '<img src=x onerror="window.__pwned=1">', SVG = '"><svg onload="window.__pwned=1">', JS = 'javascript:window.__pwned=1';
+  var A_TAG = '<a href="javascript:window.__pwned=1">x</a>', TPL = '%{y}%{customdata}<extra>%{fullData.name}</extra>';
+  function protoClean() {
+    var o = {};
+    return o.polluted === undefined && o.polluted2 === undefined && o.pollutedMeta === undefined && o.pollutedMig === undefined && o.pollutedSet === undefined;
+  }
+  function hasOwn(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  /** Hostile project as JSON text: "__proto__" must be a literal JSON key (an object literal would set the prototype). */
+  function hostileJSON() {
+    var x = [], y = [];
+    for (var i = 0; i < 200; i++) { x.push(i * 0.05); y.push(100 * Math.exp(-Math.pow((i * 0.05 - 5) / 0.2, 2)) + 1); }
+    var p = {
+      app: 'Peakly', version: 2, name: IMG + A_TAG, activeTraceId: { evil: 1 },
+      method: { name: IMG, notes: SVG, bConcUnit: IMG, gradientType: 'salt', bMaxConc: 500, flow: '1"><b>', wavelength_nm: SVG, column: { name: SVG, length_mm: '150' },
+        gradient: [{ t: 0, B: 5 }, { t: 10, B: '95' }, { t: SVG, B: 1 }], run: { sampleName: IMG, notes: { nested: 1 }, bogus: IMG }, PROTO: { pollutedMig: 1 } },
+      settings: { PROTO: { polluted: 1 }, constructor: { prototype: { polluted2: 1 } }, labels: { mode: IMG, size: SVG, all: 'yes' }, stack: SVG, compareTol: SVG,
+        compareLabels: [{ rt: 1, label: IMG }, { rt: SVG, label: 'x' }], ghost: { opacity: SVG }, normalization: IMG, clipDefault: IMG, fitModel: IMG, differenceOf: [{ a: 1 }, 'b'] },
+      calibration: { unit: IMG, analytes: [{ id: SVG, name: IMG, peakMatch: { rt: '5', tol: SVG }, levels: [{ conc: 1, response: 10, label: IMG }] }] },
+      images: { a: 'data:image/png;base64,iVBORw0KGgo=', b: 'data:image/svg+xml;base64,PHN2Zz4=', c: JS, d: 'https://evil.example/x.png', e: 'data:text/html;base64,PHNjcmlwdD4=', PROTO: 'data:image/png;base64,AAAA' },
+      traces: [{
+        id: 'tr1', name: IMG + TPL, x: x, y: y, xUnit: { toString: 1 }, yUnit: SVG,
+        source: { kind: IMG, filename: IMG + '.csv', format: { nested: true } },
+        meta: { role: { evil: 1 }, PROTO: { pollutedMeta: 1 }, run: { sampleName: IMG, instrument: ['a'] }, events: { not: 'array' } },
+        style: { color: 'red;background:url(https://evil.example/leak)', width: SVG, offset: SVG, visible: true },
+        proc: { smooth: { on: true, window: SVG, order: IMG }, baseline: { on: true, lambda: SVG, p: IMG, iter: SVG }, peaks: { threshold: SVG, minDist: IMG, minWidth: SVG, auto: true } },
+        peaks: [{ id: { evil: 1 }, start: 4.5, apex: 5, end: 5.5, label: IMG, importedFrom: { x: 1 } }],
+        digitized: { dxMin: SVG, dy: 0.1, imageId: { x: 1 }, printedPeaks: [{ rt: 5, label: IMG }, { rt: SVG }], warnings: [IMG, { x: 1 }] },
+        fit: { model: IMG, r2: SVG, components: 'nope', peakIds: [{ x: 1 }] }
+      }]
+    };
+    return JSON.stringify(p).replace(/"PROTO"/g, '"__proto__"');
+  }
+
+  PK.test('security: escapeHtml neutralizes markup and attribute breakouts', function (t) {
+    var e = PK.util.escapeHtml;
+    [IMG, SVG, A_TAG, "'><script>alert(1)<\/script>", '`${alert(1)}`'].forEach(function (p) {
+      var s = e(p);
+      t.ok(!/[<>"'`]/.test(s), 'no raw < > " \' ` left in ' + JSON.stringify(s));
+    });
+    t.eq(e('a & b'), 'a &amp; b', 'ampersand');
+    t.eq(e(null), '', 'null → empty');
+    t.eq(e({ toString: function () { return '<b>'; } }), '&lt;b&gt;', 'objects are stringified then escaped');
+  });
+
+  PK.test('security: plotlyText escapes Plotly pseudo-HTML and %{} template tokens', function (t) {
+    var f = PK.util.plotlyText;
+    t.ok(typeof f === 'function', 'PK.util.plotlyText exists');
+    var s = f(A_TAG + TPL + ' a&b');
+    t.ok(s.indexOf('<') < 0 && s.indexOf('>') < 0, 'no raw angle brackets (no <a href>, <b>, <extra> for Plotly)');
+    t.ok(s.indexOf('%{') < 0, 'no %{ token survives');
+    t.ok(s.indexOf('%&#123;y}') >= 0, '%{ is broken with a numeric entity that Plotly renders as {');
+    t.ok(/a&amp;b$/.test(s), 'ampersand escaped');
+  });
+
+  PK.test('security: safeDataImage only allows base64 PNG/JPEG/WebP/GIF data URLs', function (t) {
+    var f = PK.util.safeDataImage;
+    ['data:image/png;base64,iVBORw0KGgo=', 'data:image/jpeg;base64,/9j/4AAQ', 'data:image/jpg;base64,AAAA', 'data:image/webp;base64,UklGRg==', 'data:image/gif;base64,R0lGOD=='].forEach(function (u) { t.eq(f(u), u, 'accepted: ' + u.slice(0, 20)); });
+    ['data:image/svg+xml;base64,PHN2Zz4=', 'data:image/svg+xml,<svg onload=alert(1)>', JS, 'https://evil.example/a.png', 'blob:http://x/1', 'data:text/html;base64,PHNjcmlwdD4=',
+      'data:image/png;base64,AAAA"onerror="alert(1)', 'data:image/png,rawbytes', ' data:image/png;base64,AAAA', 'DATA:IMAGE/PNG;BASE64,AAAA', null, 42, { src: 'x' }].forEach(function (u) {
+      t.eq(f(u), null, 'rejected: ' + String(u).slice(0, 30));
+    });
+  });
+
+  PK.test('security: safeColor blocks CSS injection', function (t) {
+    var f = PK.util.safeColor;
+    ['#1f4fd8', '#fff', '#11223344', 'rgb(1,2,3)', 'rgba(1, 2, 3, 0.5)', 'red'].forEach(function (c) { t.eq(f(c), c, 'accepted ' + c); });
+    ['red;background:url(https://evil.example/x)', 'url(x)', 'expression(alert(1))', '#12345', 'rgb(1,2,3);x', '"><b>', '', null, 5].forEach(function (c) { t.eq(f(c), null, 'rejected ' + c); });
+  });
+
+  PK.test('security: stripUnsafeKeys drops __proto__/constructor/prototype at any depth', function (t) {
+    var o = JSON.parse('{"a":{"__proto__":{"x":1},"b":[{"constructor":{"prototype":{"y":1}},"ok":2}]},"prototype":3,"__proto__":{"z":1}}');
+    var c = PK.util.stripUnsafeKeys(o);
+    t.ok(!hasOwn(c, '__proto__') && !hasOwn(c, 'prototype'), 'top-level keys dropped');
+    t.ok(!hasOwn(c.a, '__proto__'), 'nested __proto__ dropped');
+    t.ok(!hasOwn(c.a.b[0], 'constructor') && c.a.b[0].ok === 2, 'constructor dropped inside arrays, other keys kept');
+    t.eq(Object.getPrototypeOf(c.a), Object.prototype, 'prototype of copies untouched');
+    t.ok(protoClean() && ({}).x === undefined && ({}).y === undefined && ({}).z === undefined, 'Object.prototype not polluted');
+    var ta = PK.util.stripUnsafeKeys({ v: new Float64Array([1, 2]) }); t.ok(Array.isArray(ta.v) && ta.v[1] === 2, 'typed arrays → arrays');
+    var deep = {}, cur = deep; for (var i = 0; i < 100; i++) { cur.n = {}; cur = cur.n; }
+    t.ok(PK.util.stripUnsafeKeys(deep, 10) !== null, 'depth-limited copy returns');
+    t.eq(PK.util.stripUnsafeKeys({ f: function () {}, u: undefined, s: 's' }).s, 's', 'functions/undefined dropped');
+  });
+
+  PK.test('security: schema.migrate does not copy __proto__ keys', function (t) {
+    var raw = JSON.parse('{"version":1,"traces":[],"__proto__":{"pollutedMig":1},"settings":{"__proto__":{"polluted":1}}}');
+    var m = PK.schema.migrate(raw);
+    t.ok(!hasOwn(m, '__proto__') && !hasOwn(m.settings, '__proto__'), 'no own __proto__ keys after migrate');
+    t.ok(protoClean(), 'Object.prototype not polluted');
+  });
+
+  PK.test('security: sanitizeProject neutralizes a hostile project file', function (t) {
+    if (!ensureApp()) { t.ok(true, 'app.js not loadable here; skipped'); return; }
+    var A = PK.app, p = A.sanitizeProject(JSON.parse(hostileJSON())), tr = p.traces[0];
+    t.ok(protoClean(), 'no prototype pollution through settings/meta/method');
+    t.ok(!hasOwn(p.settings, '__proto__') && !hasOwn(p.settings, 'constructor') && !hasOwn(tr.meta, '__proto__'), 'dangerous keys are not copied');
+    // types: numbers stay numbers, enums stay enums (render code interpolates these into HTML attributes)
+    t.eq(tr.proc.smooth.window, 11, 'smooth.window markup → default number'); t.eq(typeof tr.proc.smooth.order, 'number', 'smooth.order number');
+    t.eq(typeof tr.proc.baseline.lambda, 'number', 'lambda number'); t.eq(typeof tr.proc.baseline.p, 'number', 'p number'); t.eq(typeof tr.proc.baseline.iter, 'number', 'iter number');
+    t.eq(tr.proc.peaks.threshold, 'auto', 'threshold markup → auto'); t.eq(typeof tr.proc.peaks.minDist, 'number', 'minDist number'); t.eq(typeof tr.proc.peaks.minWidth, 'number', 'minWidth number');
+    t.eq(tr.style.color, A.palette[0], 'CSS-injecting colour replaced by the palette'); t.eq(tr.style.width, 1.5, 'width number'); t.eq(tr.style.offset, 0, 'offset number');
+    t.eq(tr.xUnit, 'min', 'object xUnit → default'); t.eq(typeof tr.yUnit, 'string', 'yUnit string (escaped at render)');
+    t.eq(typeof tr.meta.role, 'undefined', 'object role dropped'); t.ok(!('events' in tr.meta), 'non-array events dropped');
+    t.eq(tr.meta.run.instrument, undefined, 'non-string run field dropped'); t.eq(tr.meta.run.sampleName, IMG, 'string run field kept verbatim (escaped at render)');
+    t.eq(tr.source.format, undefined, 'object source.format dropped'); t.eq(tr.source.kind, IMG.slice(0, 32), 'source.kind capped');
+    t.eq(typeof tr.peaks[0].id, 'string', 'object peak id → generated string'); t.eq(tr.peaks[0].importedFrom, undefined, 'object importedFrom dropped');
+    t.eq(tr.digitized.dxMin, null, 'markup dxMin → null'); t.eq(tr.digitized.imageId, null, 'object imageId → null');
+    t.eq(tr.digitized.printedPeaks.length, 1, 'printed peak with markup rt dropped'); t.eq(tr.digitized.warnings.length, 1, 'non-string warning dropped');
+    t.eq(tr.fit.model, 'gaussian', 'fit model enum'); t.eq(tr.fit.r2, null, 'fit r2 number|null'); t.ok(Array.isArray(tr.fit.components) && !tr.fit.components.length, 'fit components array');
+    t.eq(p.activeTraceId, 'tr1', 'object activeTraceId ignored');
+    var s = p.settings;
+    t.eq(s.labels.mode, 'auto', 'label mode enum'); t.eq(s.labels.size, 10, 'label size number'); t.eq(s.labels.all, false, 'label all boolean');
+    t.eq(s.stack, 0, 'stack number'); t.eq(s.compareTol, 0.1, 'compareTol number'); t.eq(s.ghost.opacity, 0.35, 'ghost opacity number');
+    t.eq(s.normalization, 'none', 'normalization enum'); t.eq(s.clipDefault, 'drop', 'clipDefault enum'); t.eq(s.fitModel, 'gaussian', 'fitModel enum');
+    t.eq(s.compareLabels.length, 1, 'compare label with markup rt dropped'); t.eq(s.differenceOf[0], null, 'object ids → null');
+    var m = p.method;
+    t.eq(m.flow, null, 'flow with markup → null'); t.eq(m.wavelength_nm, null, 'wavelength markup → null'); t.eq(m.column.length_mm, 150, 'numeric string → number');
+    t.eq(m.gradient.length, 2, 'gradient row with markup time dropped'); t.eq(m.gradient[1].B, 95, 'numeric B');
+    t.eq(m.bConcUnit.length <= 16, true, 'bConcUnit capped'); t.ok(!('notes' in m.run) && !('bogus' in m.run), 'run info: unknown and non-string fields dropped');
+    t.ok(!hasOwn(m, '__proto__'), 'method has no __proto__ key');
+    t.eq(Object.keys(p.images).join(','), 'a', 'only the base64 PNG image survives (svg, javascript:, http:, text/html, __proto__ rejected)');
+    t.eq(p.calibration.analytes[0].name, IMG, 'calibration name kept as text (escaped at render)'); t.eq(p.calibration.analytes[0].peakMatch.tol, 0.1, 'tol number');
+  });
+
+  PK.test('security: decodeShare of a crafted link yields a sanitized project', function (t) {
+    if (!ensureApp()) { t.ok(true, 'app.js not loadable here; skipped'); return; }
+    var obj = JSON.parse(hostileJSON());
+    obj.v = 1; obj.schema = 2; obj.images = { a: 'data:image/png;base64,iVBORw0KGgo=' };
+    obj.traces.push({ name: 'bad grid', x: { u: [0, 1, -4e9] }, y: { e: 1e9, d: [1, 2, 3] } }); // negative length, absurd exponent
+    var link = '#p=' + ID_LZ.compressToEncodedURIComponent(JSON.stringify(obj).replace(/"PROTO"/g, '"__proto__"'));
+    var p = PK.app.decodeShare(link, ID_LZ);
+    t.ok(protoClean(), 'no prototype pollution through a share link');
+    t.eq(Object.keys(p.images).length, 0, 'share links never carry images');
+    t.eq(p.traces[0].proc.smooth.window, 11, 'proc coerced'); t.eq(p.traces[0].style.color, PK.app.palette[0], 'colour coerced');
+    t.ok(p.traces.length === 2 && p.traces[1].x.length === 0, 'malformed packed arrays expand to nothing (' + (p.traces[1] && p.traces[1].x.length) + ')');
+    t.throws(function () { PK.app.decodeShare('#p=' + ID_LZ.compressToEncodedURIComponent('{"app":"Peakly","traces":{"length":5}}'), ID_LZ); }, 'non-array traces rejected');
+    t.throws(function () { PK.app.decodeShare('#p=' + ID_LZ.compressToEncodedURIComponent('[1,2]'), ID_LZ); }, 'non-object payload rejected');
+  });
+
+  PK.test('security: unpackArray honours its length budget', function (t) {
+    if (!ensureApp()) { t.ok(true, 'app.js not loadable here; skipped'); return; }
+    t.eq(PK.app.unpackArray({ u: [0, 1, 1e12] }, 1000).length, 1000, 'uniform grid capped by budget');
+    t.eq(PK.app.unpackArray({ u: [0, 1, 1e12] }, 1e9).length, 5e6, 'hard per-array cap 5e6 even with a larger budget');
+    t.eq(PK.app.unpackArray({ e: 1e6, d: [1, 2] }).length, 0, 'absurd exponent rejected');
+    t.eq(PK.app.unpackArray([1, 2, 3], 2).length, 2, 'plain arrays capped too');
+  });
+
+  PK.test('security: sanitizeImages / sanitizeSettings are prototype-safe', function (t) {
+    if (!ensureApp()) { t.ok(true, 'app.js not loadable here; skipped'); return; }
+    var im = PK.app.sanitizeImages(JSON.parse('{"__proto__":"data:image/png;base64,AAAA","constructor":"data:image/png;base64,AAAA","ok":"data:image/gif;base64,R0lGOD=="}'));
+    t.eq(Object.keys(im).join(','), 'ok', 'dangerous keys skipped'); t.eq(Object.getPrototypeOf(im), Object.prototype, 'image map prototype intact');
+    var s = PK.app.sanitizeSettings(JSON.parse('{"__proto__":{"pollutedSet":1},"labels":{"__proto__":{"pollutedSet":1}},"ghost":{"show":false}}'));
+    t.ok(protoClean(), 'settings sanitizer does not pollute'); t.eq(s.ghost.show, false, 'valid values kept');
+  });
+
+  PK.test('security: Claude response strings are coerced and colours normalized', function (t) {
+    var D = PK.digitizer; if (!D || !D._normalizeClaude) { t.ok(true, 'digitizer not loaded; skipped'); return; }
+    var r = D._normalizeClaude({ title: { evil: 1 }, xAxis: { label: [IMG], unit: IMG, ticks: [] }, yAxis: { label: IMG.repeat(100), ticks: [] },
+      traces: [{ label: { x: 1 }, color: 'red;background:url(x)' }, { label: IMG, color: '#ABC' }], peaks: [{ rt: 1, label: { x: 1 } }, { rt: '2', label: IMG }] }, 100, 100);
+    t.eq(r.title, null, 'object title → null'); t.eq(r.xAxis.label, null, 'array label → null'); t.ok(r.yAxis.label.length <= 200, 'long label capped');
+    t.eq(r.traces[0].color, null, 'CSS-injecting colour rejected'); t.eq(r.traces[1].color, '#aabbcc', 'hex colour normalized'); t.eq(r.traces[0].label, null, 'object trace label → null');
+    t.eq(r.peaks[0].label, null, 'object peak label → null'); t.eq(r.peaks[1].label, IMG, 'string label kept (escaped at render)');
+  });
+
+  PK.test('security: JSON data rows keyed "__proto__"/"constructor" import without crashing', function (t) {
+    if (!PK.parsers || !PK.parsers.parseText) { t.ok(true, 'parsers not loaded; skipped'); return; }
+    var rows = [];
+    ['__proto__', 'constructor', 'toString'].forEach(function (k) { for (var i = 0; i < 5; i++) rows.push({ trace_id: k, x: i, y: i * i }); });
+    var res = PK.parsers.parseText(JSON.stringify(rows), { filename: 'rows.json' });
+    t.ok(res && res.ok !== false && res.traces && res.traces.length === 3, 'three traces parsed (' + (res && (res.error || (res.traces && res.traces.length))) + ')');
+    t.ok(protoClean() && ({}).x === undefined, 'no pollution');
   });
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 

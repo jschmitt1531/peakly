@@ -31,7 +31,7 @@
       p += pad4(n * sz); return out;
     }
     function attList() {
-      var tag = u32(), n = u32(), a = {};
+      var tag = u32(), n = u32(), a = Object.create(null); // names come from the file: no prototype to pollute
       if (tag === 0) return a; if (tag !== 12) throw new Error('bad attribute list tag ' + tag + '.');
       for (var i = 0; i < n; i++) { var nm = name(), t = u32(), k = u32(); a[nm] = values(t, k); }
       return a;
@@ -43,7 +43,7 @@
     p = 4;
     var numrecs = u32(), dims = [], tag = u32(), n = u32(), i;
     if (tag === 10) for (i = 0; i < n; i++) dims.push({ name: name(), len: u32() }); else if (tag !== 0) throw new Error('bad dimension list tag ' + tag + '.');
-    var attrs = attList(), vars = {}, order = [];
+    var attrs = attList(), vars = Object.create(null), order = [];
     tag = u32(); n = u32();
     if (tag === 11) for (i = 0; i < n; i++) {
       var vn = name(), nd = u32(), ids = []; for (var k = 0; k < nd; k++) ids.push(u32());

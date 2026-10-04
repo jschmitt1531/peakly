@@ -65,14 +65,15 @@ Policy:
 4. **Fail visibly.** If a library fails to load, the app shows a banner naming it and keeps working where it can (for example, no Excel import without SheetJS).
 5. **Offline/air-gapped use.** Labs that cannot reach CDNs can serve the same pinned files from an internal web server and change the URLs; the SRI hashes stay valid because the files are identical.
 
-## Content-Security-Policy for self-hosting
+## Content-Security-Policy
 
-If you host Peakly yourself, a CSP like the following is compatible (the app uses inline scripts and styles because it is a single file):
+`index.html` ships with a strict CSP in a `<meta>` tag, so the browser itself enforces the privacy promise wherever the file is opened (hosted or from disk):
 
-```
-default-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
-style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src blob: https://cdnjs.cloudflare.com;
-connect-src https://api.anthropic.com; font-src 'self' data:; base-uri 'none'; form-action 'none'
-```
+- **Scripts:** only the app's own inline scripts, allowed by **sha256 hash** (computed by `node build.js` on every build, no `'unsafe-inline'`), plus the six libraries from their **exact pinned version folders** on the CDNs. No `'unsafe-eval'`.
+- **Network:** `connect-src` allows only `https://api.anthropic.com` (the optional, user-started Claude assist) plus local `blob:`/`data:` URLs. No other server can be contacted from the app.
+- **Everything else:** `default-src 'none'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, and `referrer: no-referrer`.
+- **Limits:** styles need `'unsafe-inline'` (Plotly). A meta-tag CSP cannot set `frame-ancestors`, `sandbox` or `report-uri`; if you self-host, also send those as HTTP headers.
+
+The exact policy, the reasons for each directive and the audit findings are in [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md). If you serve the libraries from your own server, update `script-src` and `worker-src` in `src/shell.html` and rebuild.
 
 Remove `https://api.anthropic.com` from `connect-src` to disable the Claude assist completely.

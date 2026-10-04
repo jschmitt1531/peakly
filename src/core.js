@@ -36,7 +36,7 @@
     if (a !== 0 && (a >= 1e6 || a < 1e-3)) return v.toExponential(Math.max(1, digits - 1));
     return Number(v.toPrecision(digits)).toString();
   };
-  U.escapeHtml = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  U.escapeHtml = function (s) { return String(s == null ? '' : s).replace(/[&<>"'`]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]; }); };
   U.downloadBlob = function (blob, filename) {
     if (typeof document === 'undefined') return;
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
@@ -50,6 +50,51 @@
     });
   };
   U.deepClone = function (o) { return JSON.parse(JSON.stringify(o)); };
+
+  /* ---- untrusted-input helpers (see docs/SECURITY_AUDIT.md) ---- */
+  /** Keys that must never be copied from untrusted JSON (prototype pollution). */
+  U.isSafeKey = function (k) { return k !== '__proto__' && k !== 'constructor' && k !== 'prototype'; };
+  /** Deep copy of JSON-like data with __proto__/constructor/prototype keys dropped, functions/undefined dropped,
+      typed arrays turned into plain arrays and nesting cut at `maxDepth` (default 64; deeper values become null). */
+  U.stripUnsafeKeys = function (v, maxDepth) {
+    maxDepth = maxDepth == null ? 64 : maxDepth;
+    function walk(o, d) {
+      if (o === null || typeof o === 'string' || typeof o === 'number' || typeof o === 'boolean') return o;
+      if (typeof o !== 'object') return undefined;
+      if (d > maxDepth) return null;
+      if (Array.isArray(o)) { var a = new Array(o.length); for (var i = 0; i < o.length; i++) { var w = walk(o[i], d + 1); a[i] = w === undefined ? null : w; } return a; }
+      if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(o)) return Array.prototype.slice.call(o);
+      var out = {};
+      Object.keys(o).forEach(function (k) { if (!U.isSafeKey(k)) return; var w = walk(o[k], d + 1); if (w !== undefined) out[k] = w; });
+      return out;
+    }
+    return walk(v, 0);
+  };
+  /** String coercion with a length cap (objects/arrays/functions → fallback). */
+  U.safeString = function (v, max, fallback) {
+    if (v == null || (typeof v === 'object') || typeof v === 'function') return fallback === undefined ? '' : fallback;
+    var s = String(v); return max && s.length > max ? s.slice(0, max) : s;
+  };
+  /** Image data URL accepted from project files: base64 PNG/JPEG/WebP/GIF only. Anything else (http:, javascript:,
+      SVG, text/html…) → null, so it can never become an <img src> or a Plotly layout image. */
+  U.SAFE_IMAGE_RE = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]*={0,2}$/;
+  U.safeDataImage = function (s) { return typeof s === 'string' && s.length < 64e6 && U.SAFE_IMAGE_RE.test(s) ? s : null; };
+  /** CSS/Plotly color from untrusted data: #rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/rgba() with numbers, or a plain
+      color keyword. Anything else → null (prevents CSS injection through style="background:…"). */
+  U.safeColor = function (c) {
+    if (typeof c !== 'string') return null;
+    var s = c.trim();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s)) return s;
+    if (/^rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\)$/i.test(s)) return s;
+    if (/^[a-z]{3,20}$/i.test(s)) return s;
+    return null;
+  };
+  /** Text for Plotly names, titles, annotations and hover templates. Plotly renders a subset of HTML (<a href>, <b>,
+      <span style>…) in these strings, and `%{…}` is a template token in hovertemplate. Escape &, <, > and break `%{`
+      with a numeric entity (Plotly decodes it back to "{" for display). */
+  U.plotlyText = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }).replace(/%\{/g, '%&#123;');
+  };
 
   PK.palette = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569'];
 

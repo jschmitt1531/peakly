@@ -621,6 +621,8 @@
   };
 
   function numOrNull(v) { var n = typeof v === 'string' ? parseFloat(v) : v; return typeof n === 'number' && isFinite(n) ? n : null; }
+  /** Strings from the (untrusted) model response: primitives only, length-capped, else null. */
+  function str(v, max) { if (v == null || typeof v === 'object' || typeof v === 'function') return null; var s = String(v).slice(0, max || 500); return s === '' ? null : s; }
   // Normalise Claude's JSON; rescale pixel coords from the sent image (sentW×sentH) to the full image (fullW×fullH).
   D._normalizeClaude = function (obj, sentW, sentH, fullW, fullH) {
     obj = obj || {};
@@ -633,16 +635,16 @@
         if (v == null || p == null) return null;
         var r = { value: v, approxPxFrac: p / (dim || 1) }; r[key] = p * k; return r;
       }).filter(Boolean);
-      return { label: a.label || null, unit: a.unit || null, scale: /log/i.test(a.scale || '') ? 'log' : 'linear', ticks: ticks };
+      return { label: str(a.label, 200), unit: str(a.unit, 40), scale: /log/i.test(str(a.scale, 20) || '') ? 'log' : 'linear', ticks: ticks };
     }
     var pb = obj.plotBox || obj.plotFrame || null, plotBox = null;
     if (pb && [pb.left, pb.top, pb.right, pb.bottom].every(function (v) { return numOrNull(v) != null; }))
       plotBox = { left: pb.left * kx, top: pb.top * ky, right: pb.right * kx, bottom: pb.bottom * ky };
     return {
-      title: obj.title || null, plotBox: plotBox,
+      title: str(obj.title, 300), plotBox: plotBox,
       xAxis: ax(obj.xAxis, 'px', kx, iw), yAxis: ax(obj.yAxis, 'py', ky, ih),
-      traces: (Array.isArray(obj.traces) ? obj.traces : []).map(function (t) { return { label: t && t.label || null, color: t && hexToRgb(t.color) ? rgbToHex(hexToRgb(t.color)) : null }; }),
-      peaks: (Array.isArray(obj.peaks) ? obj.peaks : []).map(function (p) { var rt = numOrNull(p && p.rt); return rt == null ? null : { rt: rt, areaPct: numOrNull(p.areaPct), label: p.label || p.name || null }; }).filter(Boolean),
+      traces: (Array.isArray(obj.traces) ? obj.traces : []).slice(0, 20).map(function (t) { return { label: str(t && t.label, 200), color: t && hexToRgb(t.color) ? rgbToHex(hexToRgb(t.color)) : null }; }),
+      peaks: (Array.isArray(obj.peaks) ? obj.peaks : []).slice(0, 500).map(function (p) { var rt = numOrNull(p && p.rt); return rt == null ? null : { rt: rt, areaPct: numOrNull(p.areaPct), label: str(p.label, 200) || str(p.name, 200) }; }).filter(Boolean),
       sentSize: { w: iw, h: ih }, scale: { x: kx, y: ky }
     };
   };
@@ -1021,7 +1023,8 @@
   function loadPdf(buf, name) {
     if (typeof pdfjsLib === 'undefined') return Promise.reject(new Error('PDF support (pdf.js) is not loaded. Export the figure as PNG/JPEG instead.'));
     try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) { /* ignore */ }
-    return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (doc) {
+    // isEvalSupported:false: pdf.js would otherwise probe `new Function` (blocked by the CSP) to compile PostScript functions
+    return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise.then(function (doc) {
       S.pdf = { doc: doc, page: 1, pages: doc.numPages, name: name };
       return renderPdfPage(1);
     });
@@ -1152,7 +1155,8 @@
   /* ---------------- extraction ---------------- */
   function addTrace(hex, name, mode) {
     var i = S.traces.length;
-    S.traces.push({ id: PK.uid('dg'), name: name || ('Trace ' + (i + 1)), hex: hex || PK.palette[i % PK.palette.length], mode: mode || 'color', tol: mode === 'dark' ? 110 : 80, extract: 'centroid', result: null });
+    var rgb = hexToRgb(hex); // colours may come from the Claude response: normalize to #rrggbb before they reach style=""
+    S.traces.push({ id: PK.uid('dg'), name: String(name || ('Trace ' + (i + 1))), hex: rgb ? rgbToHex(rgb) : PK.palette[i % PK.palette.length], mode: mode || 'color', tol: mode === 'dark' ? 110 : 80, extract: 'centroid', result: null });
     S.active = S.traces.length - 1;
   }
   function scheduleExtract() { clearTimeout(S.extractTimer); S.extractTimer = setTimeout(runExtraction, 60); }
@@ -1371,7 +1375,7 @@
   }
   function drawMiniPlot() {
     var el = document.getElementById('pkd-mini'); if (!el) return;
-    var data = S.traces.filter(function (t) { return t.result; }).map(function (t) { return { x: t.result.x, y: t.result.y, name: t.name + ' (digitized)', mode: 'lines', line: { color: t.mode === 'dark' ? '#444' : t.hex, width: 1.5 } }; });
+    var data = S.traces.filter(function (t) { return t.result; }).map(function (t) { return { x: t.result.x, y: t.result.y, name: PK.util.plotlyText(t.name + ' (digitized)'), mode: 'lines', line: { color: t.mode === 'dark' ? '#444' : t.hex, width: 1.5 } }; });
     if (typeof Plotly !== 'undefined') {
       var cs = getComputedStyle(S.el.body);
       try { Plotly.react(el, data, { margin: { l: 40, r: 8, t: 6, b: 30 }, showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: cs.getPropertyValue('--text') || '#333' }, xaxis: { title: { text: 'min' } } }, { displayModeBar: false, responsive: true }); } catch (e) { /* ignore */ }

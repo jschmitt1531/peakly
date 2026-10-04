@@ -73,7 +73,8 @@
   S.migrate = function (obj, opts) {
     opts = opts || {};
     if (!isObj(obj)) throw new Error('Not a Peakly project');
-    var p = clone(obj), from = isNum(+p.version) && +p.version > 0 ? +p.version : 1, changes = [];
+    // untrusted JSON: deep copy without __proto__/constructor/prototype keys (prototype-pollution guard)
+    var p = PK.util && PK.util.stripUnsafeKeys ? PK.util.stripUnsafeKeys(obj) : clone(obj), from = isNum(+p.version) && +p.version > 0 ? +p.version : 1, changes = [];
     if (from > VERSION) return opts.report ? { project: p, from: from, to: from, changes: [] } : p;
     if (from < 2) {
       p.settings = isObj(p.settings) ? p.settings : {};
