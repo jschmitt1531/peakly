@@ -126,7 +126,7 @@ node tools/digitizer-accuracy.js   # regenerate docs/DIGITIZER_ACCURACY.md
 
 ## About
 
-Peakly is created and maintained by **[Jennifer Schmitt, Ph.D.](https://www.linkedin.com/in/jschmitt1531/)**, an analytical sciences leader with a Ph.D. in chemistry and an MBA from the Johns Hopkins Carey Business School. Jennifer Schmitt has spent a career turning chromatograms into decisions, from graduate research in inorganic and bioinorganic chemistry to analytical sciences leadership in the pharmaceutical industry, and is a long-time volunteer with the American Chemical Society Younger Chemists Committee.
+Peakly is created and maintained by **[Jennifer Schmitt, Ph.D.](https://www.linkedin.com/in/jschmitt1531/)**, an analytical sciences leader with a Ph.D. in chemistry and an MBA from the Johns Hopkins Carey Business School. Jennifer Schmitt has spent a career turning chromatograms into decisions, from graduate research to biotech to analytical sciences leadership in the pharmaceutical industry, and is a long-time volunteer with the American Chemical Society Younger Chemists Committee.
 
 Peakly exists because getting HPLC data out of vendor software should not require a license, a login, or a workaround.
 

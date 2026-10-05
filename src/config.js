@@ -10,7 +10,7 @@
       name: 'Jennifer Schmitt, Ph.D.',
       headline: 'Analytical Sciences leader · Ph.D. in Chemistry · MBA, Johns Hopkins Carey Business School',
       bio: [
-        'Analytical scientist who has spent a career turning chromatograms into decisions, from graduate research in inorganic and bioinorganic chemistry to analytical sciences leadership in the pharmaceutical industry.',
+        'Analytical scientist who has spent a career turning chromatograms into decisions, from graduate research to biotech to analytical sciences leadership in the pharmaceutical industry.',
         'Long-time volunteer with the American Chemical Society Younger Chemists Committee and an associate of the ACS Women Chemists Committee.',
         'Peakly exists because getting HPLC data out of vendor software should not require a license, a login, or a workaround.'
       ],
