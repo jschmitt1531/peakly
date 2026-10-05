@@ -86,3 +86,11 @@ Share sample files and validation data, improve tutorials, report bugs, and tell
 
 **How do I cite Peakly?**
 See [How to cite](../README.md#how-to-cite) or use GitHub's "Cite this repository" button.
+
+## Feedback survey
+
+**Is there a feedback survey? Does the app send anything?**
+Yes, there is an optional, anonymous survey (about 4–5 minutes) on Google Forms. It opens only when you click a survey link in the app or on the website. The app itself never sends any data. The survey does not collect your email address or Google account, and you do not need to sign in. Every question except the consent question is optional. Design and scoring: [SURVEY.md](SURVEY.md). Privacy: [PRIVACY.md](PRIVACY.md#4-the-optional-feedback-survey-google-forms).
+
+**Can I be told about future surveys?**
+Yes, through a separate sign-up form that asks for your email address and your consent. It is kept apart from the survey, so your survey answers stay anonymous. You get at most one invitation every 3 months, from peaklyfeedback@gmail.com. To unsubscribe, use the link in any invitation or reply "unsubscribe".

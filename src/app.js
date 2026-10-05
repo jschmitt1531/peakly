@@ -212,6 +212,65 @@
   }
   app.sanitizeImages = sanitizeImages;
 
+  /* ------------------------------------------------------------------ per-browser preferences (localStorage, optional) */
+  var PREFS_KEY = 'peakly-prefs', SURVEY_KEY = 'peakly-survey';
+  function readStore(key) { try { var s = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null; var o = s ? JSON.parse(s) : null; return isPlain(o) ? strip(o) : {}; } catch (e) { return {}; } }
+  function writeStore(key, o) { try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify(o)); } catch (e) { /* storage blocked: preference lasts for this tab only */ } }
+  var prefsMem = null;
+  /** Browser preferences: { singleKeys: true } (WCAG 2.1.4: single-character shortcuts can be turned off). */
+  function prefs() { if (!prefsMem) { var o = readStore(PREFS_KEY); prefsMem = { singleKeys: o.singleKeys !== false }; } return prefsMem; }
+  function setPref(k, v) { prefs()[k] = v; writeStore(PREFS_KEY, prefsMem); }
+  app.prefs = prefs; app.setPref = setPref;
+
+  /* ------------------------------------------------------------------ optional feedback survey (pure decision + state) */
+  /** Is the survey configured? Only https:// links are ever shown. */
+  function surveyUrlOk(u) { return typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u); }
+  app.surveyUrlOk = surveyUrlOk;
+  function surveyCfg() { var s = (PK.config && PK.config.survey) || {}; return { url: surveyUrlOk(s.url) ? s.url : '', signupUrl: surveyUrlOk(s.signupUrl) ? s.signupUrl : '', promptAfter: Array.isArray(s.promptAfter) ? s.promptAfter : [], maxPrompts: nOr(s.maxPrompts, 2), minMinutesBetween: nOr(s.minMinutesBetween, 1440) }; }
+  app.surveyCfg = surveyCfg;
+  /** Pure: should the optional survey invitation appear for `event` now?
+      state = { prompts:int (shown so far in this browser), last:ms (last shown), never:bool ("Don't ask again"),
+                invites:bool (Help → "Show occasional survey invitations"; default true), session:bool (already shown in this tab) }
+      cfg   = { url, promptAfter:[ids], maxPrompts, minMinutesBetween }
+      event = 'calibration' | { id, demo:bool, modalOpen:bool }
+      No when: no survey URL; "Don't ask again" or invitations turned off; event not listed in promptAfter; demo mode; a modal is
+      open; already shown in this session; maxPrompts reached; less than minMinutesBetween since the last one. */
+  app.surveyShouldPrompt = function (state, now, cfg, event) {
+    state = isPlain(state) ? state : {}; cfg = isPlain(cfg) ? cfg : {};
+    var ev = typeof event === 'string' ? { id: event } : (isPlain(event) ? event : {});
+    if (!surveyUrlOk(cfg.url)) return false;
+    if (state.never === true || state.invites === false) return false;
+    if (!Array.isArray(cfg.promptAfter) || cfg.promptAfter.indexOf(ev.id) < 0) return false;
+    if (ev.demo || ev.modalOpen) return false;
+    if (state.session) return false;
+    var max = nOr(cfg.maxPrompts, 2); if (!(max > 0) || nOr(state.prompts, 0) >= max) return false;
+    var gap = Math.max(0, nOr(cfg.minMinutesBetween, 0)) * 60000, last = nOr(state.last, 0);
+    if (last > 0 && isNum(now) && now - last < gap) return false;
+    return true;
+  };
+  var surveySession = false;
+  function surveyState() { var o = readStore(SURVEY_KEY); return { prompts: Math.max(0, Math.floor(nOr(o.prompts, 0))), last: nOr(o.last, 0), never: o.never === true, invites: o.invites !== false, session: surveySession }; }
+  function saveSurveyState(st) { writeStore(SURVEY_KEY, { v: 1, prompts: st.prompts, last: st.last, never: !!st.never, invites: st.invites !== false }); }
+  app.surveyState = surveyState;
+
+  /** Pure: plain-language summary of what the plot shows (screen readers; "Plot as table").
+      list = [{ name, xUnit, yUnit, xMin, xMax, peaks:[{ rt, areaPct, label }] }] */
+  function summarizeTraces(list) {
+    list = Array.isArray(list) ? list : [];
+    if (!list.length) return 'No traces are shown.';
+    var head = list.length === 1 ? '1 trace shown. ' : list.length + ' traces shown. ';
+    return head + list.map(function (t) {
+      var u = t.xUnit || 'min', pk = (t.peaks || []).filter(function (p) { return isNum(p.rt); }), s = String(t.name || 'Trace') + ': ';
+      s += pk.length ? pk.length + ' peak' + (pk.length === 1 ? '' : 's') : 'no peaks';
+      var big = null; pk.forEach(function (p) { if (isNum(p.areaPct) && (!big || p.areaPct > big.areaPct)) big = p; });
+      if (big) s += ', largest' + (big.label ? ' (' + big.label + ')' : '') + ' at ' + fmt(big.rt, 4) + ' ' + u + ' (' + fmt(big.areaPct, 3) + ' % area)';
+      if (isNum(t.xMin) && isNum(t.xMax)) s += '; ' + fmt(t.xMin, 4) + ' to ' + fmt(t.xMax, 4) + ' ' + u;
+      if (t.yUnit) s += ', signal in ' + t.yUnit;
+      return s + '.';
+    }).join(' ');
+  }
+  app.summarizeTraces = summarizeTraces;
+
   var colorCounter = 0;
   function nextColor(project) {
     var pal = APP_PALETTE;
@@ -285,7 +344,7 @@
     out.settings = sanitizeSettings(p.settings, out.settings);
     out.images = sanitizeImages(p.images);
     out.calibration = SCH && SCH.normalizeCalibration ? SCH.normalizeCalibration(p.calibration) : (isPlain(p.calibration) ? p.calibration : blankCalibration());
-    (p.traces || []).forEach(function (t) { var nt = normalizeTrace(t, out); delete nt.meta._src; out.traces.push(nt); });
+    (p.traces || []).forEach(function (t) { var nt = normalizeTrace(t, out); delete nt.meta._src; delete nt.meta._srcIdx; out.traces.push(nt); });
     var act = idStr(p.activeTraceId);
     out.activeTraceId = act && out.traces.some(function (t) { return t.id === act; }) ? act : (out.traces[0] ? out.traces[0].id : null);
     return out;
@@ -763,8 +822,43 @@
   function renderAll() {
     if (!HAS_DOM || !state.ready) return;
     renderTraceList(); renderProc(); renderOverlay(); renderNotices(); renderEmpty(); renderPlot(); renderTable(); updateUndoButtons(); renderPlotTools();
+    renderPlotSummary();
   }
-  function scheduleRender() { if (renderQueued || !HAS_DOM) return; renderQueued = true; requestAnimationFrame(function () { renderQueued = false; renderAll(); }); }
+  /* ---------------- text alternative for the plot (WCAG 1.1.1 / 1.3.1) */
+  /** Visible main traces as plain data: name, units, x range and peaks (RT incl. display offset, area %, label). */
+  function plotTraceData() {
+    return P().traces.filter(function (t) { return t.style.visible !== false; }).map(function (t) {
+      var aux = isAux(t), ms = aux ? [] : withAreaPct(metricsFor(t)), off = num(t.style.offset, 0);
+      return { id: t.id, name: t.name + (t.digitized ? ' (digitized)' : ''), xUnit: t.xUnit, yUnit: t.yUnit, aux: aux, role: aux ? t.meta.role : '',
+        xMin: t.x.length ? t.x[0] + off : NaN, xMax: t.x.length ? t.x[t.x.length - 1] + off : NaN,
+        peaks: aux ? [] : t.peaks.map(function (p, i) { var m = ms[i] || {}; return { n: i + 1, label: p.label || '', rt: (isNum(m.rt) ? m.rt : p.apex) + off, start: p.start + off, end: p.end + off, height: m.height, area: m.area, areaPct: m.areaPct }; }) };
+    });
+  }
+  var lastSummary = '';
+  function renderPlotSummary() {
+    var el = $('plot-summary'); if (!el) return;
+    var txt = isEmpty() ? 'No data loaded yet.' : summarizeTraces(plotTraceData().filter(function (d) { return !d.aux; }));
+    if (txt !== lastSummary) { lastSummary = txt; el.textContent = 'Plot summary: ' + txt; }
+    if (isOpen('plottable')) renderPlotTable();
+  }
+  function renderPlotTable() {
+    var host = $('plottable-root'); if (!host) return;
+    var data = plotTraceData(), mains = data.filter(function (d) { return !d.aux; });
+    if (isEmpty()) { host.innerHTML = '<p class="muted">No data loaded yet.</p>'; return; }
+    host.innerHTML = '<p>' + esc(summarizeTraces(mains)) + '</p>' +
+      (data.length > mains.length ? '<p class="small muted">Also shown on secondary axes: ' + esc(data.filter(function (d) { return d.aux; }).map(function (d) { return d.name + ' (' + d.role + ', ' + d.yUnit + ')'; }).join(', ')) + '.</p>' : '') +
+      mains.map(function (d, k) {
+        var u = d.xUnit;
+        return '<table class="plain small" style="margin:10px 0"><caption style="text-align:left;font-weight:600;padding:4px 0">' + esc(d.name) + ': ' + d.peaks.length + ' peak' + (d.peaks.length === 1 ? '' : 's') + '</caption>' +
+          '<thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">RT (' + esc(u) + ')</th><th scope="col">Start</th><th scope="col">End</th><th scope="col">Height (' + esc(d.yUnit) + ')</th><th scope="col">Area</th><th scope="col">Area %</th></tr></thead><tbody>' +
+          (d.peaks.length ? d.peaks.map(function (q) { return '<tr><th scope="row">' + q.n + '</th><td>' + esc(q.label || '—') + '</td><td>' + esc(fmt(q.rt, 5)) + '</td><td>' + esc(fmt(q.start, 5)) + '</td><td>' + esc(fmt(q.end, 5)) + '</td><td>' + esc(fmt(q.height, 4)) + '</td><td>' + esc(fmt(q.area, 5)) + '</td><td>' + esc(fmt(q.areaPct, 4)) + '</td></tr>'; }).join('') : '<tr><td colspan="8" class="muted">No peaks.</td></tr>') +
+          '</tbody></table>';
+      }).join('') +
+      '<div class="row"><button class="btn" data-action="export-xy">Download x,y data (CSV)</button><button class="btn" data-action="export-peaks">Download the peak table (CSV)</button></div>' +
+      '<p class="small muted">The CSV holds every point of every trace (raw and processed signal), so the full curves can be read with a spreadsheet or screen reader.</p>';
+  }
+  function openPlotTable() { renderPlotTable(); showModal('plottable'); }
+  function scheduleRender() { if (renderQueued || !HAS_DOM) return; renderQueued = true; var raf = typeof requestAnimationFrame === 'function' && !document.hidden ? requestAnimationFrame : function (f) { return setTimeout(f, 16); }; raf(function () { renderQueued = false; renderAll(); }); }
   app.render = function () { renderAll(); };
 
   /* ---------------- trace list */
@@ -795,9 +889,10 @@
         '<button class="btn ghost sm icon danger" data-act="delete" aria-label="Delete ' + esc(t.name) + '" title="Delete">&#10005;</button>' +
         '</div>' +
         '<div class="sub">' + traceBadges(t) + ' <span>' + t.x.length + ' pts</span>' + (isAux(t) ? '' : '<span>' + t.peaks.length + ' peaks</span>') +
-        '<button class="btn ghost sm icon" data-act="up" aria-label="Move ' + esc(t.name) + ' up" title="Move up (legend/stack order)" style="min-height:22px;padding:0 5px">&#9650;</button>' +
-        '<button class="btn ghost sm icon" data-act="down" aria-label="Move ' + esc(t.name) + ' down" title="Move down" style="min-height:22px;padding:0 5px">&#9660;</button>' +
+        '<button class="btn ghost sm icon tiny" data-act="up" aria-label="Move ' + esc(t.name) + ' up" title="Move up (legend/stack order)">&#9650;</button>' +
+        '<button class="btn ghost sm icon tiny" data-act="down" aria-label="Move ' + esc(t.name) + ' down" title="Move down">&#9660;</button>' +
         (remapSource(t) ? '<button class="btn ghost sm" data-act="remap" title="Re-map the columns of the source data">Re-map columns</button>' : '') +
+        wavelengthSelectHTML(t) +
         '<label class="inline" title="Retention-time offset applied to the display (for overlay alignment)">Δt <input type="number" step="0.01" data-act="offset" value="' + (num(t.style.offset, 0) || 0) + '" aria-label="Time offset for ' + esc(t.name) + '"></label>' +
         '</div></li>';
     }).join('');
@@ -825,6 +920,7 @@
       if (act === 'vis') { app.pushUndo('Toggle visibility'); t.style.visible = el.checked; renderAll(); }
       else if (act === 'color') { app.pushUndo('Change color'); t.style.color = el.value; renderTraceList(); renderPlot(); }
       else if (act === 'offset') { app.pushUndo('Change time offset'); t.style.offset = num(el.value, 0); renderPlot(); }
+      else if (act === 'wavelength') { var wv = el.value; setTraceWavelength(t.id, wv === 'sum' ? 'sum' : +wv); }
     });
     ul.addEventListener('input', function (e) {
       var el = e.target, t = tr(el); if (!t) return;
@@ -980,7 +1076,7 @@
       if (!res || !res.components) { toast('Fit returned no result.', 'error'); return; }
       app.pushUndo('Fit peaks');
       t.fit = { model: model, components: res.components, curve: res.curve || null, r2: res.r2, rss: res.rss, dof: res.dof, converged: res.converged, peakIds: t.peaks.map(function (p) { return p.id; }) };
-      renderAll(); toast('Fitted ' + res.components.length + ' ' + (model === 'emg' ? 'EMG' : 'Gaussian') + ' components, R² = ' + fmt(res.r2, 5), res.converged === false ? 'warn' : 'ok');
+      renderAll(); if (res.converged !== false) app.surveyEvent('fit'); toast('Fitted ' + res.components.length + ' ' + (model === 'emg' ? 'EMG' : 'Gaussian') + ' components, R² = ' + fmt(res.r2, 5), res.converged === false ? 'warn' : 'ok');
     }, 20);
   }
 
@@ -1095,7 +1191,7 @@
     if (host.getAttribute('data-built')) return;
     host.setAttribute('data-built', '1');
     host.innerHTML = '<div class="dropzone" id="dropzone">' +
-      '<h1>Analyze an HPLC/FPLC chromatogram</h1>' +
+      '<h2>Analyze an HPLC/FPLC chromatogram</h2>' +
       '<p class="muted">Drop instrument exports or chromatogram images anywhere on this page, or choose files. Everything runs in your browser. Nothing is uploaded.</p>' +
       '<div class="row"><button class="btn primary" data-action="open-files">Choose files…</button><button class="btn" data-action="paste">Paste data</button><button class="btn" data-action="image">Digitize an image</button></div>' +
       '<div class="row"><span class="small muted">Or try a sample:</span><button class="btn sm" data-action="sample">HPLC run + blank</button><button class="btn sm" data-action="sample-cal">Calibration set (5 standards + unknown)</button><button class="btn sm" data-action="sample-fplc">FPLC / IMAC run</button><button class="btn sm" data-action="sample-image">Chromatogram image</button></div>' +
@@ -1449,16 +1545,57 @@
       if (sh.name === 'pk-start') ns = xv; else if (sh.name === 'pk-end') ne = xv;
     });
     if (ns === pk.start && ne === pk.end) return;
-    var pr = processed(t), xmin = pr.x[0], xmax = pr.x[pr.x.length - 1];
-    ns = U.clamp(ns, xmin, xmax); ne = U.clamp(ne, xmin, xmax);
+    setPeakBounds(t, pk, ns, ne);
+  }
+  /** Pure: clamp/sort new bounds for a peak on x (ascending); null when the window would be narrower than 2 samples. */
+  function boundsFor(x, ns, ne) {
+    if (!x || x.length < 3 || !isNum(ns) || !isNum(ne)) return null;
+    var xmin = x[0], xmax = x[x.length - 1]; ns = U.clamp(ns, xmin, xmax); ne = U.clamp(ne, xmin, xmax);
     if (ne < ns) { var tmp = ns; ns = ne; ne = tmp; }
-    if (ne - ns < (pr.x[1] - pr.x[0]) * 2) { toast('Integration window too narrow.', 'warn'); renderPlot(); return; }
-    app.pushUndo('Move integration bounds');
-    pk.start = ns; pk.end = ne; pk.manual = true;
-    if (pk.apex < ns || pk.apex > ne) { var i0 = lowerIdx(pr.x, ns), i1 = lowerIdx(pr.x, ne), im = i0; for (var i = i0; i <= i1 && i < pr.x.length; i++) if (pr.y[i] > pr.y[im]) im = i; pk.apex = pr.x[im]; }
+    if (ne - ns < (x[1] - x[0]) * 2) return null;
+    return { start: ns, end: ne };
+  }
+  app.boundsFor = boundsFor;
+  /** Pure: move one bound of a peak by `steps` data points along x (keyboard nudging). which = 'start' | 'end'. */
+  function nudgeBound(x, pk, which, dir) {
+    var v = which === 'end' ? pk.end : pk.start, eps = 1e-9 * Math.max(1, Math.abs(v));
+    var i = dir < 0 ? lowerIdx(x, v - eps) - 1 : lowerIdx(x, v + eps); // previous / next sample strictly beyond the current bound
+    i = U.clamp(i, 0, x.length - 1);
+    return which === 'end' ? boundsFor(x, pk.start, x[i]) : boundsFor(x, x[i], pk.end);
+  }
+  app.nudgeBound = nudgeBound;
+  var boundSession = null, boundTimer = null;
+  /** Set a peak's integration window (manual edit; undoable). opts.coalesce merges rapid keyboard nudges into one undo step. */
+  function setPeakBounds(t, pk, ns, ne, opts) {
+    opts = opts || {};
+    var pr = processed(t), b = boundsFor(pr.x, ns, ne);
+    if (!b) { toast('Integration window too narrow.', 'warn'); renderPlot(); return false; }
+    if (b.start === pk.start && b.end === pk.end) return false;
+    if (!(opts.coalesce && boundSession === pk.id)) app.pushUndo('Move integration bounds');
+    boundSession = opts.coalesce ? pk.id : null; clearTimeout(boundTimer); boundTimer = setTimeout(function () { boundSession = null; }, 1500);
+    pk.start = b.start; pk.end = b.end; pk.manual = true;
+    if (pk.apex < b.start || pk.apex > b.end) { var i0 = lowerIdx(pr.x, b.start), i1 = lowerIdx(pr.x, b.end), im = i0; for (var i = i0; i <= i1 && i < pr.x.length; i++) if (pr.y[i] > pr.y[im]) im = i; pk.apex = pr.x[im]; }
     t.proc.peaks.auto = false; clearFit(t);
     renderPlot(); renderTable(); updateProcStatus();
+    var pop = $('audit-pop'); if (pop && !pop.hidden && pop._ctx && pop._ctx.t === t && t.peaks[pop._ctx.idx] === pk) syncAuditBounds(pk);
+    return true;
   }
+  /** Keyboard: , and . move the selected peak's start bound; < and > its end bound (one data point; documented in Help). */
+  function nudgeSelectedBound(which, dir) {
+    var t = activeTrace(); if (!t || isAux(t)) return false;
+    var pk = t.peaks.filter(function (p) { return p.id === state.selPeakId; })[0];
+    if (!pk) { announce('Select a peak first (arrow keys or the peak table), then use comma and period to move its start, less-than and greater-than to move its end.'); return true; }
+    var pr = processed(t), b = nudgeBound(pr.x, pk, which, dir);
+    if (!b) { announce('The integration window cannot get narrower.'); return true; }
+    if (setPeakBounds(t, pk, b.start, b.end, { coalesce: true })) announce('Peak ' + (t.peaks.indexOf(pk) + 1) + ' ' + which + ' ' + fmt(which === 'end' ? pk.end : pk.start, 5) + ' ' + t.xUnit + '. Window ' + fmt(pk.start, 5) + ' to ' + fmt(pk.end, 5) + '.');
+    return true;
+  }
+  /** Polite screen-reader announcement (visually hidden live region). */
+  function announce(msg) {
+    var el = $('pk-live'); if (!el) return;
+    el.textContent = ''; setTimeout(function () { el.textContent = msg; }, 30);
+  }
+  app.announce = announce;
   function addPeakAt(t, xv) {
     var pr = processed(t), n = pr.x.length; if (n < 5) return;
     var range = pr.x[n - 1] - pr.x[0], win = Math.max(range * 0.01, 3 * (pr.x[1] - pr.x[0])), pk = null, f = an('peakAt');
@@ -1731,6 +1868,10 @@
     pop.innerHTML = '<div class="row" style="justify-content:space-between"><strong id="audit-title">Peak ' + (idx + 1) + ' · ' + esc(t.name) + '</strong><button class="btn ghost sm" data-close-audit aria-label="Close calculation details">&#10005;</button></div>' +
       '<label class="inline" style="margin:6px 0">Name <input type="text" data-audit-name value="' + esc(pk.label || '') + '" placeholder="e.g. Caffeine" style="flex:1"></label>' +
       '<div class="small muted">Window ' + esc(fmt(pk.start, 5)) + ' – ' + esc(fmt(pk.end, 5)) + ' ' + esc(t.xUnit) + ' · ' + esc(CLIP_LABELS[ig ? ig.clip : clipOf(pk)] || '') + (pk.clip ? '' : ' (default)') + (pk.manual ? ' · manually set' : '') + '</div>' +
+      '<fieldset class="bounds-edit"><legend class="small">Integration window (' + esc(t.xUnit) + ')</legend>' +
+      '<label class="inline">Start <input type="number" step="any" data-audit-bound="start" value="' + (+pk.start.toPrecision(7)) + '" style="width:96px"></label>' +
+      '<label class="inline">End <input type="number" step="any" data-audit-bound="end" value="' + (+pk.end.toPrecision(7)) + '" style="width:96px"></label>' +
+      '<span class="small muted">Enter to apply; undoable</span></fieldset>' +
       '<div class="tabs" role="tablist" aria-label="Detail view" style="margin:8px 0 4px"><button class="tab" role="tab" data-audit-tab="values" aria-selected="' + (tab === 'values') + '">Values</button><button class="tab" role="tab" data-audit-tab="integration" aria-selected="' + (tab === 'integration') + '">Integration</button></div>' +
       '<div role="tabpanel">' + body + '</div>' +
       (t.digitized ? '<div class="note warn" style="margin-top:6px">Digitized from an image: values are estimates. Uncertainty ±' + esc(fmt(t.digitized.dxMin, 3)) + ' ' + esc(t.xUnit) + ', ±' + esc(fmt(t.digitized.dy, 3)) + ' ' + esc(t.yUnit) + '.</div>' : '') +
@@ -1745,6 +1886,11 @@
     pop._ctx = { t: t, idx: idx, anchor: anchor && document.contains(anchor) ? anchor : (pop._ctx && pop._ctx.anchor), only: only, tab: tab };
     var c = pop.querySelector(tab === (state.auditFocusTab || '') ? '[data-audit-tab="' + tab + '"]' : '[data-close-audit]'); state.auditFocusTab = null; if (c) c.focus();
   }
+  function syncAuditBounds(pk) {
+    var pop = $('audit-pop'); if (!pop || pop.hidden) return;
+    var a = pop.querySelector('[data-audit-bound="start"]'), b = pop.querySelector('[data-audit-bound="end"]');
+    if (a) a.value = +pk.start.toPrecision(7); if (b) b.value = +pk.end.toPrecision(7);
+  }
   function hideAudit() { var pop = $('audit-pop'); if (pop && !pop.hidden) { pop.hidden = true; var a = pop._ctx && pop._ctx.anchor; if (a && a.focus && document.contains(a)) a.focus(); } }
   function bindAudit() {
     var pop = $('audit-pop');
@@ -1754,9 +1900,19 @@
       else if (e.target.closest('[data-audit-split]') && pop._ctx) { var c2 = pop._ctx; hideAudit(); openClipDialog(c2.t, clusterOf(c2.t, c2.idx), { reason: 'split' }); }
       else if (e.target.closest('[data-audit-tab]') && pop._ctx) { var c3 = pop._ctx; state.auditFocusTab = e.target.closest('[data-audit-tab]').getAttribute('data-audit-tab'); showAudit(c3.t, c3.idx, c3.only, c3.anchor, state.auditFocusTab); }
     });
-    pop.addEventListener('change', function (e) { if (e.target.hasAttribute('data-audit-name') && pop._ctx) { var c = pop._ctx, pk = c.t.peaks[c.idx]; if (pk) setPeakLabel(c.t, pk.id, e.target.value); } });
+    pop.addEventListener('change', function (e) {
+      if (e.target.hasAttribute('data-audit-name') && pop._ctx) { var c = pop._ctx, pk = c.t.peaks[c.idx]; if (pk) setPeakLabel(c.t, pk.id, e.target.value); }
+      if (e.target.hasAttribute('data-audit-bound') && pop._ctx) {
+        var c4 = pop._ctx, pk4 = c4.t.peaks[c4.idx]; if (!pk4) return;
+        var sIn = pop.querySelector('[data-audit-bound="start"]'), eIn = pop.querySelector('[data-audit-bound="end"]'), ns = num(sIn.value, NaN), ne = num(eIn.value, NaN);
+        if (!isNum(ns) || !isNum(ne)) { syncAuditBounds(pk4); announce('Enter a number.'); return; }
+        if (setPeakBounds(c4.t, pk4, ns, ne)) { syncAuditBounds(pk4); announce('Integration window set to ' + fmt(pk4.start, 5) + ' to ' + fmt(pk4.end, 5) + ' ' + c4.t.xUnit + '. Area ' + fmt((withAreaPct(metricsFor(c4.t))[c4.idx] || {}).area, 5) + '.'); }
+        else syncAuditBounds(pk4);
+      }
+    });
     pop.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && e.target.hasAttribute('data-audit-name')) e.target.blur();
+      else if (e.key === 'Enter' && e.target.hasAttribute('data-audit-bound')) { e.preventDefault(); e.target.dispatchEvent(new Event('change', { bubbles: true })); }
       else if (e.key === 'Tab') trapFocus(pop, e);
       else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.target.hasAttribute('data-audit-tab') && pop._ctx) { var c = pop._ctx; state.auditFocusTab = c.tab === 'values' ? 'integration' : 'values'; showAudit(c.t, c.idx, c.only, c.anchor, state.auditFocusTab); }
     });
@@ -1953,8 +2109,8 @@
       var srcKey = PK.uid('src');
       state.sources = state.sources || {};
       state.sources[srcKey] = { file: ctx.file || null, text: ctx.text || res.rawText || null, filename: ctx.filename, kind: ctx.kind, mapping: res.mapping || null, table: res.table || null };
-      trs.forEach(function (t) {
-        t.meta = t.meta || {}; t.meta._src = srcKey;
+      trs.forEach(function (t, i) {
+        t.meta = t.meta || {}; t.meta._src = srcKey; t.meta._srcIdx = i;
         t.source = mergeDeep({ kind: ctx.kind || 'file', filename: ctx.filename, format: res.format }, t.source || {});
         if (ctx.kind === 'paste') t.source.kind = 'paste';
         if (t.meta && t.meta.xIsVolume) t.xUnit = 'mL';
@@ -2172,6 +2328,63 @@
     if (src.file) return readText(src.file).then(function (tx) { if (/[\x00-\x08\x0E-\x1F]/.test(tx.slice(0, 2000))) { toast('This is a binary file, so its columns cannot be re-mapped.', 'warn'); return null; } base.text = tx; return base; });
     return null;
   }
+  /* ---------------- MOCCA2 / multi-wavelength sources: pick another wavelength by re-parsing the source text */
+  function wavelengthList(t) {
+    var w = t && t.meta && t.meta.wavelengths; if (!Array.isArray(w) || w.length < 2 || w.length > 2000) return null;
+    w = w.map(Number).filter(isNum); return w.length > 1 ? w : null;
+  }
+  function currentWavelength(t) { var m = t.meta || {}, sel = m.mocca && m.mocca.selected; return sel === 'sum' ? 'sum' : isNum(+sel) && sel !== null ? +sel : (isNum(+m.wavelength) ? +m.wavelength : null); }
+  function wavelengthSource(t) { var key = t.meta && t.meta._src, src = key && state.sources && state.sources[key]; return src && (src.text || src.file) ? src : null; }
+  function wavelengthSelectHTML(t) {
+    var wl = wavelengthList(t); if (!wl) return '';
+    var cur = currentWavelength(t), src = wavelengthSource(t), id = 'wl-' + esc(t.id);
+    var opts = wl.map(function (v) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + esc(fmt(v, 5)) + ' nm</option>'; }).join('') +
+      '<option value="sum"' + (cur === 'sum' ? ' selected' : '') + '>sum</option>';
+    var tip = src ? 'Show this chromatogram at another detector wavelength (re-reads the file kept in memory; undoable)' : 'Re-open the file to change wavelength';
+    return '<label class="inline" title="' + tip + '"><span aria-hidden="true">&lambda;:</span> <select data-act="wavelength" id="' + id + '" aria-label="Wavelength for ' + esc(t.name) + '"' + (src ? '' : ' disabled aria-describedby="' + id + '-why"') + ' style="min-height:24px;padding:1px 4px;font-size:12px">' + opts + '</select>' +
+      (src ? '' : '<span class="sr-only" id="' + id + '-why">Re-open the file to change wavelength.</span>') + '</label>';
+  }
+  /** Pure: trace partial for chromatogram `idx` of a MOCCA2 (or other multi-wavelength) source at wavelength `wl` (nm or 'sum'). */
+  function reparseWavelength(text, filename, idx, wl) {
+    if (!PK.parsers || typeof PK.parsers.parseText !== 'function') throw new Error('The file-format module is not loaded.');
+    var res = PK.parsers.parseText(text, { filename: filename, wavelength: wl });
+    if (!res || !res.ok || !res.traces || !res.traces.length) throw new Error((res && res.error) || 'The file could not be read again.');
+    var tr = res.traces[Math.min(Math.max(0, idx | 0), res.traces.length - 1)];
+    return { trace: tr, warnings: (res.warnings || []).filter(function (w) { return !/wavelengths; showing/.test(w); }) };
+  }
+  app.reparseWavelength = reparseWavelength;
+  /** Replace the data of trace `t` with partial `nt` (same chromatogram, other wavelength). Keeps id, style, processing and offset. */
+  function applyWavelengthData(t, nt) {
+    var keep = { _src: t.meta._src, _srcIdx: t.meta._srcIdx, run: t.meta.run };
+    var norm = normalizeTrace(mergeDeep({ id: t.id, style: t.style, proc: t.proc }, { name: nt.name, x: nt.x, y: nt.y, xUnit: nt.xUnit, yUnit: nt.yUnit, meta: nt.meta, peaks: nt.peaks || [], source: t.source }), null);
+    var oldSuffix = / (\d+(\.\d+)? nm|\(sum of \d+ λ\))$/;
+    if (oldSuffix.test(t.name) && oldSuffix.test(norm.name)) t.name = t.name.replace(oldSuffix, norm.name.match(oldSuffix)[0]);
+    t.x = norm.x; t.y = norm.y; t.yUnit = norm.yUnit; t.xUnit = norm.xUnit;
+    t.meta = norm.meta; Object.keys(keep).forEach(function (k) { if (keep[k] !== undefined) t.meta[k] = keep[k]; });
+    t.peaks = norm.peaks; t.fit = null;
+    if (t.proc.baseline.lambdaAuto) t.proc.baseline.lambda = autoLambda(t.x.length);
+    return t;
+  }
+  app.applyWavelengthData = applyWavelengthData;
+  function setTraceWavelength(id, wl) {
+    var t = traceById(id), src = t && wavelengthSource(t);
+    if (!t) return Promise.resolve(false);
+    if (!src) { toast('Re-open the file to change wavelength.', 'info'); renderTraceList(); return Promise.resolve(false); }
+    var getText = src.text ? Promise.resolve(src.text) : readText(src.file);
+    return getText.then(function (text) {
+      var r = reparseWavelength(text, src.filename, t.meta._srcIdx || 0, wl);
+      app.pushUndo('Change wavelength');
+      applyWavelengthData(t, r.trace);
+      delete state.cache[t.id];
+      if (!t.peaks.length && t.proc.peaks.auto) detectFor(t, true);
+      if (P().activeTraceId === t.id && state.selPeakId && !t.peaks.some(function (p) { return p.id === state.selPeakId; })) state.selPeakId = null;
+      renderAll(); refreshOpenPanels();
+      toast('"' + t.name + '": ' + (wl === 'sum' ? 'sum over all wavelengths' : fmt(wl, 5) + ' nm') + (r.warnings.length ? ' · ' + r.warnings[0] : ''), r.warnings.length ? 'warn' : 'ok');
+      return true;
+    }).catch(function (e) { console.error(e); toast('Could not change the wavelength: ' + e.message, 'error'); renderTraceList(); return false; });
+  }
+  app.setTraceWavelength = setTraceWavelength;
+
   function pasteImport(text, map) {
     text = String(text || '');
     if (!text.trim()) { toast('Nothing to import. Paste some data first.', 'warn'); return; }
@@ -2206,6 +2419,7 @@
       state.closingDigitizer = true; try { PK.digitizer.close(); } catch (e) { console.error(e); } state.closingDigitizer = false;
     }
     var pf = el._prevFocus; if (pf && pf.focus && document.contains(pf)) pf.focus();
+    if (!modalStack.length) retryPendingSurvey();
   }
   app.showModal = showModal; app.hideModal = hideModal;
   function refreshOpenPanels() {
@@ -2557,7 +2771,7 @@
   }
   function saveProject() {
     var p = clone(P()); p.format = FORMAT_TAG; p.version = PROJECT_VERSION; p.schema = { name: FORMAT_TAG, version: PROJECT_VERSION }; p.app = 'Peakly'; p.peaklyVersion = appVersion(); p.saved = new Date().toISOString();
-    p.traces.forEach(function (t) { if (t.meta) delete t.meta._src; });
+    p.traces.forEach(function (t) { if (t.meta) { delete t.meta._src; delete t.meta._srcIdx; } });
     U.downloadText(JSON.stringify(p), fileSafe(p.name) + '.peakly.json', 'application/json');
     toast('Project saved (' + Math.round(JSON.stringify(p).length / 1024) + ' KB)', 'ok');
   }
@@ -2668,7 +2882,8 @@
       text('Privacy: this report was generated entirely in your browser by Peakly ' + appVersion() + '. No data was uploaded. Peakly has no tracking or analytics.', 7.5, 'normal', 90);
       var np = doc.getNumberOfPages();
       var disc = pdfSafe((PK.config && PK.config.disclaimer) || '');
-      for (var i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(disc, M, H - 10.5); doc.text(pdfSafe('Peakly ' + appVersion() + ' · page ' + i + ' / ' + np), W - M, H - 7, { align: 'right' }); }
+      var fb = surveyCfg().url ? pdfSafe('Feedback: ' + surveyCfg().url) : '';
+      for (var i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(disc, M, H - 10.5); if (fb) doc.text(fb, M, H - 7); doc.text(pdfSafe('Peakly ' + appVersion() + ' · page ' + i + ' / ' + np), W - M, H - 7, { align: 'right' }); }
       doc.save(fileSafe(p.name) + '_report.pdf'); toast('PDF report saved', 'ok');
     }).catch(function (err) { console.error(err); toast('PDF export failed: ' + err.message, 'error'); });
   }
@@ -2719,6 +2934,7 @@
   function renderHelp() {
     var f = $('help-formats'); if (f) f.innerHTML = formatsList();
     var v1 = $('help-version'), v2 = $('foot-version'); if (v1) v1.textContent = appVersion(); if (v2) v2.textContent = appVersion();
+    renderSurveyLinks();
     var fm = $('help-formulas'), F = (PK.analysis && PK.analysis.FORMULAS) || null;
     if (fm) fm.innerHTML = F ? '<table class="plain">' + Object.keys(F).map(function (k) { var x = F[k]; return '<tr><td><strong>' + esc(x.name || k) + '</strong><br><span class="mono">' + esc(x.expr || '') + '</span></td><td class="muted">' + esc(x.description || '') + (x.ref ? ' <em>' + esc(x.ref) + '</em>' : '') + '</td></tr>'; }).join('') + '</table>' : '<p class="muted">The analysis module is not loaded.</p>';
   }
@@ -3012,7 +3228,9 @@
     $('chk-ghost').addEventListener('change', function (e) { P().settings.ghost.show = e.target.checked; renderPlot(); });
     $('rng-ghost').addEventListener('input', function (e) { P().settings.ghost.opacity = num(e.target.value, 0.35); schedulePlot(); });
     var menuBtn = $('btn-plotmenu'), menu = $('plot-menu');
-    menuBtn.addEventListener('click', function (e) { e.stopPropagation(); var open = menu.hidden; menu.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open)); if (open) renderPlotMenu(); });
+    menuBtn.addEventListener('click', function (e) { e.stopPropagation(); var open = menu.hidden; menu.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open)); if (open) { renderPlotMenu(); var f0 = menu.querySelector('input, select'); if (f0) f0.focus(); } });
+    // non-modal popover dialog: closes when focus leaves it (Tab past the last control) or on Esc (global handler)
+    menu.addEventListener('focusout', function (e) { var to = e.relatedTarget; if (!menu.hidden && to && !menu.contains(to) && to !== menuBtn) { menu.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); } });
     document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target) && e.target !== menuBtn) { menu.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); } });
     menu.addEventListener('change', function (e) {
       var s = P().settings, id = e.target.id; app.pushUndo('Plot options');
@@ -3248,7 +3466,7 @@
       app.pushUndo(id === 'clip-apply-all' ? 'Split fused peaks (all similar)' : 'Split fused peaks');
       t.peaks.forEach(function (p) { if (ids.indexOf(p.id) >= 0) p.clip = mode; });
       if (noask !== (P().settings.askClip === false)) P().settings.askClip = !noask;
-      hideModal('clip'); renderAll(); refreshMathModal();
+      hideModal('clip'); renderAll(); refreshMathModal(); app.surveyEvent('split');
       toast((CLIP_LABELS[mode] || mode) + ' applied to ' + ids.length + ' peak' + (ids.length === 1 ? '' : 's') + (noask ? '. Fused peaks now use the default without asking (Processing → Peak integration).' : '.'), 'ok');
       nextQueuedClip();
     });
@@ -3519,7 +3737,7 @@
     }
     if (el2) { if (fig.resid) Plotly.react(el2, fig.resid.data, fig.resid.layout, { responsive: true, displaylogo: false, displayModeBar: false }); else { try { Plotly.purge(el2); } catch (e) { /* ignore */ } el2.innerHTML = ''; } }
   }
-  function calChanged() { state.calCache = {}; renderCalibration(); renderTable(); }
+  function calChanged() { state.calCache = {}; renderCalibration(); renderTable(); var a = selAnalyte(), r = a && calibrationFor(a); if (r && r.fit) app.surveyEvent('calibration'); }
   var calSession = null, calTimer = null;
   function beginCalEdit(el) { if (calSession !== el) { app.pushUndo('Edit calibration'); calSession = el; } clearTimeout(calTimer); calTimer = setTimeout(function () { calSession = null; }, 1500); }
   function showCalAudit(btn) {
@@ -3685,6 +3903,59 @@
     caps.forEach(function (c) { S.enabled(c[0]).forEach(function (svc) { html.push('<button class="btn sm" data-svc="' + esc(svc.id) + '" data-cap="' + c[0] + '">' + esc(c[1] + ' ' + (svc.name || svc.id)) + '</button>'); }); });
     return html.join('');
   }
+  /** Credits & acknowledgements (About). Every link is a constant https:// URL. */
+  var CREDITS = {
+    algorithms: [
+      ['Asymmetric least squares (ALS) baseline', 'P. H. C. Eilers & H. F. M. Boelens, “Baseline correction with asymmetric least squares smoothing”, Leiden University Medical Centre report (2005); after P. H. C. Eilers, “A perfect smoother”, Anal. Chem. 75 (2003) 3631', 'https://doi.org/10.1021/ac034173t'],
+      ['Savitzky–Golay smoothing', 'A. Savitzky & M. J. E. Golay, Anal. Chem. 36 (1964) 1627', 'https://doi.org/10.1021/ac60214a047'],
+      ['Levenberg–Marquardt least squares (peak and calibration fits)', 'K. Levenberg, Q. Appl. Math. 2 (1944) 164; D. W. Marquardt, J. SIAM 11 (1963) 431', 'https://doi.org/10.1137/0111030'],
+      ['Exponentially modified Gaussian (EMG) peak model', 'E. Grushka, Anal. Chem. 44 (1972) 1733', 'https://doi.org/10.1021/ac60319a011'],
+      ['Integration methods (drop, valley, skims) and the 10:1 skim criterion', 'N. Dyson, Chromatographic Integration Methods, 2nd ed., RSC (1998)', 'https://doi.org/10.1039/9781847550514'],
+      ['System-suitability and validation definitions (plates, tailing, resolution, S/N, LOD/LOQ)', 'USP General Chapter <621> Chromatography; Ph. Eur. 2.2.46 Chromatographic separation techniques; ICH Q2(R2) Validation of analytical procedures', 'https://www.ich.org/page/quality-guidelines'],
+      ['Perspective correction (homography) in the digitizer', 'R. Hartley & A. Zisserman, Multiple View Geometry in Computer Vision, 2nd ed., Cambridge University Press (2004)', 'https://doi.org/10.1017/CBO9780511811685']
+    ],
+    projects: [
+      ['OpenChrom / Eclipse ChemClipse', 'EPL-2.0', 'https://github.com/eclipse-chemclipse/chemclipse'],
+      ['chromatoPy', 'MIT', 'https://github.com/GerardOtiniano/chromatoPy'],
+      ['MOCCA2', 'MIT', 'https://github.com/bayer-group/MOCCA'],
+      ['rainbow', 'LGPL-3.0', 'https://github.com/evanyeyeye/rainbow'],
+      ['chromConverter', 'GPL-3.0', 'https://github.com/ethanbass/chromConverter'],
+      ['entab', 'MIT', 'https://github.com/bovee/entab'],
+      ['WebPlotDigitizer', 'AGPL-3.0', 'https://github.com/automeris-io/WebPlotDigitizer']
+    ]
+  };
+  app.CREDITS = CREDITS;
+  function extLink(url, text) { return /^https:\/\//.test(url) ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(text) + '<span class="sr-only"> (opens in a new tab)</span></a>' : esc(text); }
+  function creditsHTML() {
+    var cfg = PK.config || {}, repo = cfg.repoUrl && /^https:\/\//.test(cfg.repoUrl) ? cfg.repoUrl.replace(/\/+$/, '') : '';
+    function doc(f, label) { return repo ? extLink(repo + '/blob/main/docs/' + f, label) : esc(label); }
+    return '<div class="section credits"><h3>Credits &amp; acknowledgements</h3>' +
+      '<p class="small" style="margin-bottom:4px"><strong>Algorithms and definitions</strong> (implemented from the publications):</p><ul class="small" style="margin:0 0 8px;padding-left:18px">' +
+      CREDITS.algorithms.map(function (a) { return '<li>' + esc(a[0]) + ': ' + extLink(a[2], a[1]) + '</li>'; }).join('') + '</ul>' +
+      '<p class="small" style="margin-bottom:4px"><strong>Projects that informed the design</strong> (concepts only, no code copied):</p><ul class="small" style="margin:0 0 8px;padding-left:18px">' +
+      CREDITS.projects.map(function (p0) { return '<li>' + extLink(p0[2], p0[0]) + ' <span class="muted">(' + esc(p0[1]) + ')</span></li>'; }).join('') + '</ul>' +
+      '<p class="small"><strong>Runtime libraries:</strong> see Third-party notices above.</p>' +
+      '<p class="small"><strong>Code of conduct:</strong> adapted from the ' + extLink('https://www.contributor-covenant.org/', 'Contributor Covenant') + ' (CC BY 4.0).</p>' +
+      '<p class="small"><strong>Feedback survey:</strong> uses the System Usability Scale (SUS) by John Brooke (1986; published 1996). ' + extLink('https://uxpajournal.org/sus-a-retrospective/', 'Background: J. Brooke, “SUS: a retrospective” (2013)') + '.</p>' +
+      '<p class="small"><strong>AI assistance:</strong> Code written with the assistance of Claude (Anthropic); reviewed and tested by the author.</p>' +
+      '<p class="small muted"><strong>Trademarks:</strong> Agilent, ChemStation, OpenLab, Waters, Empower, Thermo Scientific, Chromeleon, Shimadzu, LabSolutions, Bio-Rad, ChromLab, Cytiva, ÄKTA, UNICORN, OpenChrom and other names are trademarks of their respective owners; Peakly is not affiliated with or endorsed by them.</p>' +
+      '<p class="small">' + doc('PRIVACY.md', 'Privacy') + ' · ' + doc('TERMS.md', 'Terms') + ' · ' + doc('ACCESSIBILITY.md', 'Accessibility') + '</p></div>';
+  }
+  /** Contact address from PK.config.contactEmail as a mailto: link (user-initiated navigation; nothing is sent by the app). */
+  function contactEmail() { var e = PK.config && PK.config.contactEmail; return typeof e === 'string' && /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(e) && !/noreply/i.test(e) ? e : ''; }
+  app.contactEmail = contactEmail;
+  function mailtoLink(text) { var e = contactEmail(); return e ? '<a href="mailto:' + esc(e) + '">' + esc(text || e) + '</a>' : ''; }
+  function contactHTML() {
+    var cfg = PK.config || {}, e = contactEmail(), issues = cfg.contactUrl && /^https:\/\//.test(cfg.contactUrl) ? extLink(cfg.contactUrl, 'open an issue on GitHub') : '';
+    if (!e && !issues) return '';
+    return '<div class="section"><h3>Contact</h3><p class="small">' + (e ? 'Email ' + mailtoLink() : '') + (e && issues ? ', or ' : '') + issues + '.</p></div>';
+  }
+  function surveyAboutHTML() {
+    var sc = surveyCfg(); if (!sc.url) return '';
+    return '<div class="section"><h3>Help improve Peakly</h3><p class="small">' + extLink(sc.url, 'Help improve Peakly: take the 3-minute survey') + '</p>' +
+      (sc.signupUrl ? '<p class="small">' + extLink(sc.signupUrl, 'Email me future Peakly surveys') + ' <span class="muted">You enter your email on Google Forms, not in Peakly; it is only used to send Peakly surveys, and you can unsubscribe any time.</span></p>' : '') +
+      '<p class="small muted">Links open Google Forms in a new tab. Peakly itself never sends anything.</p></div>';
+  }
   function renderAbout() {
     var host = $('about-root'); if (!host) return;
     var cfg = PK.config || {}, au = cfg.author || {}, svc = serviceButtons(), name = cfg.appName || 'Peakly';
@@ -3700,7 +3971,8 @@
       '<pre class="raw-text" id="cite-bib" tabindex="0" aria-label="BibTeX entry">' + esc(bibtex()) + '</pre>' +
       '<div class="row" style="margin-top:6px"><button class="btn sm" data-copy="cite-text">Copy citation</button><button class="btn sm" data-copy="cite-bib">Copy BibTeX</button></div></div>' +
       '</div><div>' +
-      '<div class="section"><h3 style="margin-top:0">Tell us how you used it</h3><p class="small">Stories about real use help decide what to build next.</p>' +
+      surveyAboutHTML() + contactHTML() +
+      '<div class="section"><h3' + (surveyCfg().url ? '' : ' style="margin-top:0"') + '>Tell us how you used it</h3><p class="small">Stories about real use help decide what to build next.</p>' +
       (cfg.discussionsUrl ? '<button class="btn sm" id="about-discuss">Open the discussion board (new tab)</button>' : '<p class="small muted" id="about-discuss-note">The public discussion board link will be added here when the repository opens. Peakly never sends anything about you or your data automatically.</p>') + '</div>' +
       '<div class="section"><h3>Privacy</h3><p class="small">No telemetry: this app collects nothing, sets no cookies and makes no network requests with your data. Files stay in this browser tab. Analytics, if any, only ever run on the project website, never in the app. The only optional network call is the Claude image assist in the digitizer, which you start yourself with your own API key.</p></div>' +
       '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is released under the ' + esc(cfg.license || 'MIT') + ' License. Algorithms are implemented from the published literature.</p>' +
@@ -3708,7 +3980,7 @@
       THIRD_PARTY.map(function (l) { return '<tr><td>' + esc(l.name) + '</td><td class="mono">' + esc(l.version) + '</td><td>' + esc(l.license) + '</td><td class="muted">' + esc(l.use) + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<p class="small muted">Libraries load from public CDNs (pinned versions); their full license texts are in THIRD_PARTY_NOTICES in the repository.</p></div>' +
       (svc ? '<div class="section"><h3>Optional services</h3><div class="row">' + svc + '</div></div>' : '') +
-      '</div></div>';
+      '</div></div>' + creditsHTML();
   }
   function bindAbout() {
     var host = $('about-root'); if (!host) return;
@@ -3770,6 +4042,75 @@
   }
   app.runDemo = runDemo;
 
+  /* ================================================================== settings + optional survey invitation */
+  /** Survey links (Help, footer) and Settings checkboxes; everything survey-related stays hidden while no URL is configured. */
+  function renderSurveyLinks() {
+    var sc = surveyCfg(), st = surveyState();
+    var sk = $('set-singlekeys'); if (sk) sk.checked = prefs().singleKeys;
+    var row = $('set-survey-row'), cb = $('set-survey'); if (row) row.hidden = !sc.url; if (cb) cb.checked = st.invites && !st.never;
+    var hs = $('help-survey'), hl = $('help-survey-link'), fl = $('foot-survey');
+    if (hs) hs.hidden = !sc.url; if (hl && sc.url) hl.href = sc.url;
+    if (fl) { fl.hidden = !sc.url; if (sc.url) fl.href = sc.url; }
+    var hc = $('help-contact'), em = contactEmail(); if (hc) { hc.hidden = !em; if (em) hc.innerHTML = 'Questions or feedback: ' + mailtoLink() + '.'; }
+  }
+  function bindSettings() {
+    var sk = $('set-singlekeys'), cb = $('set-survey');
+    if (sk) sk.addEventListener('change', function () { setPref('singleKeys', sk.checked); announce(sk.checked ? 'Single-key shortcuts on.' : 'Single-key shortcuts off.'); });
+    if (cb) cb.addEventListener('change', function () { var st = surveyState(); st.invites = cb.checked; if (cb.checked) st.never = false; saveSurveyState(st); });
+  }
+  var surveyPending = null, surveyTimer = null;
+  function surveyVisible() { var c = $('survey-card'); return !!c && !c.hidden; }
+  function surveyCtx(id) { return { id: id, demo: !!(state.demo || demoParam()), modalOpen: modalStack.length > 0 || (HAS_DOM && !!document.querySelector('.pk-modal:not([hidden])')) }; }
+  /** A complex feature finished successfully: maybe show the optional survey invitation (never blocks; shown after a pause). */
+  app.surveyEvent = function (id) {
+    if (!HAS_DOM) return false;
+    var sc = surveyCfg(), st = surveyState(), ctx = surveyCtx(id);
+    if (!app.surveyShouldPrompt(st, Date.now(), sc, ctx)) {
+      // only blocked by an open dialog (e.g. calibration fit inside its dialog): try again when the dialogs close
+      if (ctx.modalOpen && app.surveyShouldPrompt(st, Date.now(), sc, { id: id })) surveyPending = id;
+      return false;
+    }
+    clearTimeout(surveyTimer);
+    surveyTimer = setTimeout(function () { var c2 = surveyCtx(id); if (app.surveyShouldPrompt(surveyState(), Date.now(), surveyCfg(), c2)) showSurvey(); else if (c2.modalOpen) surveyPending = id; }, 1500);
+    return true;
+  };
+  function retryPendingSurvey() { if (!surveyPending || modalStack.length) return; var id = surveyPending; surveyPending = null; setTimeout(function () { app.surveyEvent(id); }, 600); }
+  function showSurvey() {
+    var card = $('survey-card'), sc = surveyCfg(); if (!card || !sc.url || surveyVisible()) return;
+    var st = surveyState(); st.prompts += 1; st.last = Date.now(); surveySession = true; saveSurveyState(st);
+    function a(href, cls, sv, text) { return '<a class="btn sm ' + cls + '" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" data-sv="' + sv + '">' + text + '<span class="sr-only"> (opens in a new tab)</span></a>'; }
+    card.innerHTML = '<button type="button" class="btn ghost sm icon x" data-sv="later" aria-label="Close the survey invitation">&#10005;</button>' +
+      '<h2 id="survey-title">Help improve Peakly?</h2>' +
+      '<p id="survey-text">Peakly is free and built by one scientist. Would you answer a 3-minute survey about it?</p>' +
+      '<div class="row">' + a(sc.url, 'primary', 'take', 'Take the survey') + (sc.signupUrl ? a(sc.signupUrl, '', 'signup', 'Email me a survey later') : '') +
+      '<button type="button" class="btn sm ghost" data-sv="later">Not now</button><button type="button" class="btn sm ghost" data-sv="never">Don&rsquo;t ask again</button></div>' +
+      (sc.signupUrl ? '<p class="small muted" style="margin:8px 0 0">&ldquo;Email me a survey later&rdquo; opens a Google Form: you&rsquo;ll enter your email on Google Forms, not in Peakly. It is only used to send Peakly surveys; unsubscribe any time.</p>' : '') +
+      '<p class="small muted" style="margin:6px 0 0">Opens Google Forms in a new tab. Peakly itself sends nothing. Turn these invitations off in Help &rarr; Settings.' + (contactEmail() ? ' Questions? ' + mailtoLink() : '') + '</p>';
+    card.hidden = false;
+    announce('Optional survey invitation shown at the bottom of the page. It is in the tab order; Escape closes it.');
+  }
+  function hideSurvey(reason) {
+    var card = $('survey-card'); if (!card || card.hidden) return;
+    var hadFocus = card.contains(document.activeElement);
+    card.hidden = true; card.innerHTML = '';
+    if (reason === 'never' || reason === 'take' || reason === 'signup') { var st = surveyState(); st.never = true; saveSurveyState(st); renderSurveyLinks(); }
+    if (reason === 'never') announce('Survey invitations turned off. The survey link stays in Help and About.');
+    if (hadFocus) { var r = card._return; if (r && document.contains(r) && r.focus) r.focus(); else { var pl = $('plot'); if (pl) pl.focus(); } }
+  }
+  app.hideSurvey = hideSurvey;
+  function bindSurvey() {
+    var card = $('survey-card'); if (!card) return;
+    card.addEventListener('focusin', function (e) { if (e.relatedTarget && !card.contains(e.relatedTarget)) card._return = e.relatedTarget; });
+    card.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sv]'); if (!b) return;
+      var v = b.getAttribute('data-sv');
+      if (v === 'take' || v === 'signup') { setTimeout(function () { hideSurvey(v); }, 0); return; } // the link itself opens the form
+      hideSurvey(v);
+    });
+    card.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); hideSurvey('later'); } });
+    if (PK.bus) PK.bus.on('digitizer:sent', function () { app.surveyEvent('digitize'); });
+  }
+
   /* ================================================================== global actions, keyboard, drop, paste */
   function toggleTheme() {
     var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -3793,9 +4134,45 @@
     'fallback': function () { hideModal('import'); openFallback({}); }, 'integrate': function () { setIntegrate(!state.integ); },
     'about': function () { hideModal('help'); app.openPanel('about'); }, 'calibration': openCalibration, 'math': openMathModal, 'split': splitSelected,
     'sample-cal': function () { hideModal('calib'); loadSampleCalibration({ open: true }); },
+    'export-xy': function () { if (isEmpty()) { toast('Nothing to export yet.', 'warn'); return; } exportXY('csv'); }, 'plot-table': openPlotTable,
+    'settings': function () { app.openPanel('help'); setTimeout(function () { var h = $('h-settings'); if (h) { h.scrollIntoView({ block: 'start' }); var f = $('set-singlekeys'); if (f) f.focus(); } }, 60); },
     'sample-menu': function () { var m = $('sample-menu'), b = $('btn-sample'); if (!m) return; m.hidden = !m.hidden;
-      if (!m.hidden) { var r = b.getBoundingClientRect(); m.style.position = 'fixed'; m.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 270)) + 'px'; m.style.top = (r.bottom + 6) + 'px'; } b.setAttribute('aria-expanded', String(!m.hidden)); if (!m.hidden) { var f = m.querySelector('button'); if (f) f.focus(); } }
+      if (!m.hidden) { var r = b.getBoundingClientRect(); m.style.position = 'fixed'; m.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 270)) + 'px'; m.style.top = (r.bottom + 6) + 'px'; } b.setAttribute('aria-expanded', String(!m.hidden)); if (!m.hidden) focusMenuItem(m, 0); }
   };
+  /* ---------------- menu buttons (WAI-ARIA APG menu button: arrows, Home/End, Esc, roving tabindex) */
+  function menuItemsOf(menu) { return toArr(menu.querySelectorAll('[role="menuitem"]')).filter(function (b) { return !b.disabled && b.offsetParent !== null; }); }
+  function focusMenuItem(menu, i) {
+    var items = menuItemsOf(menu); if (!items.length) return;
+    i = (i + items.length) % items.length;
+    items.forEach(function (b, k) { b.tabIndex = k === i ? 0 : -1; }); items[i].focus();
+  }
+  function closeMenu(menu, btn, refocus) { if (!menu || menu.hidden) return; menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); }
+  function bindMenuButton(btn, menu, open) {
+    if (!btn || !menu) return;
+    toArr(menu.querySelectorAll('[role="menuitem"]')).forEach(function (b) { b.tabIndex = -1; });
+    btn.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault(); e.stopPropagation(); if (menu.hidden) open(); focusMenuItem(menu, e.key === 'ArrowUp' ? -1 : 0);
+    });
+    menu.addEventListener('keydown', function (e) {
+      var items = menuItemsOf(menu), i = items.indexOf(document.activeElement);
+      switch (e.key) {
+        case 'ArrowDown': focusMenuItem(menu, i + 1); break;
+        case 'ArrowUp': focusMenuItem(menu, i - 1); break;
+        case 'Home': case 'PageUp': focusMenuItem(menu, 0); break;
+        case 'End': case 'PageDown': focusMenuItem(menu, -1); break;
+        case 'Escape': closeMenu(menu, btn, true); break;
+        case 'Tab': closeMenu(menu, btn, false); return; // let Tab move on
+        default:
+          if (e.key.length === 1 && /\S/.test(e.key)) { // type-ahead: first item starting with the typed character
+            var ch = e.key.toLowerCase(), order = items.slice(i + 1).concat(items.slice(0, i + 1)), hit = order.filter(function (b) { return b.textContent.replace(/^[^A-Za-z0-9]+/, '').trim().toLowerCase().charAt(0) === ch; })[0];
+            if (hit) focusMenuItem(menu, items.indexOf(hit));
+          } else return;
+      }
+      e.preventDefault(); e.stopPropagation();
+    });
+    menu.addEventListener('focusout', function (e) { var to = e.relatedTarget; if (!menu.hidden && to && !menu.contains(to) && to !== btn) closeMenu(menu, btn, false); });
+  }
   function closeDrawerIfMobile() { var sb = $('sidebar'); if (sb && sb.classList.contains('open')) toggleDrawer(false); }
   function toggleDrawer(open) {
     var sb = $('sidebar'), sc = $('scrim'), b = $('btn-drawer'); if (!sb) return;
@@ -3819,7 +4196,10 @@
         if (e.target === m && name !== 'digitizer' && name !== 'fallback') hideModal(name);
       });
     });
-    $('btn-more').addEventListener('click', function (e) { e.stopPropagation(); var mm = $('more-menu'); mm.hidden = !mm.hidden; this.setAttribute('aria-expanded', String(!mm.hidden)); if (!mm.hidden) { var f = mm.querySelector('button'); if (f) f.focus(); } });
+    function openMore() { var mm = $('more-menu'); mm.hidden = false; $('btn-more').setAttribute('aria-expanded', 'true'); }
+    $('btn-more').addEventListener('click', function (e) { e.stopPropagation(); var mm = $('more-menu'); if (mm.hidden) { openMore(); focusMenuItem(mm, 0); } else closeMenu(mm, this, false); });
+    bindMenuButton($('btn-more'), $('more-menu'), openMore);
+    bindMenuButton($('btn-sample'), $('sample-menu'), function () { ACTIONS['sample-menu'](); });
     document.addEventListener('click', function (e) { var mm = $('more-menu'); if (mm && !mm.hidden && !mm.contains(e.target)) { mm.hidden = true; $('btn-more').setAttribute('aria-expanded', 'false'); } });
     document.addEventListener('click', function (e) { var sm = $('sample-menu'), sb = $('btn-sample'); if (sm && !sm.hidden && !sm.contains(e.target) && !(sb && sb.contains(e.target))) { sm.hidden = true; sb.setAttribute('aria-expanded', 'false'); } });
     $('btn-drawer').addEventListener('click', function () { toggleDrawer(); });
@@ -3830,7 +4210,8 @@
     $('paste-map').addEventListener('click', function () { var v = $('paste-text').value; hideModal('paste'); openFallback({ text: v, filename: 'Pasted data', kind: 'paste' }); });
     $('btn-selftest').addEventListener('click', runSelfTests);
     toArr(document.querySelectorAll('[data-view]')).forEach(function (b) {
-      b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); if (state.view !== 'compare') { state.compareHl = []; state.compareGroupRt = null; } renderTable(); renderPlot(); });
+      b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); if (state.view !== 'compare') { state.compareHl = []; state.compareGroupRt = null; } renderTable(); renderPlot();
+        if (state.view === 'compare' && P().traces.filter(function (t) { return t.style.visible !== false && !isAux(t); }).length >= 2) app.surveyEvent('compare'); });
     });
     // keyboard
     window.addEventListener('keydown', function (e) {
@@ -3846,13 +4227,22 @@
         var mmn = $('more-menu'); if (mmn && !mmn.hidden) { mmn.hidden = true; $('btn-more').setAttribute('aria-expanded', 'false'); $('btn-more').focus(); return; }
         if (state.integ && state.integ.start != null) { state.integ.start = null; drawCursor(); toast('Integration start cleared', 'info'); return; }
         if (modalStack.length) { hideModal(modalStack[modalStack.length - 1]); return; }
+        if (surveyVisible()) { hideSurvey('later'); return; }
         if (state.integ) { setIntegrate(false); return; }
         if (state.addMode) { state.addMode = false; renderPlotTools(); return; }
         closeDrawerIfMobile(); return;
       }
+      if (k === 'Escape') return;
       if (typing || mod || e.altKey || modalStack.length) return;
+      // WCAG 2.1.4: single-character shortcuts (letters, punctuation) can be turned off in Help → Settings. Arrow keys and
+      // Delete are not character keys and stay on.
+      if (k && k.length === 1 && !prefs().singleKeys) return;
       var handled = true;
       switch (k) {
+        case ',': nudgeSelectedBound('start', -1); break;
+        case '.': nudgeSelectedBound('start', 1); break;
+        case '<': nudgeSelectedBound('end', -1); break;
+        case '>': nudgeSelectedBound('end', 1); break;
         case 'o': case 'O': openFilePicker(); break;
         case 'v': case 'V': app.openPanel('paste'); break;
         case 'i': case 'I': openDigitizer({}); break;
@@ -3923,7 +4313,7 @@
   function init() {
     if (state.ready) return; state.ready = true;
     bindTraceList(); bindProc(); bindOverlay(); bindTable(); bindAudit(); bindCompareControls(); bindFallback(); bindMethod(); bindExport(); bindShare(); bindGlobal(); bindPlotTools(); bindCursor();
-    bindClipDialog(); bindCalibration(); bindAbout();
+    bindClipDialog(); bindCalibration(); bindAbout(); bindSettings(); bindSurvey();
     renderHelp(); cdnBanner(); renderDisclaimers();
     renderAll();
     var demo = demoParam(), hasShare = (location.hash || '').indexOf('#p=') === 0;

@@ -42,7 +42,7 @@ Peakly is a **client-side only** application: one HTML file that runs entirely i
 
 ### Local storage
 
-The app stores only the light/dark **theme preference** in `localStorage`. It does not store data, projects or keys in the browser. Unsaved work is lost when the tab closes unless you export a project file.
+The app stores only small per-browser **preferences** in `localStorage`: the light/dark theme, `peakly-prefs` (e.g. the single-key-shortcuts toggle) and `peakly-survey` (when the optional survey invitation was last shown or dismissed). It does not store data, projects, emails or keys in the browser. Unsaved work is lost when the tab closes unless you export a project file.
 
 ## API key handling (optional Claude assist)
 

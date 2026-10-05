@@ -1,0 +1,58 @@
+name: Accessibility barrier
+description: Something in Peakly or its website is hard or impossible to use with a keyboard, screen reader, magnifier, voice control, or other assistive technology.
+title: "[Accessibility]: "
+labels: ["accessibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Accessibility reports are prioritized; we aim to reply within **5 business days** (see the [accessibility statement](https://github.com/jschmitt1531/peakly/blob/main/docs/ACCESSIBILITY_STATEMENT.md)).
+        This form is public. Please **do not include personal, health or confidential information**. If you would rather report privately, email peaklyfeedback@gmail.com.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where is the barrier?
+      options:
+        - App (hosted at /peakly/app/ or the downloaded peakly.html)
+        - Website / landing page
+        - Documentation on GitHub
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What were you trying to do, and what got in the way?
+      placeholder: "I tried to set the end of a peak with the keyboard, but focus jumped to ..."
+    validations:
+      required: true
+  - type: input
+    id: at
+    attributes:
+      label: Assistive technology and version (if any)
+      placeholder: "NVDA 2025.3, VoiceOver on iOS 26, keyboard only, 200 % zoom, Windows high contrast ..."
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: "Firefox 143 on Windows 11"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Peakly version
+      description: Help → About shows it.
+      placeholder: "1.1.0"
+  - type: textarea
+    id: expected
+    attributes:
+      label: What would work better for you? (optional)
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How much does this block you?
+      options:
+        - I cannot complete the task at all
+        - I can complete it, but with difficulty or a workaround
+        - Minor annoyance

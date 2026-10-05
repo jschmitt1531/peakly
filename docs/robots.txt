@@ -1,0 +1,7 @@
+# Peakly website. Everything here is public; crawlers are welcome.
+# Note: on https://jschmitt1531.github.io/peakly/ this file is NOT at the host root, so crawlers ignore it
+# there; it takes effect only if the site moves to its own domain. See docs/LAUNCH_CHECKLIST.md.
+User-agent: *
+Allow: /
+
+Sitemap: https://jschmitt1531.github.io/peakly/sitemap.xml

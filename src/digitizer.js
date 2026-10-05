@@ -839,7 +839,7 @@
     '.pkd .badge.digitized{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--digitized-bg,var(--warn));color:var(--digitized,#000);border:1px solid var(--digitized,var(--warn));font-weight:600;text-transform:uppercase;letter-spacing:.04em}',
     '.pkd-steps{display:flex;gap:4px;list-style:none;margin:0;padding:0;flex:1;flex-wrap:wrap}',
     '.pkd-steps li{padding:4px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none}',
-    '.pkd-steps li.on{background:var(--accent);border-color:var(--accent);color:#fff}',
+    '.pkd-steps li.on{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}',
     '.pkd-steps li.done{color:var(--text)}',
     '.pkd-steps li.locked{opacity:.45;cursor:not-allowed}',
     '.pkd-main{flex:1;display:flex;min-height:0}',
@@ -847,7 +847,7 @@
     '.pkd-stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}',
     '.pkd-loupe{position:absolute;width:150px;height:150px;border:2px solid var(--accent);border-radius:50%;pointer-events:none;display:none;box-shadow:0 4px 16px rgba(0,0,0,.35);background:#fff}',
     '.pkd-zoom{position:absolute;right:8px;bottom:8px;display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:3px}',
-    '.pkd-zoom .btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}',
+    '.pkd-zoom .btn.on{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}',
     '.pkd-hint{position:absolute;left:8px;bottom:8px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;color:var(--muted);max-width:70%;pointer-events:none;font-size:12px}',
     '.pkd-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}',
     '.pkd-dropcard{border:2px dashed var(--border);border-radius:calc(var(--radius) * 2);padding:28px;max-width:520px;text-align:center;background:var(--panel)}',
@@ -856,14 +856,14 @@
     '.pkd-dragover .pkd-stagewrap{outline:3px dashed var(--accent);outline-offset:-6px}',
     '.pkd-side{width:340px;max-width:42vw;border-left:1px solid var(--border);background:var(--panel);overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}',
     '.pkd-sec{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;background:var(--panel-2)}',
-    '.pkd-sec>h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}',
+    '.pkd-sec>h3,.pkd-h{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}',
     '.pkd .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}',
     '.pkd label{display:flex;gap:6px;align-items:center}',
     '.pkd input[type=number],.pkd input[type=text],.pkd input[type=password],.pkd select,.pkd textarea{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:calc(var(--radius) * .6);padding:4px 6px;font:inherit;min-width:0}',
     '.pkd input[type=number]{width:84px}',
     '.pkd input[type=range]{flex:1;min-width:100px}',
     '.pkd textarea{width:100%;min-height:70px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}',
-    '.pkd .btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}',
+    '.pkd .btn.on{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}',
     '.pkd .muted{color:var(--muted)}',
     '.pkd .small{font-size:11px}',
     '.pkd .warn{color:var(--warn)}',
@@ -957,15 +957,15 @@
   function buildShell() {
     var r = S.root;
     r.innerHTML = '<div class="pk-modal-body pkd" tabindex="-1">' +
-      '<header class="pkd-head"><div class="pkd-title">Image digitizer <span class="badge digitized">digitized</span></div>' +
+      '<div class="pkd-head"><div class="pkd-title">Image digitizer <span class="badge digitized">digitized</span></div>' +
       '<ol class="pkd-steps"></ol>' +
-      '<button class="btn ghost sm" data-act="close" title="Close digitizer">Close</button></header>' +
+      '<button class="btn ghost sm" data-act="close" title="Close digitizer">Close</button></div>' +
       '<div class="pkd-main"><div class="pkd-stagewrap"><canvas class="pkd-stage"></canvas><canvas class="pkd-loupe" width="150" height="150"></canvas>' +
       '<div class="pkd-hint" style="display:none"></div>' +
       '<div class="pkd-zoom"><button class="btn sm" data-act="zoomout" title="Zoom out">−</button><button class="btn sm" data-act="fit" title="Fit to view">Fit</button><button class="btn sm" data-act="zoomin" title="Zoom in">+</button><button class="btn sm" data-act="pantool" title="Pan tool (or hold Space / middle mouse / two fingers)">✋</button></div>' +
       '<div class="pkd-empty"></div></div>' +
       '<aside class="pkd-side"></aside></div>' +
-      '<footer class="pkd-foot"><button class="btn" data-act="back">Back</button><div class="status"></div><button class="btn primary" data-act="next">Next</button></footer>' +
+      '<div class="pkd-foot"><button class="btn" data-act="back">Back</button><div class="status"></div><button class="btn primary" data-act="next">Next</button></div>' +
       '<input type="file" class="pkd-file" accept="image/*,application/pdf" hidden>' +
       '<input type="file" class="pkd-cam" accept="image/*" capture="environment" hidden></div>';
     S.el = { body: $('.pkd'), stage: $('.pkd-stage'), wrap: $('.pkd-stagewrap'), loupe: $('.pkd-loupe'), side: $('.pkd-side'), empty: $('.pkd-empty'), steps: $('.pkd-steps'), status: $('.pkd-foot .status'), hint: $('.pkd-hint') };
@@ -1035,7 +1035,9 @@
       var vp0 = page.getViewport({ scale: 1 }), scale = Math.min(4, 2400 / Math.max(vp0.width, vp0.height)), vp = page.getViewport({ scale: scale });
       var cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
       var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
-      return page.render({ canvasContext: cx, viewport: vp }).promise.then(function () {
+      // intent 'print': pdf.js then schedules its rendering steps with promises instead of requestAnimationFrame, so a page
+      // also renders while the tab is hidden (rAF is paused in background tabs). We await the render promise, then draw.
+      return page.render({ canvasContext: cx, viewport: vp, intent: 'print' }).promise.then(function () {
         pdf.page = n;
         setSource(cv, pdf.name + ' (page ' + n + ')', null, false);
       });
@@ -1241,7 +1243,7 @@
     n.disabled = !!why; n.title = why || '';
     S.el.status.textContent = why ? why : (S.srcName ? S.srcName + ' — ' + S.prepImg.width + '×' + S.prepImg.height + ' px' : '');
   }
-  function sec(title, html) { return '<div class="pkd-sec"><h4>' + title + '</h4>' + html + '</div>'; }
+  function sec(title, html) { return '<div class="pkd-sec"><h3>' + title + '</h3>' + html + '</div>'; }
   function btn(act, label, extra) { extra = extra || {}; return '<button class="btn sm' + (extra.on ? ' on' : '') + (extra.primary ? ' primary' : '') + '" data-act="' + act + '"' + (extra.data ? ' ' + extra.data : '') + (extra.title ? ' title="' + esc(extra.title) + '"' : '') + (extra.disabled ? ' disabled' : '') + '>' + label + '</button>'; }
   function slider(bind, min, max, step, val, label, out) {
     return '<label class="row"><span style="min-width:74px">' + label + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-bind="' + bind + '"><span data-out="' + bind + '" style="min-width:38px;text-align:right">' + (out != null ? out : val) + '</span></label>';
@@ -1352,7 +1354,7 @@
     return h;
   }
   function statsHtml() {
-    return '<h4>Result</h4>' + (S.traces.map(function (t) {
+    return '<h3 class="pkd-h">Result</h3>' + (S.traces.map(function (t) {
       var r = t.result; if (!r) return '<div class="small">' + esc(t.name) + ': ' + (t.error ? '<span class="err">' + esc(t.error) + '</span>' : '—') + '</div>';
       return '<div class="small"><span class="pkd-sw" style="background:' + (t.mode === 'dark' ? '#000' : t.hex) + ';width:10px;height:10px"></span> ' + esc(t.name) + ': ' + r.x.length + ' pts, coverage <b class="' + (r.coverage < 0.85 ? 'warn' : 'okc') + '">' + Math.round(r.coverage * 100) + '%</b>' + (r.bigGaps ? ', <span class="warn">' + r.bigGaps + ' long gap(s) bridged</span>' : '') + '</div>';
     }).join('') || '<div class="muted small">No traces</div>');
@@ -1528,7 +1530,7 @@
     return old;
   }
   function afterBind(path, isChange) {
-    if (/^adjust\./.test(path)) { if (S.adjustRaf) return; S.adjustRaf = requestAnimationFrame(function () { S.adjustRaf = 0; recomputeAdjust(); }); return; }
+    if (/^adjust\./.test(path)) { if (S.adjustRaf) return; S.adjustRaf = nextFrame(function () { S.adjustRaf = 0; recomputeAdjust(); }); return; }
     if (path === 'pendingRot') { requestDraw(); var ab = $('[data-act=applyrot]'); if (ab) ab.disabled = !S.pendingRot; return; }
     if (/^cal\./.test(path)) {
       if (/\.val$/.test(path) || /Log$/.test(path)) { if (S.cal.confirmed) { S.cal.confirmed = false; } }
@@ -1605,7 +1607,13 @@
   }
   function toImg(sx, sy) { return { x: (sx - S.view.tx) / S.view.s, y: (sy - S.view.ty) / S.view.s }; }
   function toScr(ix, iy) { return [S.view.tx + ix * S.view.s, S.view.ty + iy * S.view.s]; }
-  function requestDraw() { if (!S || S.rafPending) return; S.rafPending = true; requestAnimationFrame(function () { if (!S) return; S.rafPending = false; draw(); }); }
+  /** requestAnimationFrame, or a timer when the tab is hidden (rAF does not fire in background tabs). */
+  function nextFrame(fn) {
+    if (typeof requestAnimationFrame !== 'function' || (typeof document !== 'undefined' && document.hidden)) return setTimeout(fn, 16);
+    return requestAnimationFrame(fn);
+  }
+  D._nextFrame = nextFrame;
+  function requestDraw() { if (!S || S.rafPending) return; S.rafPending = true; nextFrame(function () { if (!S) return; S.rafPending = false; draw(); }); }
   function cssVar(n, d) { var v = S && getComputedStyle(S.el.body).getPropertyValue(n); return (v && v.trim()) || d; }
   function updateCursor() {
     if (!S) return; var t = S.tool, c = 'default';

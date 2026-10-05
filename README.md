@@ -84,7 +84,14 @@ Every reported number has a documented formula, and the app shows the inputs beh
 - **No backend, no accounts, no uploads, no analytics, no cookies** in the app. Your data stays in your browser tab.
 - The only outbound requests are (1) loading the pinned libraries from public CDNs when the page opens and (2) the **optional** Claude vision assist in the digitizer, which runs only when you paste your own Anthropic API key and click the button. The key is held in memory for that tab and never saved.
 - Share links put the compressed project in the URL `#fragment`, which browsers do not send to servers.
-- The project website (not the app) may use cookie-free, aggregate page-view counting if the maintainers enable it; it is off by default. See [SECURITY.md](SECURITY.md) and [docs/FAQ.md](docs/FAQ.md).
+- The optional **feedback survey** is a Google Form that opens only when you click a survey link. It is anonymous unless you choose to leave an email address for future surveys.
+- The project website (not the app) may use cookie-free, aggregate page-view counting if the maintainers enable it; it is off by default.
+
+Full details: **[Privacy policy](docs/PRIVACY.md)** · [Terms of use](docs/TERMS.md) · [SECURITY.md](SECURITY.md) · [FAQ](docs/FAQ.md).
+
+## Accessibility
+
+Peakly aims for WCAG 2.1 Level AA and is currently **partially conformant**; known gaps and keyboard/data-entry alternatives are listed in the **[accessibility statement](docs/ACCESSIBILITY_STATEMENT.md)** (technical audit: [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)). Hit a barrier? [Report it](https://github.com/jschmitt1531/peakly/issues/new?template=accessibility.yml).
 
 ## How to cite
 
@@ -96,12 +103,17 @@ A DOI will be minted by Zenodo with the first archived release ([docs/RELEASING.
 
 Using Peakly in teaching or a lab? [Tell us in Discussions](https://github.com/jschmitt1531/peakly/discussions); it helps justify maintainer time and funding. Labs can use the [letter-of-support template](docs/templates/letter-of-support.md) for grant applications.
 
+## Contact
+
+Questions, feedback, privacy or accessibility requests: **[peaklyfeedback@gmail.com](mailto:peaklyfeedback@gmail.com)** (project mailbox), [GitHub Discussions](https://github.com/jschmitt1531/peakly/discussions) or [issues](https://github.com/jschmitt1531/peakly/issues/new/choose). Security vulnerabilities: report privately as described in [SECURITY.md](SECURITY.md).
+
 ## Contributing
 
 Contributions are welcome: bug reports, sample files, validation datasets, parsers, docs and translations.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): dev setup (zero dependencies: `node tests/run.js`, `node build.js`), code style, licensing rules, and how to add a file format.
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md) · [GOVERNANCE.md](GOVERNANCE.md) · [ROADMAP.md](ROADMAP.md) · [FUNDING.md](FUNDING.md) · [CHANGELOG.md](CHANGELOG.md)
+- Policies: [Privacy](docs/PRIVACY.md) · [Terms of use](docs/TERMS.md) · [Accessibility statement](docs/ACCESSIBILITY_STATEMENT.md) · [Trademarks](docs/TRADEMARKS.md) · [Credits](docs/CREDITS.md)
 
 ```sh
 node tests/run.js           # all tests (also runnable in the app: Help → Run self-tests)
@@ -116,7 +128,9 @@ Peakly is created and maintained by **[Jennifer Schmitt, Ph.D.](https://www.link
 
 Peakly exists because getting HPLC data out of vendor software should not require a license, a login, or a workaround.
 
-Peakly is an independent project. It is **not** affiliated with OpenChrom®, Lablicate, Eclipse ChemClipse, Anthropic, or any instrument vendor.
+**AI assistance.** Code written with the assistance of Claude (Anthropic); reviewed, tested and maintained by Jennifer Schmitt.
+
+Peakly is an independent project. It is **not** affiliated with OpenChrom®, Lablicate, Eclipse ChemClipse, Anthropic, or any instrument vendor. Agilent, ChemStation, OpenLab, Waters, Empower, Thermo Scientific, Chromeleon, Shimadzu, LabSolutions, Bio-Rad, ChromLab, NGC, Cytiva, ÄKTA, UNICORN, OpenChrom, Claude, Google Forms, GitHub, Microsoft Excel and other names are trademarks of their respective owners, used only to describe compatibility ([details](docs/TRADEMARKS.md)).
 
 ## License
 
@@ -136,6 +150,8 @@ Peakly's code is original. Prior work that shaped the design (no code copied; se
 | entab (R. Bovee) | MIT | Reference for Agilent/Thermo readers (not used, to keep a single file) |
 | WebPlotDigitizer (A. Rohatgi) | AGPL-3.0 | The digitizing workflow concept: axis calibration and color-mask extraction |
 
-Algorithms: Savitzky & Golay (1964); Eilers & Boelens (2005) asymmetric least squares; USP <621> and Ph. Eur. 2.2.46 system-suitability definitions; Levenberg (1944) and Marquardt (1963); Grushka (1972) and Kalambet et al. (2011) for EMG; Dyson (*Chromatographic Integration Methods*) for peak skimming; Hartley & Zisserman for homography.
+Algorithms and references: Savitzky & Golay (1964); Eilers & Boelens (2005) asymmetric least squares; USP <621> and Ph. Eur. 2.2.46 system-suitability definitions; Levenberg (1944) and Marquardt (1963); Grushka (1972), Foley & Dorsey (1983) and Kalambet et al. (2011) for EMG; Dyson (*Chromatographic Integration Methods*, 2nd ed., 1998) for peak skimming; Hartley & Zisserman (*Multiple View Geometry*, 2nd ed., 2004) for homography; ICH Q2(R2), Miller & Miller (*Statistics and Chemometrics for Analytical Chemistry*) and the Eurachem *Fitness for Purpose* guide for calibration and LOD/LOQ.
 
-Runtime libraries: Plotly.js, SheetJS, pako, lz-string, jsPDF and PDF.js; thank you to their maintainers.
+Runtime libraries: Plotly.js (MIT), SheetJS Community Edition (Apache-2.0), pako (MIT AND Zlib), lz-string (MIT), jsPDF (MIT) and PDF.js (Apache-2.0); thank you to their maintainers. Project conventions: [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) (CC BY 4.0, adapted), [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), [Semantic Versioning](https://semver.org/) (CC BY 3.0), [Citation File Format](https://citation-file-format.github.io/), badges by [Shields.io](https://shields.io/).
+
+The complete list, with citations, licenses and data-format specifications, is in **[docs/CREDITS.md](docs/CREDITS.md)**.

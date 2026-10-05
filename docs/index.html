@@ -6,12 +6,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Peakly: free in-browser chromatogram analysis</title>
 <meta name="description" content="Peakly is a free, open-source, single-file HPLC/FPLC chromatogram analyzer that runs entirely in your browser. Import vendor files, digitize images, integrate peaks with transparent math. No uploads, no accounts.">
+<meta name="author" content="Jennifer Schmitt">
+<link rel="canonical" href="https://jschmitt1531.github.io/peakly/">
+<meta property="og:site_name" content="Peakly">
 <meta property="og:title" content="Peakly: free in-browser chromatogram analysis">
 <meta property="og:description" content="HPLC/FPLC chromatogram analysis in one HTML file. No uploads, no accounts, transparent math.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="img/app-overview.png">
+<meta property="og:url" content="https://jschmitt1531.github.io/peakly/">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://jschmitt1531.github.io/peakly/img/app-overview.png">
+<meta property="og:image:width" content="1440">
+<meta property="og:image:height" content="900">
+<meta property="og:image:alt" content="Peakly showing overlaid chromatograms with a gradient trace, integrated peaks and a peak table">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peakly: free in-browser chromatogram analysis">
+<meta name="twitter:description" content="HPLC/FPLC chromatogram analysis in one HTML file. No uploads, no accounts, transparent math.">
+<meta name="twitter:image" content="https://jschmitt1531.github.io/peakly/img/app-overview.png">
+<meta name="twitter:image:alt" content="Peakly showing overlaid chromatograms with a gradient trace, integrated peaks and a peak table">
 <meta name="color-scheme" content="light dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 28h28' stroke='%23475569' stroke-width='2'/%3E%3Cpath d='M3 27c5 0 6-1 8-12s3-12 5 0 3 12 6 12 6-6 7-6' fill='none' stroke='%232563eb' stroke-width='2.5'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111a2e" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
 <style>
 :root {
   --bg: #f4f6f9; --panel: #ffffff; --panel-2: #eef1f6; --text: #0f172a; --muted: #5b6577;
@@ -33,7 +50,9 @@
   --warn: #fbbf24; --ok: #4ade80; --shadow: 0 10px 34px rgba(0, 0, 0, .5);
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+main:focus { outline: none; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); }
 a:hover { text-decoration-thickness: 2px; }
@@ -99,7 +118,9 @@ pre.cite { white-space: pre-wrap; word-break: break-word; background: var(--pane
 @media (max-width: 560px) { .doclist { columns: 1; } }
 .doclist li { break-inside: avoid; margin: 4px 0; }
 footer { border-top: 1px solid var(--border); padding: 24px 0 40px; color: var(--muted); font-size: 14px; }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+footer p { margin: 6px 0 0; }
+.footlinks ul { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 20px; }
+.footlinks a { display: inline-block; padding: 4px 0; min-height: 24px; }
 </style>
 </head>
 <body>
@@ -118,11 +139,11 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: s
       <a href="#docs">Docs</a>
       <a href="https://github.com/jschmitt1531/peakly">GitHub</a>
     </nav>
-    <button class="icon-btn" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button>
+    <button class="icon-btn" id="theme" type="button" aria-label="Dark mode" title="Toggle dark mode">◐</button>
   </div>
 </header>
 
-<main id="main">
+<main id="main" tabindex="-1">
   <div class="hero">
     <div class="wrap grid">
       <div>
@@ -182,6 +203,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: s
           <li>Share links keep data in the URL <code>#fragment</code>, which browsers never send to a server.</li>
           <li>The optional Claude vision assist runs only with your own API key, held in memory and never saved.</li>
         </ul>
+        <p class="small" style="color:var(--muted)">Details, including the optional feedback survey: <a href="https://github.com/jschmitt1531/peakly/blob/main/docs/PRIVACY.md">privacy policy</a>.</p>
       </div>
       <div>
         <h2>Open and honest</h2>
@@ -243,22 +265,50 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: s
 
 <footer>
   <div class="wrap">
-    <span>© 2026 Jennifer Schmitt · <a href="https://github.com/jschmitt1531/peakly/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/jschmitt1531/peakly/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></span>
-    <span>Peakly is independent and not affiliated with any instrument vendor.</span>
+    <nav class="footlinks" aria-label="Policies and project information">
+      <ul>
+        <li><a href="https://github.com/jschmitt1531/peakly/blob/main/docs/PRIVACY.md">Privacy</a></li>
+        <li><a href="https://github.com/jschmitt1531/peakly/blob/main/docs/TERMS.md">Terms</a></li>
+        <li><a href="https://github.com/jschmitt1531/peakly/blob/main/docs/ACCESSIBILITY_STATEMENT.md">Accessibility</a></li>
+        <li><a href="https://github.com/jschmitt1531/peakly/blob/main/docs/CREDITS.md">Credits</a></li>
+        <li><a href="https://github.com/jschmitt1531/peakly/blob/main/SECURITY.md">Security</a></li>
+        <li id="survey-item" hidden><a id="survey-link" href="#" rel="noopener">Feedback survey</a></li>
+        <li><a href="mailto:peaklyfeedback@gmail.com">Contact</a></li>
+      </ul>
+    </nav>
+    <p>© 2026 Jennifer Schmitt · <a href="https://github.com/jschmitt1531/peakly/blob/main/LICENSE">MIT License</a> · <a href="https://github.com/jschmitt1531/peakly/blob/main/THIRD_PARTY_NOTICES.md">Third-party notices</a></p>
+    <p>Peakly is independent and not affiliated with any instrument vendor; product names are <a href="https://github.com/jschmitt1531/peakly/blob/main/docs/TRADEMARKS.md">trademarks of their owners</a>. No cookies, no tracking. Code written with the assistance of Claude (Anthropic); reviewed, tested and maintained by Jennifer Schmitt.</p>
   </div>
 </footer>
 
 <script>
+// Site settings. TODO(owner): paste the public Google Form link ("Send → link") into surveyUrl to show the
+// "Feedback survey" footer link; keep it in sync with PK.config.survey.url in src/config.js. Leave '' to hide it.
+var PEAKLY_SITE = { surveyUrl: '' };
+
 // Theme toggle: follows the OS by default; the choice is remembered in this browser only.
 (function () {
-  var root = document.documentElement, KEY = 'peakly-site-theme';
+  var root = document.documentElement, KEY = 'peakly-site-theme', btn = document.getElementById('theme');
+  function current() { return root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+  function sync() { btn.setAttribute('aria-pressed', current() === 'dark' ? 'true' : 'false'); }
   try { var saved = localStorage.getItem(KEY); if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved); } catch (e) {}
-  document.getElementById('theme').addEventListener('click', function () {
-    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    var next = cur === 'dark' ? 'light' : 'dark';
+  sync();
+  btn.addEventListener('click', function () {
+    var next = current() === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
+    sync();
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
+})();
+
+// Survey link: rendered only when a https URL is configured above.
+(function () {
+  var url = String(PEAKLY_SITE.surveyUrl || '');
+  if (!/^https:\/\//.test(url)) return;
+  var a = document.getElementById('survey-link'), li = document.getElementById('survey-item');
+  a.href = url; a.target = '_blank';
+  a.setAttribute('aria-label', 'Feedback survey (Google Forms, opens in a new tab)');
+  li.hidden = false;
 })();
 </script>
 
@@ -269,7 +319,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: s
   see SECURITY.md and the core principles in GOVERNANCE.md.
 
   To enable, a maintainer sets ANALYTICS below to 'goatcounter' or 'plausible', fills in the site code/domain,
-  and mentions it in docs/FAQ.md ("Does the website count visitors?"). Respect Do Not Track / Global Privacy Control.
+  and mentions it in docs/FAQ.md ("Does the website count visitors?") and docs/PRIVACY.md ("Website analytics") BEFORE enabling it. Respect Do Not Track / Global Privacy Control.
 -->
 <script>
 (function () {

@@ -19,3 +19,5 @@ Maintainers follow the Contributor Covenant 2.1 [enforcement guidelines](https:/
 ## Attribution
 
 This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, available at https://www.contributor-covenant.org/version/2/1/code_of_conduct/.
+
+The Contributor Covenant is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); this version has been modified (Peakly-specific reporting channels and scope). Its enforcement guidelines were inspired by [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).

@@ -49,13 +49,19 @@ jobs:
           cp index.html _site/peakly.html
           # plain static site: no Jekyll processing
           touch _site/.nojekyll
-          ls -la _site
+          # fail early if a site file the launch checklist relies on is missing
+          for f in index.html 404.html robots.txt sitemap.xml favicon.svg site.webmanifest .well-known/security.txt app/index.html; do
+            test -s "_site/$f" || { echo "missing _site/$f"; exit 1; }
+          done
+          ls -la _site _site/.well-known
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
+          # dot-files are dropped by default; .well-known/security.txt and .nojekyll must be deployed
+          include-hidden-files: true
 
   deploy:
     needs: build

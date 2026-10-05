@@ -24,7 +24,9 @@
     }
     return out.subarray(0, n);
   }
-  function xattr(tag, nm) { var m = new RegExp('\\s' + nm + '\\s*=\\s*"([^"]*)"').exec(tag); return m ? m[1] : null; }
+  /** Attribute value with XML character references decoded (&quot; &amp; &#x..;), single or double quoted. */
+  function xattr(tag, nm) { var m = new RegExp('\\s' + nm + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\')').exec(tag); return m ? decodeXml(m[1] != null ? m[1] : m[2]) : null; }
+  function decodeXml(s) { return PK.util && PK.util.decodeXmlEntities ? PK.util.decodeXmlEntities(s) : s; }
   function cvParams(xml) {
     var out = [], re = /<cvParam\b[^>]*>/g, m;
     while ((m = re.exec(xml))) out.push({ acc: xattr(m[0], 'accession'), name: xattr(m[0], 'name') || '', value: xattr(m[0], 'value'), unitAcc: xattr(m[0], 'unitAccession'), unitName: xattr(m[0], 'unitName') || '' });

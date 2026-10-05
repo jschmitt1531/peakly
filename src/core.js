@@ -89,6 +89,20 @@
     if (/^[a-z]{3,20}$/i.test(s)) return s;
     return null;
   };
+  /** Decode XML/HTML character references in text read from XML (attribute values, element text): the five predefined
+      entities (&amp; &lt; &gt; &quot; &apos;) and numeric references (&#38; &#x26;). Unknown named entities are left as
+      they are; invalid code points become U+FFFD. The result is plain text: escape it again before putting it in HTML. */
+  U.decodeXmlEntities = function (s) {
+    if (s == null) return '';
+    s = String(s); if (s.indexOf('&') < 0) return s;
+    var named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+    return s.replace(/&(#[xX][0-9a-fA-F]{1,8}|#[0-9]{1,10}|[a-zA-Z]+);/g, function (m, e) {
+      if (e.charAt(0) !== '#') return Object.prototype.hasOwnProperty.call(named, e) ? named[e] : m;
+      var cp = e.charAt(1) === 'x' || e.charAt(1) === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      if (!(cp >= 1 && cp <= 0x10FFFF) || (cp >= 0xD800 && cp <= 0xDFFF)) return '\uFFFD';
+      return String.fromCodePoint(cp);
+    });
+  };
   /** Text for Plotly names, titles, annotations and hover templates. Plotly renders a subset of HTML (<a href>, <b>,
       <span style>…) in these strings, and `%{…}` is a template token in hovertemplate. Escape &, <, > and break `%{`
       with a numeric entity (Plotly decodes it back to "{" for display). */

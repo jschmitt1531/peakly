@@ -19,6 +19,19 @@
     // Set these once the public repository exists (used by About → Cite / Tell us how you used it).
     repoUrl: 'https://github.com/jschmitt1531/peakly',
     discussionsUrl: 'https://github.com/jschmitt1531/peakly/discussions',
+    // Public project contact (dedicated Peakly account, not a personal address). Git commits keep using the
+    // author's GitHub noreply address so they link to the GitHub profile.
+    contactEmail: 'peaklyfeedback@gmail.com',
+    contactUrl: 'https://github.com/jschmitt1531/peakly/issues/new/choose',
+    // Feedback survey (Google Forms, created by tools/survey/create-survey.gs). Opened only when the user clicks;
+    // the app never sends anything itself. Leave '' to hide survey links/prompts.
+    survey: {
+      url: '',        // public survey link (Google Form "Send → link")
+      signupUrl: '',  // optional short form: "email me future surveys" (opt-in list)
+      promptAfter: ['calibration', 'fit', 'digitize', 'compare', 'split'],  // complex features that may show the optional prompt
+      maxPrompts: 2,  // per browser, ever; never more than once per session
+      minMinutesBetween: 1440
+    },
     license: 'MIT',
     disclaimer: 'For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.',
     citation: {

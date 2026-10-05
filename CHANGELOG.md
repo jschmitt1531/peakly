@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- Optional feedback survey: links in About, Help, footer and PDF reports, plus an occasional, dismissible invitation after complex features (calibration, peak fit, digitizing, compare, split). The app never collects email or sends data; the survey lives on Google Forms (setup script in `tools/survey/`).
+- Accessibility: plot text summary and "Show plot as table", keyboard editing of integration bounds, setting to turn off single-key shortcuts, arrow-key menus, 24 px targets; axe-core scan reports 0 violations across 36 view/theme/width combinations.
+- MOCCA2 wavelength picker; mzML names decode XML entities; PDF pages render in background tabs.
+- Privacy policy, terms, accessibility statement, trademark notice, credits, launch checklist; security.txt, robots.txt, sitemap, 404 page, icons and social preview on the website.
+- Project contact: peaklyfeedback@gmail.com.
+
 ## [1.1.0] - 2026-10-03
 
 Sustainability, peak clipping and calibration release.

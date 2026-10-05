@@ -10,6 +10,14 @@
     t.ok(r.ok, r.error); t.eq(r.format, 'mzML'); var tr = r.traces[0];
     t.eq(tr.x.join(','), '0,0.5,1,1.5,2'); t.eq(tr.y[2], 400); t.eq(tr.yUnit, 'counts'); t.eq(tr.name, 's TIC');
   });
+  PK.test('parsers/mzml: XML character references in ids are decoded (F-15)', function (t) {
+    var doc = F.mzmlDoc([F.mzChrom('UV &quot;DAD1&quot; 254 nm &amp; &lt;ref&gt; &#955;&#x3bb;', 'MS:1000812', 'absorption chromatogram', [0, 1, 2], 64, 'min', [1, 5, 1], 32, null)]);
+    var r = P.parseText(doc, { filename: 's.mzML' });
+    t.ok(r.ok, r.error); var tr = r.traces[0];
+    t.eq(tr.meta.chromatogramId, 'UV "DAD1" 254 nm & <ref> λλ', 'id decoded once');
+    t.eq(tr.name, 's UV "DAD1" 254 nm & <ref> λλ', 'trace name decoded (escaped again only when displayed)');
+    t.eq(tr.meta.wavelength, 254, 'wavelength still found in the decoded id');
+  });
   PK.test('parsers/mzml: mzML zlib-compressed (pako or Node zlib; skipped otherwise)', function (t) {
     var z = F.zlibShim();
     if (!z) { t.ok(true, 'skipped: no zlib available'); return; }

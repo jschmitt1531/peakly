@@ -204,7 +204,7 @@ table.peaks select.pk-clip { min-height: 24px; padding: 1px 4px; font-size: 12px
 .trace-item .sub { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
 .trace-item .sub input[type="number"] { width: 72px; min-height: 24px; padding: 2px 6px; font-size: 12px; }
 .trace-item .rename { flex: 1; min-width: 0; min-height: 26px; }
-.vis-toggle { appearance: none; -webkit-appearance: none; width: 22px !important; height: 22px !important; border-radius: 5px; border: 1px solid var(--border); cursor: pointer; position: relative; background: var(--panel); flex: none; }
+.vis-toggle { appearance: none; -webkit-appearance: none; width: 24px !important; height: 24px !important; border-radius: 5px; border: 1px solid var(--border); cursor: pointer; position: relative; background: var(--panel); flex: none; }
 .vis-toggle::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--muted); opacity: .25; }
 .vis-toggle:checked::after { background: var(--accent); opacity: 1; }
 .proc-group { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; }
@@ -215,11 +215,26 @@ table.peaks select.pk-clip { min-height: 24px; padding: 1px 4px; font-size: 12px
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; font-family: var(--mono); }
+::placeholder { color: var(--muted); opacity: 1; }
+/* WCAG 2.5.8 target size: compact controls get a >= 24x24 px hit area without growing the rows */
+.btn.icon.tiny { min-height: 24px; min-width: 24px; padding: 0 5px; }
+.cell-i { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; margin: -4px -4px -4px 0; padding: 0; vertical-align: middle; }
+.bounds-edit { border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px 6px; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.bounds-edit legend { padding: 0 4px; color: var(--muted); }
+.menu [role="menuitem"]:focus-visible { outline-offset: -2px; }
+/* optional survey invitation (non-modal) */
+#survey-card { position: fixed; left: 14px; bottom: 14px; z-index: 250; width: min(380px, calc(100vw - 28px)); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 10px; box-shadow: var(--shadow); padding: 12px 14px; font-size: 13px; }
+#survey-card h2 { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 4px; }
+#survey-card p { margin: 0 0 8px; }
+#survey-card .row { gap: 6px; }
+#survey-card .x { position: absolute; top: 6px; right: 6px; }
+.settings-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.credits li { margin-bottom: 3px; }
 
 /* Empty state & drop */
 #empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--panel); z-index: 5; padding: 20px; overflow: auto; }
 .dropzone { border: 2px dashed var(--border); border-radius: 14px; padding: 28px; max-width: 640px; width: 100%; text-align: center; }
-.dropzone h1 { font-size: 22px; margin-bottom: 6px; }
+.dropzone h2 { font-size: 22px; margin-bottom: 6px; text-transform: none; letter-spacing: 0; color: var(--text); }
 .dropzone .row { justify-content: center; margin: 14px 0; }
 .formats { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 10px; }
 #drop-overlay { position: fixed; inset: 0; background: rgba(37, 99, 235, .14); border: 3px dashed var(--accent); z-index: 200; display: none; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: var(--accent); pointer-events: none; backdrop-filter: blur(1px); }
@@ -279,6 +294,7 @@ footer.foot .spacer { flex: 1; }
 /* Responsive */
 @media (max-width: 1180px) { .tb-label { display: none; } }
 @media (max-width: 900px) {
+  #survey-card { left: 8px; right: 8px; bottom: 8px; width: auto; }
   .only-mobile { display: inline-flex !important; }
   .tb-secondary { display: none !important; }
   .main { grid-template-columns: minmax(0, 1fr); }
@@ -304,11 +320,11 @@ footer.foot .spacer { flex: 1; }
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M3 25h5l3-3 3-14 3 14 2-6 2 6 2-2h6" fill="none" stroke="var(--accent-contrast)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>
       <span>Peakly</span>
     </div>
-    <nav class="toolbar" role="toolbar" aria-label="Main actions">
+    <div class="toolbar" role="toolbar" aria-label="Main actions">
       <button class="btn primary" data-action="import" title="Open or import files (O)" aria-label="Open or import files">&#128194;<span class="tb-label">Open</span></button>
       <button class="btn tb-secondary" data-action="paste" title="Paste data (V)" aria-label="Paste data">&#128203;<span class="tb-label">Paste</span></button>
       <button class="btn tb-secondary" data-action="image" title="Digitize a chromatogram image (I)" aria-label="Digitize a chromatogram image">&#128247;<span class="tb-label">Image&rarr;data</span></button>
-      <span class="more-wrap tb-secondary"><button class="btn" id="btn-sample" data-action="sample-menu" aria-haspopup="true" aria-expanded="false" aria-controls="sample-menu" title="Load a sample dataset" aria-label="Load a sample dataset">&#9879;<span class="tb-label">Sample &#9662;</span></button>
+      <span class="more-wrap tb-secondary"><button class="btn" id="btn-sample" data-action="sample-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="sample-menu" title="Load a sample dataset" aria-label="Load a sample dataset">&#9879;<span class="tb-label">Sample &#9662;</span></button>
         <div class="menu" id="sample-menu" role="menu" aria-label="Sample datasets" hidden style="left:0;right:auto;min-width:260px">
           <button class="btn" role="menuitem" data-action="sample">HPLC run + blank</button>
           <button class="btn" role="menuitem" data-action="sample-cal">Calibration set (5 standards + unknown)</button>
@@ -320,7 +336,7 @@ footer.foot .spacer { flex: 1; }
       <button class="btn tb-secondary" data-action="calibration" title="Calibration curve and concentrations (C)" aria-label="Calibration">&#128200;<span class="tb-label">Calibration</span></button>
       <button class="btn tb-secondary" data-action="export" title="Export figures, tables, report (E)" aria-label="Export">&#11015;<span class="tb-label">Export</span></button>
       <button class="btn tb-secondary" data-action="share" title="Share link (S)" aria-label="Share link">&#128279;<span class="tb-label">Share</span></button>
-    </nav>
+    </div>
     <div class="toolbar-right">
       <button class="btn ghost icon" data-action="undo" id="btn-undo" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled>&#8630;</button>
       <button class="btn ghost icon" data-action="redo" id="btn-redo" title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo" disabled>&#8631;</button>
@@ -328,8 +344,8 @@ footer.foot .spacer { flex: 1; }
       <button class="btn ghost icon tb-secondary" data-action="help" title="Help and shortcuts (?)" aria-label="Help">?</button>
       <button class="btn ghost tb-secondary" data-action="about" title="About Peakly: author, license, citation, privacy" aria-label="About Peakly">About</button>
       <div class="more-wrap only-mobile">
-        <button class="btn ghost icon" id="btn-more" aria-haspopup="true" aria-expanded="false" aria-label="More actions">&#8943;</button>
-        <div class="menu" id="more-menu" role="menu" hidden>
+        <button class="btn ghost icon" id="btn-more" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" aria-label="More actions">&#8943;</button>
+        <div class="menu" id="more-menu" role="menu" aria-label="More actions" hidden>
           <button class="btn" role="menuitem" data-action="paste">&#128203; Paste data</button>
           <button class="btn" role="menuitem" data-action="image">&#128247; Image &rarr; data</button>
           <button class="btn" role="menuitem" data-action="sample">&#9879; Load HPLC sample</button>
@@ -364,6 +380,7 @@ footer.foot .spacer { flex: 1; }
     </aside>
     <div class="scrim" id="scrim"></div>
     <main class="work" id="work">
+      <h1 class="sr-only">Peakly chromatogram analyzer</h1>
       <section class="plot-wrap" aria-label="Chromatogram plot">
         <div class="plot-tools" id="plot-tools">
           <button class="btn sm" id="btn-cursor" aria-pressed="true" title="Curve-tracing cursor: follows the active trace and shows t, y, %B (T). Use ←/→ when the plot has focus, [ ] to switch trace.">&#8982; Trace</button>
@@ -375,11 +392,13 @@ footer.foot .spacer { flex: 1; }
           <span class="inline hidden" id="ghost-tools"><label class="inline"><input type="checkbox" id="chk-ghost"> Source image</label>
             <input type="range" id="rng-ghost" min="0.05" max="1" step="0.05" aria-label="Source image opacity" style="width:90px"></span>
           <span class="spacer"></span>
-          <span class="more-wrap"><button class="btn sm" id="btn-plotmenu" aria-haspopup="true" aria-expanded="false" title="Labels, grid, caption, title">Plot options &#9662;</button>
-            <div class="menu" id="plot-menu" hidden style="min-width:250px;padding:10px;gap:6px"></div></span>
+          <button class="btn sm" data-action="plot-table" title="The plot as text: a summary and a table of every visible trace's peaks, plus the x,y data as CSV">Show plot as table</button>
+          <span class="more-wrap"><button class="btn sm" id="btn-plotmenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="plot-menu" title="Labels, grid, caption, title">Plot options &#9662;</button>
+            <div class="menu" id="plot-menu" role="dialog" aria-label="Plot options" hidden style="min-width:250px;padding:10px;gap:6px"></div></span>
         </div>
         <div id="plot-notices" role="status"></div>
-        <div id="plot" role="application" aria-label="Chromatogram plot. Arrow keys move the cursor along the curve; Enter sets integration bounds in Integrate mode."></div>
+        <div id="plot" role="application" aria-label="Chromatogram plot. Arrow keys move the cursor along the curve; Enter sets integration bounds in Integrate mode." aria-describedby="plot-summary"></div>
+        <p id="plot-summary" class="sr-only"></p>
         <div id="cursor-status" class="cursor-status" aria-live="off"></div>
         <div id="empty-state" hidden></div>
       </section>
@@ -406,19 +425,20 @@ footer.foot .spacer { flex: 1; }
     <span class="spacer"></span>
     <a href="#" data-action="help">Help &amp; shortcuts</a>
     <a href="#" data-action="about">About</a>
+    <a id="foot-survey" href="#" target="_blank" rel="noopener noreferrer" hidden>Feedback survey<span class="sr-only"> (opens in a new tab)</span></a>
   </footer>
 </div>
 
 <!-- Modals -->
 <div class="pk-modal" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="t-import" hidden>
   <div class="pk-modal-card">
-    <header class="pk-modal-head"><h2 id="t-import">Open / import data</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-import">Open / import data</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="import-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-paste" role="dialog" aria-modal="true" aria-labelledby="t-paste" hidden>
   <div class="pk-modal-card">
-    <header class="pk-modal-head"><h2 id="t-paste">Paste data</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-paste">Paste data</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body">
       <p class="muted small">Paste two or more columns copied from Excel, a CSV/TXT export or an instrument report. The first column is usually time. You can also paste an image of a chromatogram anywhere on the page.</p>
       <textarea id="paste-text" rows="14" placeholder="time&#9;mAU&#10;0.000&#9;0.12&#10;0.005&#9;0.13&#10;..." aria-label="Pasted data"></textarea>
@@ -431,37 +451,37 @@ footer.foot .spacer { flex: 1; }
 </div>
 <div class="pk-modal" id="modal-fallback" role="dialog" aria-modal="true" aria-labelledby="t-fallback" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-fallback">My format isn't working: map columns manually</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-fallback">My format isn't working: map columns manually</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="import-fallback-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-digitizer" role="dialog" aria-modal="true" aria-labelledby="t-digitizer" hidden>
   <div class="pk-modal-card full">
-    <header class="pk-modal-head"><h2 id="t-digitizer">Image &rarr; data (digitizer)</h2><button class="btn ghost sm" data-close aria-label="Close digitizer">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-digitizer">Image &rarr; data (digitizer)</h2><button class="btn ghost sm" data-close aria-label="Close digitizer">&#10005;</button></div>
     <div id="digitizer-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-method" role="dialog" aria-modal="true" aria-labelledby="t-method" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-method">Method &amp; gradient</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-method">Method &amp; gradient</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="method-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-export" role="dialog" aria-modal="true" aria-labelledby="t-export" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-export">Export &amp; save</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-export">Export &amp; save</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="export-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-share" role="dialog" aria-modal="true" aria-labelledby="t-share" hidden>
   <div class="pk-modal-card">
-    <header class="pk-modal-head"><h2 id="t-share">Share a link</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-share">Share a link</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="share-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-help" role="dialog" aria-modal="true" aria-labelledby="t-help" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-help">Help</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-help">Help</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body">
       <div class="split">
         <div>
@@ -490,8 +510,9 @@ footer.foot .spacer { flex: 1; }
               <tr><td><kbd>D</kbd></td><td>Toggle theme</td><td><kbd>?</kbd></td><td>This help</td></tr>
               <tr><td><kbd>Ctrl/&#8984;</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Shift</kbd>+<kbd>Ctrl/&#8984;</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
               <tr><td><kbd>Alt/&#8997;</kbd>+click</td><td>Add a peak at the click</td><td><kbd>Esc</kbd></td><td>Close dialog / leave add mode</td></tr>
+              <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Move the selected peak&rsquo;s <strong>start</strong> bound one point left / right</td><td><kbd>&lt;</kbd> <kbd>&gt;</kbd></td><td>Move its <strong>end</strong> bound (Shift+<kbd>,</kbd> / Shift+<kbd>.</kbd>)</td></tr>
             </table>
-            <p class="small muted">To move integration bounds, select a peak and drag its dotted boundary lines on the plot. Click a peak label or the plot title to rename it. With the plot focused, <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> move the cursor one point at a time (<kbd>Shift</kbd> for 10), and <kbd>Enter</kbd> sets a bound in Integrate mode.</p>
+            <p class="small muted">Single-letter and punctuation shortcuts work only when focus is not in a text field, and can be turned off under <a href="#h-settings">Settings</a>. Bounds can also be typed: open a peak&rsquo;s &#9432; details and edit <em>Start</em> / <em>End</em>. To move integration bounds with the mouse, select a peak and drag its dotted boundary lines on the plot. Click a peak label or the plot title to rename it. With the plot focused, <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> move the cursor one point at a time (<kbd>Shift</kbd> for 10), and <kbd>Enter</kbd> sets a bound in Integrate mode.</p>
           </div>
           <div class="section">
             <h3>Supported formats</h3>
@@ -501,7 +522,21 @@ footer.foot .spacer { flex: 1; }
         <div>
           <div class="section">
             <h3>Privacy</h3>
-            <p class="small"><strong>Peakly has no server.</strong> Files are read and processed inside this browser tab and are never uploaded. There are no analytics, trackers, cookies or accounts. The only thing stored locally is your light/dark theme choice. The page loads pinned open-source libraries from public CDNs (Plotly, SheetJS, pako, lz-string, jsPDF, pdf.js). The one exception is the <em>optional</em> Claude image assist in the digitizer: if you start it, that image goes straight from your browser to the Anthropic API under your own API key. The key is held in memory only and is never saved. A share link keeps the data inside the URL fragment (#), which browsers don't send to any server.</p>
+            <p class="small"><strong>Peakly has no server.</strong> Files are read and processed inside this browser tab and are never uploaded. There are no analytics, trackers, cookies or accounts. The only things stored locally (in this browser&rsquo;s storage, never sent anywhere) are your preferences: light/dark theme, the shortcut setting below and, when a feedback survey is configured, whether and when you were invited to it. The page loads pinned open-source libraries from public CDNs (Plotly, SheetJS, pako, lz-string, jsPDF, pdf.js). The one exception is the <em>optional</em> Claude image assist in the digitizer: if you start it, that image goes straight from your browser to the Anthropic API under your own API key. The key is held in memory only and is never saved. A share link keeps the data inside the URL fragment (#), which browsers don't send to any server.</p>
+          </div>
+          <div class="section">
+            <h3 id="h-settings">Settings</h3>
+            <ul class="settings-list small">
+              <li><label class="inline" style="color:var(--text)"><input type="checkbox" id="set-singlekeys"> Single-key shortcuts (<kbd>P</kbd>, <kbd>G</kbd>, <kbd>D</kbd>, <kbd>,</kbd> &hellip;)</label>
+                <span class="muted">Turn off if you use speech input or keep pressing keys by accident. Ctrl/&#8984; shortcuts, arrows and Delete stay on.</span></li>
+              <li id="set-survey-row" hidden><label class="inline" style="color:var(--text)"><input type="checkbox" id="set-survey"> Show occasional survey invitations</label>
+                <span class="muted">At most a few times, never during your work in a dialog. Nothing is sent unless you open the survey yourself.</span></li>
+            </ul>
+            <p class="small muted" style="margin:6px 0 0">Saved in this browser only.</p>
+          </div>
+          <div class="section" id="help-survey" hidden>
+            <h3>Feedback</h3>
+            <p class="small">Peakly is free and built by one scientist. <a id="help-survey-link" href="#" target="_blank" rel="noopener noreferrer">Take the 3-minute feedback survey<span class="sr-only"> (opens in a new tab)</span></a>. It opens a Google Form in a new tab; Peakly itself sends nothing.</p>
           </div>
           <div class="section">
             <h3>Formulas</h3>
@@ -517,6 +552,7 @@ footer.foot .spacer { flex: 1; }
             <h3>About</h3>
             <p class="small muted">Peakly <span id="help-version"></span> is free software (MIT) that runs entirely in your browser. It is independent of, and not affiliated with, any vendor or other chromatography project. Algorithms come from the published literature and are implemented from scratch.</p>
             <p class="small" data-disclaimer></p>
+            <p class="small" id="help-contact" hidden></p>
             <button class="btn sm" data-action="about">About Peakly: author, license, citation&hellip;</button>
           </div>
         </div>
@@ -527,30 +563,39 @@ footer.foot .spacer { flex: 1; }
 
 <div class="pk-modal" id="modal-clip" role="dialog" aria-modal="true" aria-labelledby="t-clip" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-clip">How should these peaks be split?</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-clip">How should these peaks be split?</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="clip-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-math" role="dialog" aria-modal="true" aria-labelledby="t-math" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-math">Integration math</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
-    <div class="pk-modal-body" id="math-root"></div>
+    <div class="pk-modal-head"><h2 id="t-math">Integration math</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
+    <div class="pk-modal-body" id="math-root" tabindex="0" role="region" aria-label="Integration math for every peak"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-calib" role="dialog" aria-modal="true" aria-labelledby="t-calib" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-calib">Calibration curve</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-calib">Calibration curve</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="cal-root"></div>
   </div>
 </div>
 <div class="pk-modal" id="modal-about" role="dialog" aria-modal="true" aria-labelledby="t-about" hidden>
   <div class="pk-modal-card wide">
-    <header class="pk-modal-head"><h2 id="t-about">About Peakly</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></header>
+    <div class="pk-modal-head"><h2 id="t-about">About Peakly</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
     <div class="pk-modal-body" id="about-root"></div>
   </div>
 </div>
 
+<div class="pk-modal" id="modal-plottable" role="dialog" aria-modal="true" aria-labelledby="t-plottable" hidden>
+  <div class="pk-modal-card wide">
+    <div class="pk-modal-head"><h2 id="t-plottable">Plot as table</h2><button class="btn ghost sm" data-close aria-label="Close">&#10005;</button></div>
+    <div class="pk-modal-body" id="plottable-root"></div>
+  </div>
+</div>
+
 <div id="audit-pop" role="dialog" aria-label="Calculation details" hidden></div>
+<div id="survey-card" role="dialog" aria-modal="false" aria-labelledby="survey-title" aria-describedby="survey-text" tabindex="-1" hidden></div>
+<div id="pk-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <div id="drop-overlay" aria-hidden="true">Drop files to import</div>
 <div id="pk-toasts" aria-live="polite" aria-relevant="additions"></div>
 <input type="file" id="file-input" multiple hidden aria-hidden="true">
