@@ -99,7 +99,7 @@ Peakly aims for WCAG 2.1 Level AA and is currently **partially conformant**; kno
 
 If Peakly helped your work, please cite it. GitHub's "Cite this repository" button reads [CITATION.cff](CITATION.cff).
 
-> Schmitt, J. (2026). *Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer* (Version 1.1.0) [Computer software]. https://github.com/jschmitt1531/peakly. DOI: pending.
+> Schmitt, J. (2026). *Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer* (Version 1.2.0) [Computer software]. https://github.com/jschmitt1531/peakly. DOI: pending.
 
 A DOI will be minted by Zenodo with the first archived release ([docs/RELEASING.md](docs/RELEASING.md)). Please also mention the version you used and, for digitized data, that values were digitized from an image.
 

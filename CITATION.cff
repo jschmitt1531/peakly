@@ -12,8 +12,8 @@ authors:
   - family-names: Schmitt
     given-names: Jennifer
     email: peaklyfeedback@gmail.com
-version: 1.1.0
-date-released: 2026-10-03
+version: 1.2.0
+date-released: 2026-10-05
 license-url: "https://github.com/jschmitt1531/peakly/blob/main/LICENSE"
 repository-code: "https://github.com/jschmitt1531/peakly"
 url: "https://jschmitt1531.github.io/peakly/"

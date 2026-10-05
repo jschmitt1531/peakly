@@ -43,7 +43,7 @@ body:
     attributes:
       label: Peakly version
       description: Help → About shows it.
-      placeholder: "1.1.0"
+      placeholder: "1.2.0"
   - type: textarea
     id: expected
     attributes:

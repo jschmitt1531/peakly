@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-05
+
+First public release.
+
 ### Changed
 - **License changed from MIT (never published) to the Peakly Free-Use License 1.0:** free to use, including at work; copying, modifying, redistributing, sublicensing, selling, scraping and AI training are not permitted without written permission. Contributions are accepted under new contribution terms (CONTRIBUTING.md). Docs, app About panel, citation metadata and SPDX headers updated; Peakly is described as free-to-use, not open source.
 
@@ -67,6 +71,7 @@ First build.
 - **Export:** PNG/SVG figures, peak table CSV, trace CSV/JSON, PDF report, project files, share links with the compressed project in the URL fragment.
 - Built-in self-tests runnable in Node (`node tests/run.js`) and in the app.
 
-[Unreleased]: https://github.com/jschmitt1531/peakly/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/jschmitt1531/peakly/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/jschmitt1531/peakly/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/jschmitt1531/peakly/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/jschmitt1531/peakly/releases/tag/v1.0.0

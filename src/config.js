@@ -5,7 +5,7 @@
   'use strict';
   PK.config = {
     appName: 'Peakly',
-    version: '1.1.0',
+    version: '1.2.0',
     author: {
       name: 'Jennifer Schmitt, Ph.D.',
       headline: 'Analytical Sciences leader · Ph.D. in Chemistry · MBA, Johns Hopkins Carey Business School',
@@ -38,7 +38,7 @@
       title: 'Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer',
       authors: ['Schmitt, Jennifer'],
       year: 2026,
-      version: '1.1.0',
+      version: '1.2.0',
       doi: '' // filled in after the first Zenodo release
     },
     // Optional extras are built as a separate layer (see src/services.js, docs/SERVICES.md). Core never needs them.

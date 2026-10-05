@@ -31,7 +31,7 @@ body:
     attributes:
       label: Peakly version
       description: Help → About shows it. Also say whether you used the hosted app or a downloaded file.
-      placeholder: "1.1.0, hosted"
+      placeholder: "1.2.0, hosted"
     validations:
       required: true
   - type: input
