@@ -50,6 +50,8 @@ More: [tutorials](docs/tutorials/) for CSV files, vendor exports, binary files, 
 | Vendor text exports | Agilent ChemStation/OpenLab CSV/TXT (incl. UTF-16), Thermo Chromeleon ASCII, Shimadzu LabSolutions ASCII, Waters Empower `.arw`, Cytiva UNICORN CSV/ASC, Bio-Rad ChromLab/NGC CSV | FPLC volume axes, %B and conductivity become their own traces |
 | Images | PNG, JPG, WebP, GIF, BMP, PDF page, clipboard, phone camera | Digitized; carries ± uncertainty |
 
+**How well tested is each format?** Every reader has automated tests, but so far they run only on **synthetic sample files** (in `samples/data/`) that were written from public format descriptions and documentation, not on exports from real instruments. Treat the vendor binary and vendor text readers (and the MOCCA2/chromatoPy importers) as **beta** until they have been checked against real files; the Agilent `.ch` type 181 compressed variant is the least certain. If a real file opens wrongly, please [send a format request](https://github.com/jschmitt1531/peakly/issues/new/choose) with a sample you're allowed to share.
+
 **Not supported** (you get a clear message instead): Thermo `.raw`, Agilent `.uv` full spectra, Shimadzu `.lcd`, Waters raw folders, netCDF-4/HDF5. Export to text from the vendor software instead ([how](docs/tutorials/vendor-export.md)).
 
 If a file isn't recognized, **"My format isn't working"** shows the raw text and lets you choose the delimiter, header row, x and y columns and units by hand. Want Peakly to read your instrument's files? [Open a format request](https://github.com/jschmitt1531/peakly/issues/new?template=format_request.yml) with a sample you are allowed to share, or [write a parser](CONTRIBUTING.md#adding-a-file-format).
