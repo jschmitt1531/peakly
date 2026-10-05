@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "mzml": HUPO-PSI mzML 1.1 chromatograms.
    Format: XML; <chromatogramList><chromatogram id=...> with <binaryDataArray> elements whose cvParams give the array type
      (MS:1000595 time array, MS:1000515 intensity array), precision (MS:1000521 32-bit / MS:1000523 64-bit float,

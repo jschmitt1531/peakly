@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/schema.js: v1 → v2 migration, validation, export row shapes. */
 (function (PK) {
   'use strict';

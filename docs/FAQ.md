@@ -3,10 +3,10 @@
 ## General
 
 **What is Peakly?**
-A free, open-source chromatogram analyzer for HPLC and FPLC data that runs entirely in a web browser, from a single HTML file. See the [README](../README.md).
+A free-to-use chromatogram analyzer for HPLC and FPLC data that runs entirely in a web browser, from a single HTML file. See the [README](../README.md).
 
 **Is it really free? What's the catch?**
-Yes, MIT-licensed, with no paywalled features, ever ([GOVERNANCE.md](../GOVERNANCE.md#core-principles-not-up-for-a-vote)). There is no catch and no data collection. If it helps you, please [cite it](../README.md#how-to-cite) and tell us how you use it.
+Yes, free to use (including at work), with no paywalled features, ever. It is not open source: the code is public so it can be reviewed and cited, but copying, modifying or redistributing it needs permission ([LICENSE](../LICENSE)) ([GOVERNANCE.md](../GOVERNANCE.md#core-principles-not-up-for-a-vote)). There is no catch and no data collection. If it helps you, please [cite it](../README.md#how-to-cite) and tell us how you use it.
 
 **Do I need to install anything?**
 No. Open the hosted app or download `peakly.html` and double-click it. Any current Chrome, Edge, Firefox or Safari works, including on phones and tablets.

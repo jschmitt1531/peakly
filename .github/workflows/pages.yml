@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0
 # Publishes the website (docs/) and the app to GitHub Pages:
 #   /               docs/index.html (landing page) and the rest of docs/
 #   /app/           the app (built index.html)

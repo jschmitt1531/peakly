@@ -1,6 +1,6 @@
 # Credits
 
-Peakly is created and maintained by **Jennifer Schmitt, Ph.D.**, and released under the [MIT License](../LICENSE). This page credits everything Peakly builds on: libraries, prior projects, published methods, standards, specifications, templates and tools. Licenses were checked on 2026-10-05 against the GitHub API (`license.spdx_id`) or the npm registry for the exact pinned versions, unless noted.
+Peakly is created and maintained by **Jennifer Schmitt, Ph.D.**, and is free to use under the [Peakly Free-Use License](../LICENSE) (all other rights reserved). This page credits everything Peakly builds on: libraries, prior projects, published methods, standards, specifications, templates and tools. Licenses were checked on 2026-10-05 against the GitHub API (`license.spdx_id`) or the npm registry for the exact pinned versions, unless noted.
 
 **No third-party code is copied into this repository.** Runtime libraries are loaded from CDNs at pinned versions; algorithms are written from the published literature; file layouts come from public format descriptions. See [PRIOR_ART.md](../PRIOR_ART.md) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 

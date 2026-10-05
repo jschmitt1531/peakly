@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "waters-arw": Waters Empower .arw export.
    Format: alternating quoted key and value lines ("SampleName"<TAB>"Channel"... / "Std A"<TAB>"PDA 254nm"...), then
      two-column numeric data (minutes, AU or the unit named in the header).

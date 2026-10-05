@@ -46,7 +46,7 @@ The app calls only these methods, and only after a user click. Projects passed i
 Build it as a separate file that is appended to a **separate build** (for example `build-services.js` that writes `peakly-cloud.html`), never to the default `index.html`:
 
 ```js
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 (function (PK) {
   'use strict';
   if (!PK.services) return;

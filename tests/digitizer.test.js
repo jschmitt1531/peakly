@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Digitizer tests: pure raster path only (no DOM). */
 (function (PK) {
   'use strict';

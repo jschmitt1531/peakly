@@ -4,7 +4,7 @@
 
 > This is not legal advice; have counsel review before relying on it.
 
-Peakly is a free, open-source project run by **Jennifer Schmitt, Ph.D.** ("we", "the maintainer"). It is not a company and has no server of its own. This page explains, in plain language, what information is and is not collected, and by whom.
+Peakly is a free-to-use project run by **Jennifer Schmitt, Ph.D.** ("we", "the maintainer"). It is not a company and has no server of its own. This page explains, in plain language, what information is and is not collected, and by whom.
 
 ## Summary
 

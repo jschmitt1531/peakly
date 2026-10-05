@@ -1,5 +1,11 @@
 <!doctype html>
-<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Peakly (c) 2026 Jennifer Schmitt. All rights reserved.
+  Free to use under the Peakly Free-Use License: https://github.com/jschmitt1531/peakly/blob/main/LICENSE
+  Copying, modifying, redistributing, selling, scraping or using this file to train or prompt AI systems is not permitted.
+  Provenance: PEAKLY-E21D8C837BA479BB
+-->
+<!-- SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,8 +13,12 @@
      inline script element, so no 'unsafe-inline' is needed for scripts. Third-party code may only come from the pinned library
      paths below; the only network endpoint for data is the optional, user-started Claude call. A <meta> CSP cannot set
      frame-ancestors, sandbox or report-uri: send those as HTTP headers when you host Peakly. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BfrvLYZXe322iRaOa2fKbMtc6/8/jgnwqjnLgHZ1F/s=' 'sha256-3bOEPWr7jrSMe9WA4HDJuUwQmiUHT6DQqPfYJWMoX6A=' 'sha256-Mnt5RuW0CzVZW+0j1U1crW13MjaddUdTBF2OMT82xMs=' https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BfrvLYZXe322iRaOa2fKbMtc6/8/jgnwqjnLgHZ1F/s=' 'sha256-iHOtoyNZdZRQ/zkGB4fh3ver8iCzg+WBVoJvebgrUvs=' 'sha256-bOUU6Q2qpy/+F6rEnyqk2WA6VJlhDMtl+uKFVwXajFs=' https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
+<meta name="peakly-provenance" content="PEAKLY-E21D8C837BA479BB">
+<meta name="tdm-reservation" content="1">
+<meta name="tdm-policy" content="https://github.com/jschmitt1531/peakly/blob/main/LICENSE">
+<meta name="robots" content="noai, noimageai">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peakly</title>
 <meta name="description" content="Peakly: a free HPLC/FPLC chromatogram analyzer that runs entirely in your browser. Import vendor exports or digitize a chromatogram image, then detect, integrate and fit peaks, overlay runs and export reports. No accounts, no tracking, no uploads.">
@@ -550,7 +560,7 @@ footer.foot .spacer { flex: 1; }
           </div>
           <div class="section">
             <h3>About</h3>
-            <p class="small muted">Peakly <span id="help-version"></span> is free software (MIT) that runs entirely in your browser. It is independent of, and not affiliated with, any vendor or other chromatography project. Algorithms come from the published literature and are implemented from scratch.</p>
+            <p class="small muted">Peakly <span id="help-version"></span> is free to use and runs entirely in your browser (Peakly Free-Use License: all other rights reserved). It is independent of, and not affiliated with, any vendor or other chromatography project. Algorithms come from the published literature and are implemented from scratch.</p>
             <p class="small" data-disclaimer></p>
             <p class="small" id="help-contact" hidden></p>
             <button class="btn sm" data-action="about">About Peakly: author, license, citation&hellip;</button>
@@ -602,7 +612,7 @@ footer.foot .spacer { flex: 1; }
 <input type="file" id="project-input" accept=".json,application/json" hidden aria-hidden="true">
 <script>
 /* ==== src/config.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly configuration: author/About text, project links, optional services (all OFF by default).
    Edit this block to change what the About panel says. */
 (function (PK) {
@@ -636,7 +646,7 @@ footer.foot .spacer { flex: 1; }
       maxPrompts: 2,  // per browser, ever; never more than once per session
       minMinutesBetween: 1440
     },
-    license: 'MIT',
+    license: 'Peakly Free-Use License 1.0 (free to use; all other rights reserved)',
     disclaimer: 'For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.',
     citation: {
       title: 'Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer',
@@ -651,7 +661,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/core.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly core: namespace, event bus, utilities. */
 (function (PK) {
   'use strict';
@@ -780,7 +790,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/services.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Optional services interface. The core app runs fully offline with zero accounts; extras such as cloud save,
    team sharing or accounts plug in here as separate modules and are OFF unless enabled in PK.config.services.
    A service is a plain object: { id, name, capabilities:['save'|'load'|'share'|'auth'], configKey,
@@ -808,7 +818,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/testkit.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Minimal test harness shared by Node runner and in-app Self-test. */
 (function (PK) {
   'use strict';
@@ -836,7 +846,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/schema.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly project schema: version constant, v1 → v2 migration, validation, and the documented plain-object rows
    used by every CSV/JSON export (peak tables, trace summaries, long-format data). Pure: no DOM, loads in Node.
 
@@ -1210,7 +1220,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/registry.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser registry: plugin registration, sniff-based dispatch, and the shared helpers every format plugin uses.
    Load order: this file first, then every src/parsers/<format>.js (alphabetical; files starting with "_" are templates
    and are not loaded). All readers are written from public format descriptions; no third-party parser code.
@@ -1893,7 +1903,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/agilent-ch.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "agilent-ch": Agilent ChemStation / OpenLab CDS 2D signal files (.ch).
    Format: 6144-byte (0x1800) big-endian header with length-prefixed UTF-16LE strings (sample name 0x35A, method 0xA0E,
      instrument 0xC11, units 0x104C, signal description 0x1075), start/end times in ms at 0x11A/0x11E, y scale (float64)
@@ -1990,7 +2000,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/agilent-text.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "agilent-text": Agilent ChemStation / OpenLab CSV and TXT signal exports.
    Format: two columns time (min), signal (mAU) with no header, often UTF-16LE with BOM; sometimes a "DAD1 A, Sig=254,4
      Ref=off" signal description line.
@@ -2024,7 +2034,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/biorad.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "biorad": Bio-Rad ChromLab / NGC CSV export.
    Format: free-text report lines and "Key:,Value" metadata, then a multi-column table: Volume (ml) or Time (min), UV
      (mAU), Conductivity (mS/cm), GP (%B), pH, pressure ...
@@ -2055,7 +2065,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/chromatopy.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "chromatopy": interop with chromatoPy (Otiniano et al., MIT; github.com/GerardOtiniano/chromatoPy).
    Format 1, FID_output.json (written by chromatoPy's GC-FID integration):
      { "Samples": { "<sample>": { "Metadata": {...} | "text",
@@ -2225,7 +2235,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/chromeleon.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "chromeleon": Thermo Chromeleon ASCII export.
    Format: "Raw Data:" / "Information:" / "Chromatogram Data Information:" key<TAB>value blocks, then a
      "Chromatogram Data:" line followed by "Time (min)<TAB>Step (s)<TAB>Value (unit)" table. "n.a." marks missing cells.
@@ -2261,7 +2271,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/delimited.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "delimited": Generic delimited text (CSV / TSV / semicolon / whitespace / pipe).
    Format: one data point per line, two or more numeric columns; optional header row (units in brackets, e.g.
      "Time (min)", "Signal [mAU]"), optional two-line header (names row + units row), optional "Key: value" preamble.
@@ -2286,7 +2296,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/jcamp.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "jcamp": JCAMP-DX 4.24 / 5.x chromatograms and spectra.
    Format: "##LABEL=value" records; data in ##XYDATA=(X++(Y..Y)) (AFFN or ASDF compressed: SQZ, DIF, DUP with the DIF
      Y-check value repeated at the start of the next line), ##XYPOINTS / ##PEAK TABLE=(XY..XY); XFACTOR/YFACTOR,
@@ -2390,7 +2400,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/json.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "json": JSON chromatograms (generic shapes, Peakly project / exports).
    Format: [{x,y},...], [[x,y],...], {x:[],y:[]}, {traces:[{name,x,y,xUnit,yUnit,meta}]}, a saved Peakly project
      ({version, traces, method|settings|images} -> ParseResult.project), and Peakly's own exports (round trip):
@@ -2549,7 +2559,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/mocca2.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "mocca2": interop with MOCCA2 (Bayer AG, MIT; github.com/bayer-group/MOCCA) JSON serialization.
    Format: json.dump of MOCCA2's to_dict() (numpy arrays become lists; "__classname__" tags each object):
      Data2D      { time:[min], wavelength:[nm], data:[[absorbance per time] per wavelength], __classname__:'Data2D' }
@@ -2709,7 +2719,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/mzml.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "mzml": HUPO-PSI mzML 1.1 chromatograms.
    Format: XML; <chromatogramList><chromatogram id=...> with <binaryDataArray> elements whose cvParams give the array type
      (MS:1000595 time array, MS:1000515 intensity array), precision (MS:1000521 32-bit / MS:1000523 64-bit float,
@@ -2819,7 +2829,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/netcdf.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "netcdf": AnDI / AIA chromatography netCDF (ASTM E1947) and AnDI-MS (ASTM E2077) TIC.
    Format: netCDF-3 classic (CDF1) or 64-bit offset (CDF2) container, big-endian. Chromatography files store
      ordered_derivative_values (signal), actual_sampling_interval, actual_delay_time, actual_run_time_length (seconds by
@@ -2933,7 +2943,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/shimadzu.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "shimadzu": Shimadzu LabSolutions ASCII export.
    Format: INI-like [Section] blocks: [Header], [File Information], [Sample Information], [LC Chromatogram(Detector A-Ch1)]
      with "Interval(msec)", "# of Points", "Intensity Units", "Intensity Multiplier", "Wavelength(nm)" then an
@@ -2980,7 +2990,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/unicorn.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "unicorn": Cytiva (GE) UNICORN curve export (.asc / .csv / .txt).
    Format: (x, y) column pairs per curve; a run-name row, a curve-name row (UV 1_280, Cond, Conc B, Fractions ...), and a
      units row ("ml", "mAU", "ml", "mS/cm", ...). x is elution VOLUME (mL) unless the units row says min.
@@ -3057,7 +3067,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/unsupported.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "unsupported": Known-but-unsupported binaries: produce a specific, actionable error instead of "unknown file".
    Covers: HDF5 / netCDF-4 (magic \x89HDF), Thermo .raw (01 A1 magic), Agilent .uv spectra, OLE2 compound files such as
      Shimadzu .lcd (D0 CF 11 E0), non-Excel ZIP archives, and .raw/.lcd/.cmbx/.dat2/.d/.ms extensions.
@@ -3096,7 +3106,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/waters-arw.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "waters-arw": Waters Empower .arw export.
    Format: alternating quoted key and value lines ("SampleName"<TAB>"Channel"... / "Std A"<TAB>"PDA 254nm"...), then
      two-column numeric data (minutes, AU or the unit named in the header).
@@ -3133,7 +3143,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/parsers/xlsx.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "xlsx": Excel / OpenDocument workbooks (.xlsx .xlsm .xls .ods) via the SheetJS CDN global XLSX.
    Format: the first sheet that contains a numeric table is converted to TSV and read with parseText (so vendor sniffers
      still apply to the sheet contents).
@@ -3175,7 +3185,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/analysis.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly analysis: smoothing, baseline, peak detection & integration, figures of merit,
    gradient/method math, normalization, and Levenberg–Marquardt peak fitting.
    Pure functions; x always in minutes; plain or typed arrays accepted, plain arrays returned.
@@ -4672,7 +4682,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/digitizer.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly digitizer: image -> chromatogram.
  * Pure raster functions (Node-testable with ImageData-like {width,height,data:Uint8ClampedArray})
  * plus the interactive stepper UI (Prep -> Calibrate -> Extract -> Verify -> Send) rendered into #digitizer-root.
@@ -6511,7 +6521,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== src/app.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly app shell: state, rendering, interaction, import/export, clipping/calibration UI, About. Loads last. */
 (function (PK) {
   'use strict';
@@ -10406,7 +10416,7 @@ footer.foot .spacer { flex: 1; }
     var C = (PK.config && PK.config.citation) || {}, cfg = PK.config || {}, L = ['@software{peakly_' + (C.year || ''), '  author  = {' + (C.authors || []).join(' and ') + '},', '  title   = {' + (C.title || 'Peakly') + '},', '  year    = {' + (C.year || '') + '},', '  version = {' + (C.version || appVersion()) + '},'];
     if (C.doi) L.push('  doi     = {' + C.doi + '},'); else L.push('  note    = {DOI assigned at first release},');
     if (cfg.repoUrl) L.push('  url     = {' + cfg.repoUrl + '},');
-    L.push('  license = {' + (cfg.license || 'MIT') + '}', '}');
+    L.push('  note    = {Free to use; all other rights reserved}', '}');
     return L.join('\n');
   }
   app.citationText = citationText; app.bibtex = bibtex;
@@ -10488,7 +10498,7 @@ footer.foot .spacer { flex: 1; }
       '<div class="section"><h3' + (surveyCfg().url ? '' : ' style="margin-top:0"') + '>Tell us how you used it</h3><p class="small">Stories about real use help decide what to build next.</p>' +
       (cfg.discussionsUrl ? '<button class="btn sm" id="about-discuss">Open the discussion board (new tab)</button>' : '<p class="small muted" id="about-discuss-note">The public discussion board link will be added here when the repository opens. Peakly never sends anything about you or your data automatically.</p>') + '</div>' +
       '<div class="section"><h3>Privacy</h3><p class="small">No telemetry: this app collects nothing, sets no cookies and makes no network requests with your data. Files stay in this browser tab. Analytics, if any, only ever run on the project website, never in the app. The only optional network call is the Claude image assist in the digitizer, which you start yourself with your own API key.</p></div>' +
-      '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is released under the ' + esc(cfg.license || 'MIT') + ' License. Algorithms are implemented from the published literature.</p>' +
+      '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is free to use (including at work) under the ' + esc(cfg.license || 'Peakly Free-Use License') + '. Copying, modifying, redistributing or selling it requires written permission. Your data and results are yours. Algorithms are implemented from the published literature.</p>' +
       '<h3>Third-party notices</h3><table class="plain small"><thead><tr><th scope="col">Library</th><th scope="col">Version</th><th scope="col">License</th><th scope="col">Used for</th></tr></thead><tbody>' +
       THIRD_PARTY.map(function (l) { return '<tr><td>' + esc(l.name) + '</td><td class="mono">' + esc(l.version) + '</td><td>' + esc(l.license) + '</td><td class="muted">' + esc(l.use) + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<p class="small muted">Libraries load from public CDNs (pinned versions); their full license texts are in THIRD_PARTY_NOTICES in the repository.</p></div>' +
@@ -10843,7 +10853,7 @@ footer.foot .spacer { flex: 1; }
 </script>
 <script>
 /* ==== tests/a11y-survey.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Pure helpers behind the accessibility and feedback features: survey invitation rules, plot text summary, keyboard
    bound editing, wavelength re-parsing (MOCCA2), XML entity decoding, preferences without storage. */
 (function (PK) {
@@ -10974,7 +10984,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/analysis.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/analysis.js */
 (function (PK) {
   'use strict';
@@ -11472,7 +11482,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/app.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* App shell pure-helper tests: share codec, project sanitizing, cross-trace peak matching, manual table parser. */
 (function (PK) {
   'use strict';
@@ -11669,7 +11679,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/digitizer.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Digitizer tests: pure raster path only (no DOM). */
 (function (PK) {
   'use strict';
@@ -11920,7 +11930,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/schema.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/schema.js: v1 → v2 migration, validation, export row shapes. */
 (function (PK) {
   'use strict';
@@ -12008,7 +12018,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/security.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Security regression tests (pure, no DOM): escaping, prototype-pollution guards, project/share-link sanitizing, image and
    colour allow-lists, bounded share-link expansion, Claude-response normalizing. See docs/SECURITY_AUDIT.md. */
 (function (PK) {
@@ -12200,7 +12210,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/services.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 (function (PK) {
   'use strict';
   PK.test('services: registered extras stay OFF unless explicitly enabled', function (t) {
@@ -12215,7 +12225,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/_fixtures.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Shared fixture builders for tests/parsers/*.test.js (loaded first: "_" sorts before letters). Registers no tests.
    PK.parserFixtures = { bytesToBuf, asciiBuf, utf16leWithBom, b64encode, floatsLE, zlibShim, buildNetCDF, build130, build179,
      build181, mzmlDoc, mzChrom, readSample(name) -> ArrayBuffer|null, withSample(t, name, fn) -> Promise }.
@@ -12382,7 +12392,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/agilent-ch.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/agilent-ch.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12416,7 +12426,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/agilent-text.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/agilent-text.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12440,7 +12450,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/biorad.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/biorad.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12465,7 +12475,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/chromatopy.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/chromatopy.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12531,7 +12541,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/chromeleon.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/chromeleon.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12555,7 +12565,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/delimited.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/delimited.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12609,7 +12619,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/jcamp.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/jcamp.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12646,7 +12656,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/json.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/json.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12717,7 +12727,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/mocca2.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/mocca2.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12787,7 +12797,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/mzml.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/mzml.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12832,7 +12842,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/netcdf.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/netcdf.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12863,7 +12873,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/registry.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/registry.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12953,7 +12963,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/shimadzu.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/shimadzu.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -12980,7 +12990,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/unicorn.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/unicorn.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -13010,7 +13020,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/unsupported.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/unsupported.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -13052,7 +13062,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/waters-arw.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/waters-arw.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';
@@ -13074,7 +13084,7 @@ footer.foot .spacer { flex: 1; }
 })(typeof window !== 'undefined' ? (window.PK = window.PK || {}) : (globalThis.PK = globalThis.PK || {}));
 
 /* ==== tests/parsers/xlsx.test.js ==== */
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/xlsx.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';

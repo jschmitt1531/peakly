@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "biorad": Bio-Rad ChromLab / NGC CSV export.
    Format: free-text report lines and "Key:,Value" metadata, then a multi-column table: Volume (ml) or Time (min), UV
      (mAU), Conductivity (mS/cm), GP (%B), pH, pressure ...

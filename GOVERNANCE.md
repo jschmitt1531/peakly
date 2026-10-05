@@ -1,6 +1,6 @@
 # Governance
 
-Peakly is a small open-source project. This document says who decides what, and how that will change as the project grows. It is deliberately simple and will be revised as needed (changes to this file follow the decision process below).
+Peakly is a small, source-available project (free to use; all other rights reserved). This document says who decides what, and how that will change as the project grows. It is deliberately simple and will be revised as needed (changes to this file follow the decision process below).
 
 ## Today: founder-led (BDFL)
 
@@ -15,7 +15,7 @@ Even now, decisions are made in the open:
 
 These keep Peakly trustworthy. Changing them requires the unanimous agreement of all maintainers *and* a 30-day public comment period.
 
-1. **Free and open**: MIT license; no paywalled features, ever. Optional hosted services may exist as a separate layer, but everything in the core app stays free.
+1. **Free to use**: no fee to use Peakly and no paywalled features, ever; the source code stays public for review and citation (see [LICENSE](LICENSE)). Optional hosted services may exist as a separate layer, but everything in the core app stays free.
 2. **Private by default**: no telemetry, no tracking, no data leaves the browser unless the user explicitly sends it.
 3. **Transparent math**: every reported number has a documented formula and visible inputs.
 4. **Single file**: the core app keeps working as one HTML file that can be emailed or used offline (with locally served libraries).

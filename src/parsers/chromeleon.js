@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "chromeleon": Thermo Chromeleon ASCII export.
    Format: "Raw Data:" / "Information:" / "Chromatogram Data Information:" key<TAB>value blocks, then a
      "Chromatogram Data:" line followed by "Time (min)<TAB>Step (s)<TAB>Value (unit)" table. "n.a." marks missing cells.

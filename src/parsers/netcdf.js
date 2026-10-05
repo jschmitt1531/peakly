@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "netcdf": AnDI / AIA chromatography netCDF (ASTM E1947) and AnDI-MS (ASTM E2077) TIC.
    Format: netCDF-3 classic (CDF1) or 64-bit offset (CDF2) container, big-endian. Chromatography files store
      ordered_derivative_values (signal), actual_sampling_interval, actual_delay_time, actual_run_time_length (seconds by

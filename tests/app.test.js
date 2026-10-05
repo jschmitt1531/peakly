@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* App shell pure-helper tests: share codec, project sanitizing, cross-trace peak matching, manual table parser. */
 (function (PK) {
   'use strict';

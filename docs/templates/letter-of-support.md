@@ -13,7 +13,7 @@ Re: Letter of support for "[Grant title]" ([applicant name], [applicant institut
 
 Dear Members of the Review Panel,
 
-I am writing as [your title] at [department / lab / core facility], [institution], to support the application "[grant title]", which would [one-sentence summary of the funded work, e.g. "add support for additional instrument file formats and an external validation study to Peakly, a free, open-source chromatogram analysis tool"].
+I am writing as [your title] at [department / lab / core facility], [institution], to support the application "[grant title]", which would [one-sentence summary of the funded work, e.g. "add support for additional instrument file formats and an external validation study to Peakly, a free, free-to-use chromatogram analysis tool"].
 
 **How we use Peakly.** Our [lab / facility / course] uses Peakly to [specific uses: e.g. "review HPLC purity data from three instruments from different vendors", "teach chromatographic theory to approximately [N] undergraduate students per year", "recover data from archived printed chromatograms"]. Approximately [N] people in our group use it [frequency]. Because Peakly runs entirely in a web browser without uploading data or requiring licences, [concrete benefit: e.g. "students can analyse their own data on personal laptops", "we can review data without vendor software seats", "data stays on institutional machines"].
 

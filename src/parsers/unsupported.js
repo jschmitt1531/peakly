@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "unsupported": Known-but-unsupported binaries: produce a specific, actionable error instead of "unknown file".
    Covers: HDF5 / netCDF-4 (magic \x89HDF), Thermo .raw (01 A1 magic), Agilent .uv spectra, OLE2 compound files such as
      Shimadzu .lcd (D0 CF 11 E0), non-Excel ZIP archives, and .raw/.lcd/.cmbx/.dat2/.d/.ms extensions.

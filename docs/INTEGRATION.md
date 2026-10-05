@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 -->
 # How Peakly integrates peaks
 
 This page explains how Peakly turns a peak's bounds into an area, what each **clip mode** (the way fused peaks are split) does, and when to use it. All of it lives in `src/analysis.js` (`clusters`, `integrate`, `clipOptions`, `peakMetrics`). Accuracy on synthetic data with known answers is in [VALIDATION.md](VALIDATION.md). The other formulas are in [CALCULATIONS.md](CALCULATIONS.md).

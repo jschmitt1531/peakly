@@ -1,6 +1,6 @@
 # Third-party notices
 
-Peakly's own source code is © 2026 Jennifer Schmitt and released under the [MIT License](LICENSE).
+Peakly's own source code is © 2026 Jennifer Schmitt, all rights reserved, and is free to use under the [Peakly Free-Use License](LICENSE). The third-party components below keep their own licenses.
 
 ## No third-party code is vendored in this repository
 

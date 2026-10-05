@@ -4,17 +4,24 @@
 
 > This is not legal advice; have counsel review before relying on it.
 
-Peakly is free, open-source software created and maintained by **Jennifer Schmitt, Ph.D.** By using Peakly you agree to these terms. If you do not agree, do not use it.
+Peakly is free-to-use software created and maintained by **Jennifer Schmitt, Ph.D.** By using Peakly you agree to these terms. If you do not agree, do not use it.
 
 ## 1. License
 
-Peakly's source code is released under the **[MIT License](../LICENSE)**. In short, you may use, copy, modify, merge, publish, distribute, sublicense and sell copies of the software, for any purpose, free of charge, **provided the copyright notice and the license text are included** in all copies or substantial portions of it. The MIT License text is the binding grant; where these terms and the license differ about the code itself, the license controls.
+Peakly is © 2026 Jennifer Schmitt, **all rights reserved**, and is licensed under the **[Peakly Free-Use License](../LICENSE)**. In short:
+
+- **You may** use Peakly free of charge, for any lawful purpose, including at work, and keep one unmodified copy of an official release file to use offline.
+- **You may not**, without written permission, copy, modify, merge, publish, distribute, sublicense or sell Peakly or any part of it, host it as a service for others, or remove its notices. Sharing a link to the official website or repository is fine.
+- **Your data and results are yours** to use and publish freely.
+- The source code is public so it can be reviewed, verified and cited; viewing it grants no other rights.
+
+The LICENSE text is the binding grant; where these terms and the license differ about the software itself, the license controls. For permissions beyond these terms, contact peaklyfeedback@gmail.com.
 
 Third-party libraries that Peakly loads at runtime are under their own licenses; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and [CREDITS.md](CREDITS.md).
 
 ## 2. No warranty ("AS IS")
 
-As the MIT License states: **THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.** The same applies to the hosted app, the website, documentation, sample data and any results Peakly produces. There is no guarantee that the hosted app will be available at any particular time, or at all.
+As the license states: **THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.** The same applies to the hosted app, the website, documentation, sample data and any results Peakly produces. There is no guarantee that the hosted app will be available at any particular time, or at all.
 
 ## 3. Intended use: research and education
 
@@ -29,7 +36,7 @@ Peakly is intended for **research and education**.
 
 Files, images, projects and results you work on in Peakly **remain yours**. The app processes them in your browser and does not send them to the maintainer (see the [Privacy policy](PRIVACY.md)). You are responsible for having the right to use the data you load, and for keeping confidential data, share links and exported files appropriately protected.
 
-If you contribute code, documentation, sample files or validation data to the project, the terms in [CONTRIBUTING.md](../CONTRIBUTING.md) apply (code under MIT; data under the license you choose there).
+If you contribute code, documentation, sample files or validation data to the project, the contribution terms in [CONTRIBUTING.md](../CONTRIBUTING.md) apply (you keep your copyright and give the maintainer a license to use and relicense your contribution; data under the license you choose there).
 
 ## 5. Acceptable use
 
@@ -38,6 +45,8 @@ When using the hosted app, the website, or the project's GitHub spaces, do not:
 - attempt to disrupt, overload or attack the hosting or the CDNs, or probe them for vulnerabilities outside the [security policy](../SECURITY.md) (good-faith research reported privately is welcome);
 - upload or share material you have no right to share, or confidential, personal or patient data, in issues, discussions or sample files;
 - use Peakly's name or materials to suggest that a modified or redistributed version is the official Peakly, or that the maintainer endorses you;
+- scrape, crawl or mine Peakly's code, app or documentation with automated tools, or use them to train or prompt AI systems or to build datasets (ordinary search-engine indexing is fine; see [LICENSE](../LICENSE) §2f);
+- present Peakly, or anything derived from it, as your own work;
 - break the law or the [Code of Conduct](../CODE_OF_CONDUCT.md).
 
 Your use of github.com is also governed by the [GitHub Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).
@@ -53,7 +62,7 @@ Peakly links to or relies on services run by others, which have their own terms 
 
 ## 7. Limitation of liability
 
-To the fullest extent permitted by law, and as the MIT License states, **IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.** This includes, without limitation, lost data, lost profits, failed experiments or batches, regulatory consequences, or decisions made on the basis of Peakly's output. Some jurisdictions do not allow certain exclusions, so some of these limits may not apply to you; in that case liability is limited to the smallest amount the law allows. Peakly is provided free of charge.
+To the fullest extent permitted by law, and as the license states, **IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.** This includes, without limitation, lost data, lost profits, failed experiments or batches, regulatory consequences, or decisions made on the basis of Peakly's output. Some jurisdictions do not allow certain exclusions, so some of these limits may not apply to you; in that case liability is limited to the smallest amount the law allows. Peakly is provided free of charge.
 
 ## 8. Trademarks
 
@@ -61,7 +70,7 @@ To the fullest extent permitted by law, and as the MIT License states, **IN NO E
 
 ## 9. Export and sanctions
 
-Peakly is publicly available open-source software. You are responsible for complying with export-control and sanctions laws that apply to you.
+Peakly is publicly available software. You are responsible for complying with export-control and sanctions laws that apply to you.
 
 ## 10. Governing law
 

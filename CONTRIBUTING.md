@@ -54,7 +54,7 @@ Follow the patterns already in the code. In particular:
 - **No modules, no bundler, no dependencies.** Every file in `src/` is a plain script wrapped in an IIFE that attaches to the global `PK` namespace:
 
   ```js
-  /* SPDX-License-Identifier: MIT */
+  /* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
   (function (PK) {
     'use strict';
     PK.mymodule = PK.mymodule || {};
@@ -81,14 +81,14 @@ Follow the patterns already in the code. In particular:
 Every source file starts with an SPDX license identifier:
 
 ```js
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 ```
 
-Use `<!-- SPDX-License-Identifier: MIT -->` in HTML files and `# SPDX-License-Identifier: MIT` in YAML/shell files where comments are allowed.
+Use `<!-- SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 -->` in HTML files and `# SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0` in YAML/shell files where comments are allowed.
 
 ## Licensing rules (please read)
 
-Peakly is MIT-licensed. To keep it that way:
+Peakly is **not** open source: it is free to use, with all other rights reserved ([LICENSE](LICENSE)). Contributions are still welcome under these rules:
 
 1. **Never copy code from projects with incompatible licenses.** That includes GPL, LGPL, AGPL and EPL projects such as ChemClipse/OpenChrom, chromConverter, rainbow and WebPlotDigitizer. Do not port their code line by line or translate it to JavaScript either. You may read *prose* format documentation and published papers, and implement from those.
 2. **Permissively licensed code** (MIT, BSD, Apache-2.0, ISC, Zlib) may be adapted only if you keep its copyright notice, note it in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and say so in your pull request. Prefer writing your own implementation.
@@ -97,14 +97,14 @@ Peakly is MIT-licensed. To keep it that way:
 5. **New runtime libraries** need discussion first. They must be permissively licensed, loaded from a CDN at a pinned version, and added to THIRD_PARTY_NOTICES.md.
 6. **AI-assisted contributions** are fine; you are responsible for checking that the result is correct and does not reproduce licensed code.
 
-By submitting a pull request you agree that your contribution is licensed under the MIT License (inbound = outbound). No CLA is required.
+**Contribution terms.** By submitting a pull request, issue attachment or other contribution, you confirm that you have the right to contribute it, you keep your copyright, and you grant Jennifer Schmitt (the maintainer) a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, copy, modify, distribute, sublicense and relicense your contribution as part of Peakly or any future version of it, under any license. *(These terms have not yet been reviewed by a lawyer; a formal contributor license agreement may replace them.)*
 
 ## Adding a file format
 
 Parsers are plugins. Each lives in its own file under `src/parsers/` and registers itself. Start by copying [`src/parsers/_template.js`](src/parsers/_template.js), which documents the helpers available; the essentials look like this:
 
 ```js
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 (function (PK) {
   'use strict';
   PK.parsers.register({

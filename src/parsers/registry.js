@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser registry: plugin registration, sniff-based dispatch, and the shared helpers every format plugin uses.
    Load order: this file first, then every src/parsers/<format>.js (alphabetical; files starting with "_" are templates
    and are not loaded). All readers are written from public format descriptions; no third-party parser code.

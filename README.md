@@ -3,7 +3,7 @@
 **Free, single-file, in-browser HPLC/FPLC chromatogram analysis.** Drop in a CSV, a vendor export, an Excel sheet, an Agilent `.ch` file, or even a *photo of a printed chromatogram*, and get retention times, integration, gradient context, calibration, overlays and a shareable report. Nothing is uploaded. Nothing is installed.
 
 [![tests](https://github.com/jschmitt1531/peakly/actions/workflows/test.yml/badge.svg)](https://github.com/jschmitt1531/peakly/actions/workflows/test.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![license: free to use, all rights reserved](https://img.shields.io/badge/license-free%20to%20use%2C%20all%20rights%20reserved-blue.svg)](LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-pending-lightgrey.svg)](#how-to-cite)
 <!-- After the first Zenodo release, replace the DOI badge with: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) -->
 
@@ -136,7 +136,7 @@ Peakly is an independent project. It is **not** affiliated with OpenChrom®, Lab
 
 ## License
 
-[MIT](LICENSE) © 2026 Jennifer Schmitt. The data you analyze is yours and never leaves your browser. Runtime libraries are loaded from CDNs under their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+© 2026 Jennifer Schmitt. All rights reserved. Peakly is **free to use**, including at work, under the [Peakly Free-Use License](LICENSE). You may **not** copy, modify, merge, publish, distribute, sublicense or sell it without written permission (ask at peaklyfeedback@gmail.com). The source code is public so it can be reviewed, verified and cited. Your data and results are yours: the data you analyze never leaves your browser, and you may publish your figures, tables and reports freely. Runtime libraries are loaded from CDNs under their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Acknowledgements
 

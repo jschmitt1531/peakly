@@ -1,21 +1,82 @@
-MIT License
+Peakly Free-Use License, version 1.0
+SPDX identifier used in this repository: LicenseRef-Peakly-Free-Use-1.0
 
-Copyright (c) 2026 Jennifer Schmitt
+Copyright (c) 2026 Jennifer Schmitt. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+"Peakly" or "the Software" means the Peakly application, its source code, documentation,
+sample files and any other material in this repository or published by the copyright holder.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. PERMISSION TO USE
+   You may use the Software free of charge, for any lawful purpose, including inside a
+   company, university or other organization. "Use" means opening and running the
+   Software, unmodified, as published by the copyright holder (for example on the
+   official Peakly website, in the official GitHub repository, or as an official release
+   file), to view, analyze and report on your own data. You may keep one unmodified copy
+   of an official release file on your own devices so that you can use it offline, and
+   your browser may make the temporary copies it needs to run it.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. WHAT IS NOT PERMITTED
+   Except for the use described in section 1, all rights are reserved. Without prior
+   written permission from the copyright holder you may NOT:
+   a. copy, reproduce or mirror the Software, in whole or in part;
+   b. modify, adapt, translate or create derivative works of the Software, or merge it
+      into other software;
+   c. publish, distribute, share, upload or otherwise make the Software or any part of
+      it available to others (sharing a link to the official website or repository is
+      fine);
+   d. sublicense, sell, rent, lease or lend the Software, or charge others for access to
+      it, including by hosting it as a service;
+   e. remove or alter any copyright, license or attribution notice;
+   f. scrape, crawl, mine or otherwise extract the Software, its source code or its
+      documentation with automated tools, or use any of it, in whole or in part, to train,
+      fine-tune, evaluate or prompt machine-learning or artificial-intelligence systems,
+      or to build datasets or competing tools. The copyright holder expressly reserves
+      all text and data mining rights, including under Article 4(3) of EU Directive
+      2019/790. Ordinary search-engine indexing of the public website is allowed;
+   g. present the Software, or any work derived from it, as your own work, or claim
+      authorship or ownership of it.
+
+3. YOUR DATA AND RESULTS
+   Your data and the results you create with the Software (figures, peak tables,
+   reports, exports, project files) belong to you. You may use, publish and share them
+   freely. Please cite Peakly when you publish results (see CITATION.cff).
+
+4. VIEWING THE SOURCE CODE
+   The source code is published so that people can review, verify and cite how Peakly
+   works. Viewing it does not grant any right beyond section 1. Where the code is
+   hosted on GitHub, GitHub's Terms of Service allow other users to view and fork the
+   public repository within GitHub; no other rights are granted to any fork.
+
+5. THIRD-PARTY COMPONENTS
+   Libraries and other third-party material used by the Software are licensed by their
+   owners under their own licenses, listed in THIRD_PARTY_NOTICES.md. This license does
+   not change those licenses.
+
+6. CONTRIBUTIONS
+   If you send a contribution (code, documentation, sample files or data), you agree to
+   the contribution terms in CONTRIBUTING.md.
+
+7. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE AND NONINFRINGEMENT. The Software is for research and education.
+   It is not validated for regulated (GMP/GLP) or clinical use, and digitized data is
+   approximate. You are responsible for checking results before relying on them.
+
+8. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+9. TERMINATION
+   If you break these terms, your permission to use the Software ends automatically.
+
+10. GOVERNING LAW
+   This license is governed by the laws of the District of Columbia, USA.
+
+11. PERMISSIONS AND QUESTIONS
+   For any use not covered here (for example redistribution, modification or
+   commercial licensing), contact peaklyfeedback@gmail.com.
+
+Note: this license text has not yet been reviewed by a lawyer. It is not legal advice.

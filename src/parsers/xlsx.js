@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "xlsx": Excel / OpenDocument workbooks (.xlsx .xlsm .xls .ods) via the SheetJS CDN global XLSX.
    Format: the first sheet that contains a numeric table is converted to TSV and read with parseText (so vendor sniffers
      still apply to the sheet contents).

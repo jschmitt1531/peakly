@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "json": JSON chromatograms (generic shapes, Peakly project / exports).
    Format: [{x,y},...], [[x,y],...], {x:[],y:[]}, {traces:[{name,x,y,xUnit,yUnit,meta}]}, a saved Peakly project
      ({version, traces, method|settings|images} -> ParseResult.project), and Peakly's own exports (round trip):

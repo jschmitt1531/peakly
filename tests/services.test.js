@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 (function (PK) {
   'use strict';
   PK.test('services: registered extras stay OFF unless explicitly enabled', function (t) {

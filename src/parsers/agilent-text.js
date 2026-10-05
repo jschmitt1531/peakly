@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "agilent-text": Agilent ChemStation / OpenLab CSV and TXT signal exports.
    Format: two columns time (min), signal (mAU) with no header, often UTF-16LE with BOM; sometimes a "DAD1 A, Sig=254,4
      Ref=off" signal description line.

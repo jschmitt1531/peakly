@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "chromatopy": interop with chromatoPy (Otiniano et al., MIT; github.com/GerardOtiniano/chromatoPy).
    Format 1, FID_output.json (written by chromatoPy's GC-FID integration):
      { "Samples": { "<sample>": { "Metadata": {...} | "text",

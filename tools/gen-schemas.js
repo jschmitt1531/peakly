@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 // Regenerates docs/schemas/*.json from PK.schema.describe() (the single source of truth): node tools/gen-schemas.js
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');

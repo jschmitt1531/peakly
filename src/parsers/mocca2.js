@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "mocca2": interop with MOCCA2 (Bayer AG, MIT; github.com/bayer-group/MOCCA) JSON serialization.
    Format: json.dump of MOCCA2's to_dict() (numpy arrays become lists; "__classname__" tags each object):
      Data2D      { time:[min], wavelength:[nm], data:[[absorbance per time] per wavelength], __classname__:'Data2D' }

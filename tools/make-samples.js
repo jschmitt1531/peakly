@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 // Regenerates samples/data/* deterministically: node tools/make-samples.js
 // Every file is SYNTHETIC (sums of Gaussian/EMG-like peaks + seeded noise) and dedicated to the public domain (CC0 1.0).
 // Layouts follow the public format descriptions cited in each src/parsers/<id>.js header; no vendor or third-party files

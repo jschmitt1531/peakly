@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Tests for src/parsers/xlsx.js — inline fixtures plus the samples/data file (sample read via fs in Node; skipped in the browser). */
 (function (PK) {
   'use strict';

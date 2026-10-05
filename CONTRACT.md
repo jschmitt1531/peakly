@@ -204,7 +204,7 @@ Keep module CSS in a JS string injected once via `PK.injectCSS(id, cssText)` (pr
   detector, notes}; plot caption + PDF header from method + run info; project.name as plot title.
 
 ## Round 4 (v1.1): sustainability, clipping, calibration — READ before coding
-Author: Jennifer Schmitt, Ph.D. (LinkedIn https://www.linkedin.com/in/jschmitt1531/). License MIT. Use they/them or the name, no gendered pronouns.
+Author: Jennifer Schmitt, Ph.D. (LinkedIn https://www.linkedin.com/in/jschmitt1531/). License: Peakly Free-Use License (free to use, all other rights reserved; changed from MIT 2026-10-05 before publication). Use they/them or the name, no gendered pronouns.
 Disclaimer (must appear in About, README, PDF footer): "For research and education use. Not validated for regulated
 (GMP/GLP) workflows. Digitized data is approximate."
 

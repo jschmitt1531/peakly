@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Shared fixture builders for tests/parsers/*.test.js (loaded first: "_" sorts before letters). Registers no tests.
    PK.parserFixtures = { bytesToBuf, asciiBuf, utf16leWithBom, b64encode, floatsLE, zlibShim, buildNetCDF, build130, build179,
      build181, mzmlDoc, mzChrom, readSample(name) -> ArrayBuffer|null, withSample(t, name, fn) -> Promise }.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0
 # Capture README/tutorial screenshots of the built index.html with headless Chrome (uses the app's ?demo= mode).
 # Usage: tools/screenshots.sh   (macOS default Chrome path; override with CHROME=/path/to/chrome)
 set -euo pipefail

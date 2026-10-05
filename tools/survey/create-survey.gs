@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0
 /**
  * Peakly feedback survey: Google Forms + Google Sheets, set up by one script.
- * Copyright (c) 2026 Jennifer Schmitt. MIT License (see LICENSE in the Peakly repository).
+ * Copyright (c) 2026 Jennifer Schmitt. All rights reserved; see LICENSE in the Peakly repository.
  *
  * WHAT THIS CREATES (in the Google Drive of whoever runs it; everything is free)
  *   1. Google Form "Peakly feedback survey"            (anonymous; ~4-5 minutes)
@@ -115,7 +115,7 @@ const SUS_ROWS = [ // Brooke (1996) System Usability Scale; "system" replaced by
 ];
 
 const SURVEY_DESCRIPTION = [
-  'Thank you for helping improve Peakly, the free, open-source chromatogram analyzer by ' + CONFIG.MAINTAINER + '. About 4-5 minutes.',
+  'Thank you for helping improve Peakly, the free chromatogram analyzer by ' + CONFIG.MAINTAINER + '. About 4-5 minutes.',
   '',
   'Before you start:',
   '- Voluntary: every question except the consent question is optional. Skip anything; close the tab to stop. Nothing is saved until you press Submit.',
@@ -302,6 +302,28 @@ function setupPeaklySurvey() {
   Logger.log('Check: open the survey link in a private/incognito window. It must open WITHOUT asking you to sign in.');
 }
 
+/**
+ * Updates only the descriptions and thank-you messages of the three existing forms (no questions, settings or
+ * responses are touched). Run after editing SURVEY_DESCRIPTION or CONFIG text.
+ */
+function refreshFormTexts() {
+  const props = PropertiesService.getScriptProperties();
+  const survey = FormApp.openById(mustGet_(props, P.SURVEY_ID));
+  const signup = FormApp.openById(mustGet_(props, P.SIGNUP_ID));
+  const unsub = FormApp.openById(mustGet_(props, P.UNSUB_ID));
+  const signupUrl = shorten_(signup), unsubUrl = unsub.getPublishedUrl();
+  survey.setDescription(SURVEY_DESCRIPTION);
+  survey.setConfirmationMessage([
+    'Thank you! Your answers were recorded anonymously.',
+    'Peakly: ' + CONFIG.REPO_URL,
+    'To hear about future surveys (separate, optional): ' + signupUrl,
+    'If Peakly helps your work, please cite it: ' + CONFIG.REPO_URL + '#how-to-cite',
+    'Questions or feedback by email: ' + CONFIG.CONTACT_EMAIL
+  ].join('\n'));
+  buildSignupTexts_(signup, unsubUrl);
+  Logger.log('Form descriptions and thank-you messages refreshed.');
+}
+
 function buildSurveyForm_(form, signupUrl) {
   form.setDescription(SURVEY_DESCRIPTION);
   form.setConfirmationMessage([
@@ -360,7 +382,7 @@ function addItem_(form, q, signupUrl) {
   return item;
 }
 
-function buildSignupForm_(form, unsubUrl) {
+function buildSignupTexts_(form, unsubUrl) {
   form.setDescription([
     'Leave your email address to be invited to future Peakly feedback surveys (at most one every 3 months).',
     'This is separate from the survey itself, so your survey answers stay anonymous.',
@@ -370,6 +392,10 @@ function buildSignupForm_(form, unsubUrl) {
   ].join('\n'));
   form.setConfirmationMessage('Thank you. You will receive at most one invitation every 3 months from ' + CONFIG.CONTACT_EMAIL +
     '. Unsubscribe any time: ' + unsubUrl + ' or reply "unsubscribe" to ' + CONFIG.CONTACT_EMAIL + '.');
+}
+
+function buildSignupForm_(form, unsubUrl) {
+  buildSignupTexts_(form, unsubUrl);
   form.addTextItem().setTitle(SIGNUP_EMAIL_TITLE).setRequired(true)
     .setValidation(FormApp.createTextValidation().setHelpText('Please enter a valid email address.')
       .requireTextIsEmail().build());

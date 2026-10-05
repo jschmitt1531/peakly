@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly digitizer: image -> chromatogram.
  * Pure raster functions (Node-testable with ImageData-like {width,height,data:Uint8ClampedArray})
  * plus the interactive stepper UI (Prep -> Calibrate -> Extract -> Verify -> Send) rendered into #digitizer-root.

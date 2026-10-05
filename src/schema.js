@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly project schema: version constant, v1 → v2 migration, validation, and the documented plain-object rows
    used by every CSV/JSON export (peak tables, trace summaries, long-format data). Pure: no DOM, loads in Node.
 

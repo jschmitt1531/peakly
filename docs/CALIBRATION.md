@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 -->
 # Calibration curves in Peakly
 
 Peakly fits an external-standard calibration curve (response against concentration), reports its statistics and back-calculates unknowns with a confidence interval. The code is `calibrationFit()` and `quantify()` in `src/analysis.js`. A simulation check is in [VALIDATION.md §6](VALIDATION.md), and integration (where the responses come from) is in [INTEGRATION.md](INTEGRATION.md).

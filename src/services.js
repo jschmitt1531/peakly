@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Optional services interface. The core app runs fully offline with zero accounts; extras such as cloud save,
    team sharing or accounts plug in here as separate modules and are OFF unless enabled in PK.config.services.
    A service is a plain object: { id, name, capabilities:['save'|'load'|'share'|'auth'], configKey,

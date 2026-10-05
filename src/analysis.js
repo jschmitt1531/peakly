@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly analysis: smoothing, baseline, peak detection & integration, figures of merit,
    gradient/method math, normalization, and Levenberg–Marquardt peak fitting.
    Pure functions; x always in minutes; plain or typed arrays accepted, plain arrays returned.

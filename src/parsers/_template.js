@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin TEMPLATE. Copy to src/parsers/<your-format-id>.js, then replace every "myformat" / TODO.
    Files whose name starts with "_" are NOT loaded by build.js or tests/run.js, so this template never registers.
 

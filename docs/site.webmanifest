@@ -1,7 +1,7 @@
 {
   "name": "Peakly: in-browser chromatogram analysis",
   "short_name": "Peakly",
-  "description": "Free, open-source, single-file HPLC/FPLC chromatogram analyzer that runs entirely in your browser.",
+  "description": "Free-to-use, single-file HPLC/FPLC chromatogram analyzer that runs entirely in your browser.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

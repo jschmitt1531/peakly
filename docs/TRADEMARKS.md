@@ -2,7 +2,7 @@
 
 > This is not legal advice; have counsel review before relying on it.
 
-Peakly is an **independent** open-source project by Jennifer Schmitt, Ph.D. It is **not affiliated with, sponsored by, or endorsed by** any company, product or project named in Peakly, its website or its documentation.
+Peakly is an **independent**, free-to-use project by Jennifer Schmitt, Ph.D. It is **not affiliated with, sponsored by, or endorsed by** any company, product or project named in Peakly, its website or its documentation.
 
 ## Names of others
 
@@ -39,7 +39,7 @@ If you represent a trademark owner and believe a use here is inaccurate, please 
 
 ## The Peakly name and logo
 
-"Peakly" and the Peakly chromatogram-trace icon identify this project. The MIT License covers the **code**; it does not grant trademark rights. You are welcome to:
+"Peakly" and the Peakly chromatogram-trace icon identify this project. The [Peakly Free-Use License](../LICENSE) covers use of the **software**; it does not grant trademark rights. You are welcome to:
 
 - say that your work uses, extends or is based on Peakly;
 - redistribute unmodified copies under the Peakly name.

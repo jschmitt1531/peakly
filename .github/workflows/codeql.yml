@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0
 # Static analysis (CodeQL, JavaScript) of src/ and tools/. Code scanning is free for public repositories; while the
 # repository is private (and without GitHub Advanced Security) the job is skipped instead of failing.
 name: codeql

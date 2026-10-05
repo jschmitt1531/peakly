@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Digitizer accuracy benchmark: node tools/digitizer-accuracy.js [--out docs/DIGITIZER_ACCURACY.md] [--quiet]
  *
  * Renders Peakly's synthetic sample chromatogram (PK.digitizer.makeSampleImage, pure raster path, no DOM)

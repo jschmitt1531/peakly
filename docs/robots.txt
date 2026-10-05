@@ -1,6 +1,42 @@
-# Peakly website. Everything here is public; crawlers are welcome.
+# Peakly website. Search engines may index it; AI crawlers and dataset builders may not.
+# Peakly is (c) 2026 Jennifer Schmitt, all rights reserved; text and data mining rights are reserved
+# (see https://github.com/jschmitt1531/peakly/blob/main/LICENSE section 2f and /.well-known/tdmrep.json).
 # Note: on https://jschmitt1531.github.io/peakly/ this file is NOT at the host root, so crawlers ignore it
-# there; it takes effect only if the site moves to its own domain. See docs/LAUNCH_CHECKLIST.md.
+# there; it takes effect once the site has its own domain. The page-level tdm-reservation/noai meta tags
+# apply everywhere. See docs/PROTECTING_PEAKLY.md.
+
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-Web
+User-agent: anthropic-ai
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: Google-Extended
+User-agent: GoogleOther
+User-agent: Applebot-Extended
+User-agent: CCBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Bytespider
+User-agent: meta-externalagent
+User-agent: FacebookBot
+User-agent: Amazonbot
+User-agent: cohere-ai
+User-agent: cohere-training-data-crawler
+User-agent: Diffbot
+User-agent: ImagesiftBot
+User-agent: Omgilibot
+User-agent: Timpibot
+User-agent: YouBot
+User-agent: AI2Bot
+User-agent: DuckAssistBot
+User-agent: MistralAI-User
+User-agent: PanguBot
+User-agent: Scrapy
+Disallow: /
+
 User-agent: *
 Allow: /
 

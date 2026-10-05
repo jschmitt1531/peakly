@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+- **License changed from MIT (never published) to the Peakly Free-Use License 1.0:** free to use, including at work; copying, modifying, redistributing, sublicensing, selling, scraping and AI training are not permitted without written permission. Contributions are accepted under new contribution terms (CONTRIBUTING.md). Docs, app About panel, citation metadata and SPDX headers updated; Peakly is described as free-to-use, not open source.
+
+### Added (protection)
+- Text-and-data-mining reservation (LICENSE §2f; W3C TDMRep meta tags and `/.well-known/tdmrep.json`), `noai` robots meta, robots.txt blocking AI crawlers, copyright banner and provenance ID in every build, and an owner guide (docs/PROTECTING_PEAKLY.md).
+
 ### Added
 - Optional feedback survey: links in About, Help, footer and PDF reports, plus an occasional, dismissible invitation after complex features (calibration, peak fit, digitizing, compare, split). The app never collects email or sends data; the survey lives on Google Forms (setup script in `tools/survey/`).
 - Accessibility: plot text summary and "Show plot as table", keyboard editing of integration bounds, setting to turn off single-key shortcuts, arrow-key menus, 24 px targets; axe-core scan reports 0 violations across 36 view/theme/width combinations.

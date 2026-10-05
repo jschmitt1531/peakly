@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "agilent-ch": Agilent ChemStation / OpenLab CDS 2D signal files (.ch).
    Format: 6144-byte (0x1800) big-endian header with length-prefixed UTF-16LE strings (sample name 0x35A, method 0xA0E,
      instrument 0xC11, units 0x104C, signal description 0x1075), start/end times in ms at 0x11A/0x11E, y scale (float64)

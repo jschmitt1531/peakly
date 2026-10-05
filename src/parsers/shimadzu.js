@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "shimadzu": Shimadzu LabSolutions ASCII export.
    Format: INI-like [Section] blocks: [Header], [File Information], [Sample Information], [LC Chromatogram(Detector A-Ch1)]
      with "Interval(msec)", "# of Points", "Intensity Units", "Intensity Multiplier", "Wavelength(nm)" then an

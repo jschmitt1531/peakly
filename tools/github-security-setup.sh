@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0
 # One-time GitHub hardening for jschmitt1531/peakly. Run AFTER the repository is made public
 # (several features are only free for public repos). Needs the GitHub CLI logged in as an admin: gh auth status
 # Usage: tools/github-security-setup.sh [owner/repo]

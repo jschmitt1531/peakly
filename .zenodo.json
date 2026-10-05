@@ -1,13 +1,12 @@
 {
   "title": "Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer",
-  "description": "<p>Peakly is a free, open-source, client-side web application for analysing HPLC and FPLC chromatograms. It imports common open and vendor formats, digitizes chromatograms from images, integrates peaks with documented and auditable formulas, supports calibration curves, and runs entirely in the browser without uploading data.</p><p>For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.</p>",
+  "description": "<p>Peakly is a free-to-use, client-side web application for analysing HPLC and FPLC chromatograms. It imports common open and vendor formats, digitizes chromatograms from images, integrates peaks with documented and auditable formulas, supports calibration curves, and runs entirely in the browser without uploading data.</p><p>For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.</p>",
   "upload_type": "software",
   "creators": [
     {
       "name": "Schmitt, Jennifer"
     }
   ],
-  "license": "MIT",
   "access_right": "open",
   "keywords": [
     "chromatography",

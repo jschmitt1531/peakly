@@ -44,7 +44,7 @@ Legend: ✅ done in the repo · ⏳ owner action needed · ➖ not needed / opti
 | 24 | **Credits / licenses** | ✅ | [CREDITS.md](CREDITS.md), [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [PRIOR_ART.md](../PRIOR_ART.md); AI-assistance disclosure in README, CREDITS and the site footer. |
 | 25 | **Trademarks** | ✅ | [TRADEMARKS.md](TRADEMARKS.md); README and footer carry a short notice. |
 | 26 | **Not a medical device; regulated use** | ✅ | TERMS §3 and the README: research and education only; not validated for GMP/GLP; not for clinical or diagnostic decisions. Do not market it for diagnostic or regulated release use, which could change its regulatory status. |
-| 27 | **Export control** | ✅ | Publicly available open-source software with no encryption beyond the browser's own HTTPS; generally not subject to licensing requirements when published (US EAR "published" software). TERMS §9 reminds users of their own obligations. Ask counsel if a commercial services layer is ever added. |
+| 27 | **Export control** | ✅ | Publicly available software (source published) with no encryption beyond the browser's own HTTPS; generally not subject to licensing requirements when published (US EAR "published" software). TERMS §9 reminds users of their own obligations. Ask counsel if a commercial services layer is ever added. |
 
 ## Releases, support and security
 

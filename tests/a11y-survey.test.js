@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Pure helpers behind the accessibility and feedback features: survey invitation rules, plot text summary, keyboard
    bound editing, wavelength re-parsing (MOCCA2), XML entity decoding, preferences without storage. */
 (function (PK) {

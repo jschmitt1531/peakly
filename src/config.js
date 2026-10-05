@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly configuration: author/About text, project links, optional services (all OFF by default).
    Edit this block to change what the About panel says. */
 (function (PK) {
@@ -32,7 +32,7 @@
       maxPrompts: 2,  // per browser, ever; never more than once per session
       minMinutesBetween: 1440
     },
-    license: 'MIT',
+    license: 'Peakly Free-Use License 1.0 (free to use; all other rights reserved)',
     disclaimer: 'For research and education use. Not validated for regulated (GMP/GLP) workflows. Digitized data is approximate.',
     citation: {
       title: 'Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer',

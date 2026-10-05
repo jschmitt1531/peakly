@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "unicorn": Cytiva (GE) UNICORN curve export (.asc / .csv / .txt).
    Format: (x, y) column pairs per curve; a run-name row, a curve-name row (UV 1_280, Cond, Conc B, Fractions ...), and a
      units row ("ml", "mAU", "ml", "mS/cm", ...). x is elution VOLUME (mL) unless the units row says min.

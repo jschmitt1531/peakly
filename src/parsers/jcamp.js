@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "jcamp": JCAMP-DX 4.24 / 5.x chromatograms and spectra.
    Format: "##LABEL=value" records; data in ##XYDATA=(X++(Y..Y)) (AFFN or ASDF compressed: SQZ, DIF, DUP with the DIF
      Y-check value repeated at the start of the next line), ##XYPOINTS / ##PEAK TABLE=(XY..XY); XFACTOR/YFACTOR,

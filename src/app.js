@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly app shell: state, rendering, interaction, import/export, clipping/calibration UI, About. Loads last. */
 (function (PK) {
   'use strict';
@@ -3893,7 +3893,7 @@
     var C = (PK.config && PK.config.citation) || {}, cfg = PK.config || {}, L = ['@software{peakly_' + (C.year || ''), '  author  = {' + (C.authors || []).join(' and ') + '},', '  title   = {' + (C.title || 'Peakly') + '},', '  year    = {' + (C.year || '') + '},', '  version = {' + (C.version || appVersion()) + '},'];
     if (C.doi) L.push('  doi     = {' + C.doi + '},'); else L.push('  note    = {DOI assigned at first release},');
     if (cfg.repoUrl) L.push('  url     = {' + cfg.repoUrl + '},');
-    L.push('  license = {' + (cfg.license || 'MIT') + '}', '}');
+    L.push('  note    = {Free to use; all other rights reserved}', '}');
     return L.join('\n');
   }
   app.citationText = citationText; app.bibtex = bibtex;
@@ -3975,7 +3975,7 @@
       '<div class="section"><h3' + (surveyCfg().url ? '' : ' style="margin-top:0"') + '>Tell us how you used it</h3><p class="small">Stories about real use help decide what to build next.</p>' +
       (cfg.discussionsUrl ? '<button class="btn sm" id="about-discuss">Open the discussion board (new tab)</button>' : '<p class="small muted" id="about-discuss-note">The public discussion board link will be added here when the repository opens. Peakly never sends anything about you or your data automatically.</p>') + '</div>' +
       '<div class="section"><h3>Privacy</h3><p class="small">No telemetry: this app collects nothing, sets no cookies and makes no network requests with your data. Files stay in this browser tab. Analytics, if any, only ever run on the project website, never in the app. The only optional network call is the Claude image assist in the digitizer, which you start yourself with your own API key.</p></div>' +
-      '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is released under the ' + esc(cfg.license || 'MIT') + ' License. Algorithms are implemented from the published literature.</p>' +
+      '<div class="section"><h3>License</h3><p class="small">' + esc(name) + ' is free to use (including at work) under the ' + esc(cfg.license || 'Peakly Free-Use License') + '. Copying, modifying, redistributing or selling it requires written permission. Your data and results are yours. Algorithms are implemented from the published literature.</p>' +
       '<h3>Third-party notices</h3><table class="plain small"><thead><tr><th scope="col">Library</th><th scope="col">Version</th><th scope="col">License</th><th scope="col">Used for</th></tr></thead><tbody>' +
       THIRD_PARTY.map(function (l) { return '<tr><td>' + esc(l.name) + '</td><td class="mono">' + esc(l.version) + '</td><td>' + esc(l.license) + '</td><td class="muted">' + esc(l.use) + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<p class="small muted">Libraries load from public CDNs (pinned versions); their full license texts are in THIRD_PARTY_NOTICES in the repository.</p></div>' +

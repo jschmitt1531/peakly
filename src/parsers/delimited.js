@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Peakly parser plugin "delimited": Generic delimited text (CSV / TSV / semicolon / whitespace / pipe).
    Format: one data point per line, two or more numeric columns; optional header row (units in brackets, e.g.
      "Time (min)", "Signal [mAU]"), optional two-line header (names row + units row), optional "Key: value" preamble.

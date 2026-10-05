@@ -3,7 +3,7 @@ message: "If you use Peakly, please cite it as below."
 type: software
 title: "Peakly: a free, single-file, in-browser HPLC/FPLC chromatogram analyzer"
 abstract: >-
-  Peakly is a free, open-source, client-side web application for analysing
+  Peakly is a free-to-use, client-side web application for analysing
   HPLC and FPLC chromatograms. It imports common open and vendor formats,
   digitizes chromatograms from images, integrates peaks with documented and
   auditable formulas, supports calibration curves, and runs entirely in the
@@ -14,7 +14,7 @@ authors:
     email: peaklyfeedback@gmail.com
 version: 1.1.0
 date-released: 2026-10-03
-license: MIT
+license-url: "https://github.com/jschmitt1531/peakly/blob/main/LICENSE"
 repository-code: "https://github.com/jschmitt1531/peakly"
 url: "https://jschmitt1531.github.io/peakly/"
 keywords:

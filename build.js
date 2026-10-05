@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 // Inlines src/*.js, src/parsers/*.js, tests/*.test.js, tests/parsers/*.test.js and shell.html into a single index.html: node build.js
 // Then computes the sha256 of every inline <script> and writes them into the Content-Security-Policy <meta>
 // (placeholder PK_SCRIPT_HASHES in src/shell.html), so the CSP needs no 'unsafe-inline' for scripts.
@@ -22,6 +22,16 @@ html = html.replace('<!--PK:SCRIPTS-->', () => `<script>\n${guard(js)}\n</script
 // The HTML parser turns CRLF/CR into LF before scripts run, and the CSP hash is taken over that text: normalize first.
 html = html.replace(/\r\n?/g, '\n');
 
+/* ---- Copyright banner + provenance fingerprint (deterministic: hash of the inlined app code) ----
+   A unique ID in every built file makes verbatim copies easy to find and to prove (docs/PROTECTING_PEAKLY.md). */
+const provenance = 'PEAKLY-' + require('crypto').createHash('sha256').update(js, 'utf8').digest('hex').slice(0, 16).toUpperCase();
+const banner = '<!--\n  Peakly (c) 2026 Jennifer Schmitt. All rights reserved.\n' +
+  '  Free to use under the Peakly Free-Use License: https://github.com/jschmitt1531/peakly/blob/main/LICENSE\n' +
+  '  Copying, modifying, redistributing, selling, scraping or using this file to train or prompt AI systems is not permitted.\n' +
+  '  Provenance: ' + provenance + '\n-->\n';
+html = html.replace(/^<!doctype html>\n/i, m => m + banner);
+html = html.replace('<meta name="tdm-reservation"', '<meta name="peakly-provenance" content="' + provenance + '">\n<meta name="tdm-reservation"');
+
 /* ---- Content-Security-Policy script hashes ---- */
 const cspHashes = cspScriptHashes(html);
 if (html.indexOf('PK_SCRIPT_HASHES') < 0) throw new Error('build: CSP placeholder PK_SCRIPT_HASHES missing from src/shell.html');
@@ -29,7 +39,7 @@ html = html.replace('PK_SCRIPT_HASHES', () => cspHashes.join(' '));
 checkNoInlineHandlers(html);
 
 fs.writeFileSync(path.join(__dirname, 'index.html'), html);
-console.log('index.html written:', (html.length / 1024).toFixed(1), 'KB;', cspHashes.length, 'inline script hash(es) in the CSP');
+console.log('provenance ' + provenance + ';', 'index.html written:', (html.length / 1024).toFixed(1), 'KB;', cspHashes.length, 'inline script hash(es) in the CSP');
 
 /** sha256 (base64) of the text of every <script> without a src attribute, as CSP source expressions. */
 function cspScriptHashes(doc) {

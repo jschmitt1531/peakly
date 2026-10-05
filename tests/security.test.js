@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: LicenseRef-Peakly-Free-Use-1.0 */
 /* Security regression tests (pure, no DOM): escaping, prototype-pollution guards, project/share-link sanitizing, image and
    colour allow-lists, bounded share-link expansion, Claude-response normalizing. See docs/SECURITY_AUDIT.md. */
 (function (PK) {
