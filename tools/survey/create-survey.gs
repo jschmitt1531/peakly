@@ -568,13 +568,19 @@ function rebuildDashboard() {
 
 /** Column of answers (rows 2..end) for the header that matches `key` exactly (wildcards escaped). */
 function col_(R, title) {
-  return 'INDEX(' + R + '!$A$2:$' + LAST_COL + ',0,MATCH("' + fq_(escWild_(title)) + '",' + R + '!$A$1:$' + LAST_COL + '$1,0))';
+  return 'INDEX(' + dataRange_(R, 'A', LAST_COL) + ',0,MATCH("' + fq_(escWild_(title)) + '",' + R + '!$A$1:$' + LAST_COL + '$1,0))';
 }
 /** Column for one row of a grid question. Google names these "<question title> [<row text>]". */
 function gridCol_(R, rowText) {
-  return 'INDEX(' + R + '!$A$2:$' + LAST_COL + ',0,MATCH("*[' + fq_(escWild_(rowText)) + ']",' + R + '!$A$1:$' + LAST_COL + '$1,0))';
+  return 'INDEX(' + dataRange_(R, 'A', LAST_COL) + ',0,MATCH("*[' + fq_(escWild_(rowText)) + ']",' + R + '!$A$1:$' + LAST_COL + '$1,0))';
 }
-function tsCol_(R) { return R + '!$A$2:$A'; }
+function tsCol_(R) { return dataRange_(R, 'A', 'A'); }
+/**
+ * Response data (row 2 down) as INDIRECT("Sheet!A2:BZ"). Google Forms INSERTS each new response as a row, and Sheets
+ * shifts ordinary references to that sheet ($A$2 -> $A$3 ...), so the first response would drop out of every
+ * formula. References written as text inside INDIRECT are never shifted.
+ */
+function dataRange_(R, fromCol, toCol) { return 'INDIRECT("' + fq_(R + '!' + fromCol + '2:' + toCol) + '")'; }
 
 function buildScoresSheet_(ss, R, byKey) {
   const s = getOrCreateSheet_(ss, 'Scores');
