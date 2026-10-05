@@ -444,9 +444,9 @@ function openOrCreateSpreadsheet_(props, idKey, title) {
 /** Links a form to a spreadsheet once, finds the response tab Google created, renames it. */
 function linkForm_(props, form, ss, sheetKey, name) {
   const already = existingSheetById_(ss, props.getProperty(sheetKey));
-  if (already && form.getDestinationId() === ss.getId()) return already;
+  if (already && destId_(form) === ss.getId()) return already;
 
-  if (form.getDestinationId() !== ss.getId()) {
+  if (destId_(form) !== ss.getId()) {
     form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
     SpreadsheetApp.flush();
   }
@@ -465,6 +465,11 @@ function linkForm_(props, form, ss, sheetKey, name) {
   sheet.setFrozenRows(1);
   props.setProperty(sheetKey, String(sheet.getSheetId()));
   return sheet;
+}
+
+/** Form.getDestinationId() throws ("no response destination") on a new form; return null instead. */
+function destId_(form) {
+  try { return form.getDestinationId(); } catch (e) { return null; }
 }
 
 function existingSheetById_(ss, id) {

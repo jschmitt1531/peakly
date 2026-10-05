@@ -7,7 +7,7 @@
      inline script element, so no 'unsafe-inline' is needed for scripts. Third-party code may only come from the pinned library
      paths below; the only network endpoint for data is the optional, user-started Claude call. A <meta> CSP cannot set
      frame-ancestors, sandbox or report-uri: send those as HTTP headers when you host Peakly. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BfrvLYZXe322iRaOa2fKbMtc6/8/jgnwqjnLgHZ1F/s=' 'sha256-rUAwbmn5LzCD6rjY/+WfsUSVgFyRIpvzYDuaF48Ytlo=' 'sha256-Mnt5RuW0CzVZW+0j1U1crW13MjaddUdTBF2OMT82xMs=' https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BfrvLYZXe322iRaOa2fKbMtc6/8/jgnwqjnLgHZ1F/s=' 'sha256-OUBLkiC+h5J9sSQGyhJB2bFpFhUUXG+7fPbRzOv0eP4=' 'sha256-Mnt5RuW0CzVZW+0j1U1crW13MjaddUdTBF2OMT82xMs=' https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/ https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/ https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/ https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.anthropic.com blob: data:; worker-src blob: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peakly</title>
@@ -630,8 +630,8 @@ footer.foot .spacer { flex: 1; }
     // Feedback survey (Google Forms, created by tools/survey/create-survey.gs). Opened only when the user clicks;
     // the app never sends anything itself. Leave '' to hide survey links/prompts.
     survey: {
-      url: '',        // public survey link (Google Form "Send → link")
-      signupUrl: '',  // optional short form: "email me future surveys" (opt-in list)
+      url: 'https://forms.gle/Cqr15LVq2gkGEDhP8',        // public survey link (Google Form "Send → link")
+      signupUrl: 'https://forms.gle/jeoMRAKqtvpzbnBV9',  // optional short form: "email me future surveys" (opt-in list)
       promptAfter: ['calibration', 'fit', 'digitize', 'compare', 'split'],  // complex features that may show the optional prompt
       maxPrompts: 2,  // per browser, ever; never more than once per session
       minMinutesBetween: 1440

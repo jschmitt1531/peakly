@@ -26,8 +26,8 @@
     // Feedback survey (Google Forms, created by tools/survey/create-survey.gs). Opened only when the user clicks;
     // the app never sends anything itself. Leave '' to hide survey links/prompts.
     survey: {
-      url: '',        // public survey link (Google Form "Send → link")
-      signupUrl: '',  // optional short form: "email me future surveys" (opt-in list)
+      url: 'https://forms.gle/Cqr15LVq2gkGEDhP8',        // public survey link (Google Form "Send → link")
+      signupUrl: 'https://forms.gle/jeoMRAKqtvpzbnBV9',  // optional short form: "email me future surveys" (opt-in list)
       promptAfter: ['calibration', 'fit', 'digitize', 'compare', 'split'],  // complex features that may show the optional prompt
       maxPrompts: 2,  // per browser, ever; never more than once per session
       minMinutesBetween: 1440
