@@ -9,7 +9,7 @@ Legend: ✅ done in the repo · ⏳ owner action needed · ➖ not needed / opti
 | # | Item | Status | Notes / owner action |
 |---|---|---|---|
 | 1 | **Legal review** of [PRIVACY.md](PRIVACY.md), [TERMS.md](TERMS.md), [ACCESSIBILITY_STATEMENT.md](ACCESSIBILITY_STATEMENT.md), [TRADEMARKS.md](TRADEMARKS.md) | ⏳ | Each is marked "not legal advice". Have counsel review, especially liability limits, survey consent wording, and the retention periods (24 months for survey emails) before relying on them. |
-| 2 | **Governing law** in TERMS.md §10 | ⏳ | Replace `[STATE], USA` (and add a venue if counsel advises). |
+| 2 | **Governing law** in TERMS.md §10 | ✅ | District of Columbia, USA (owner, 2026-10-05). Have counsel confirm, and add a venue clause if advised. |
 | 3 | **GitHub account security** | ⏳ | See [SECURITY.md](../SECURITY.md) and the project notes: enable 2FA (passkey + authenticator app; store recovery codes offline), turn on vigilant mode (show unsigned commits), "block command-line pushes that expose my email", review authorized OAuth apps, personal access tokens, SSH keys and active sessions. Turn on 2FA for the Peakly Google account (peaklyfeedback@gmail.com) too, since it owns the survey data. |
 | 4 | **Repository hardening** | ⏳ | After making the repo public, run `tools/github-security-setup.sh` (Dependabot alerts and security updates, private vulnerability reporting, secret scanning + push protection, read-only workflow token, branch ruleset). Confirm the `triage` label exists (used by issue templates; currently missing) and the `accessibility` label (exists). |
 | 5 | **Content review** | ⏳ | Read the About text in `src/config.js` and the landing page bio. |

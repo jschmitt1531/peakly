@@ -65,7 +65,7 @@ Peakly is publicly available open-source software. You are responsible for compl
 
 ## 10. Governing law
 
-These terms are governed by the laws of **[STATE], USA** <!-- OWNER ACTION: choose the governing-law state (and, if desired, venue) with counsel. -->, without regard to conflict-of-laws rules, except where the law of your place of residence gives you protections that cannot be waived.
+These terms are governed by the laws of the **District of Columbia, USA** <!-- Chosen by the owner 2026-10-05; confirm (and any venue clause) with counsel. -->, without regard to conflict-of-laws rules, except where the law of your place of residence gives you protections that cannot be waived.
 
 ## 11. Changes
 
