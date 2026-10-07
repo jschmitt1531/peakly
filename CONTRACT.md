@@ -4,8 +4,8 @@ App name is **Peakly**. Never use the name "OpenChrom" in UI/code (separate exis
 Licensing rule: DO NOT copy code from EPL/GPL/LGPL/AGPL projects (ChemClipse, chromConverter, rainbow, WebPlotDigitizer).
 Write all code yourself from published algorithms/format descriptions. See PRIOR_ART.md.
 
-Single-file client-side HPLC/FPLC chromatogram analyzer. Source lives in `openchrom/src/`,
-`node build.js` inlines everything into `openchrom/index.html`. No backend, no telemetry,
+Single-file client-side HPLC/FPLC chromatogram analyzer. Source lives in `peakly/src/`,
+`node build.js` inlines everything into `peakly/index.html`. No backend, no telemetry,
 no network except pinned CDN libs and the optional user-initiated Claude vision call.
 
 ## Module pattern (mandatory)
